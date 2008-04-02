@@ -1,0 +1,132 @@
+.\" Copyright (c) 2007 S.Sam Arun Raj
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\" $FreeBSD$
+.\"
+.Dd March 25, 2007
+.Dt SIZE 1
+.Os
+.Sh NAME
+.Nm size
+.Nd "display section sizes and total size in"
+.Tn ELF
+files.
+.Sh SYNOPSIS
+.Nm
+.Op Fl Adhotx
+.Op Ar
+.Sh DESCRIPTION
+The
+.Nm
+utility
+lists the size of various sections and total size (if choosen) for each input
+.Ar file.
+The
+.Nm
+utility can operate on ELF object,
+.Xr ar 1
+archives, and core dumps.
+.Pp
+If no file name is specified in the input, "a.out" is assumed.
+.Pp
+The following options are available:
+.Bl -tag -width indent
+.It Fl A
+The output of
+.Nm
+will resemble output from System V
+.Nm .
+By default, one line of output is generated for each ELF object or each module
+in an archive, if this option is not choosen.
+.It Fl t
+Shows cumulative totals of section sizes from all objects. Not available when
+System V output format
+.Fl A
+is choosen.
+.It Fl d | Fl o | Fl x
+The section sizes can be displayed either in decimal, octal or hexadecimal by
+choosing one of these options. Totals
+.Fl t
+are always displayed in two radixes; decimal and hexadecimal for
+.Fl d
+or
+.Fl x
+output, or octal and hexadecimal if
+.Fl o
+is choosen.
+.It Fl h
+This prints a usage summary and exits.
+.El
+.Sh EXIT STATUS
+.Ex -std
+.Sh EXAMPLES
+The following are examples of typical usage
+of the
+.Nm
+command:
+.Pp
+.Dl "$ size /bin/ls"
+.Dl "text       data       bss        dec        hex        filename"
+.Dl "20975      540        392        21907      5593        /bin/ls"
+.Pp
+.Dl "$ size -tx /bin/ls /bin/dd"
+.Dl "text       data       bss        dec        hex        filename"
+.Dl "0x51ef     0x21c      0x188      21907      5593        /bin/ls"
+.Dl "0x3df5     0x170      0x200      16741      4165        /bin/dd"
+.Dl "0x8fe4     0x38c      0x388      38648      96f8       (TOTALS)"
+.Sh SEE ALSO
+.Xr ar 1 ,
+.Xr objdump 1 ,
+.Xr readelf 1
+.Rs
+.%A "AT&T Unix Systems Labs"
+.%T "System V Application Binary Interface"
+.%O http://www.sco.com/developers/gabi/
+.Re
+.Sh HISTORY
+The
+.Nm
+utility first appeared in
+.At v6.
+The last FreeBSD 
+.Nm
+was discontinued in 
+.Fx v5 ,
+when i386-only a.out format was dropped in favor of ELF.
+.Sh AUTHORS
+.An -nosplit
+The
+.Nm
+utility was re-written by
+.An S.Sam Arun Raj Aq samarunraj@gmail.com
+This manual page was written by
+.An S.Sam Arun Raj Aq samarunraj@gmail.com
+.Sh LIMITATIONS
+Unlike the GNU
+.Nm
+this doesn't support multiple object file formats, only ELF using the
+.Xr elf 3
+and
+.Xr gelf 3
+API's.
