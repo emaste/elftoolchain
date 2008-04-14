@@ -38,57 +38,57 @@
 
 /** @brief Structure for line number information. */
 struct line_info {
-        /** address */
-        uint64_t	addr;
-        /** line number */
-        uint64_t	line;
-        /** file name with path */
-        char		*file;
+	/** address */
+	uint64_t	addr;
+	/** line number */
+	uint64_t	line;
+	/** file name with path */
+	char		*file;
 };
 
 /** @brief Dynamic vector data for line_info. */
 struct vector_line_info {
-        /** current size */
-        size_t		size;
-        /** total capacity */
-        size_t		capacity;
-        /** line_info array */
-        struct line_info *info;
+	/** current size */
+	size_t		size;
+	/** total capacity */
+	size_t		capacity;
+	/** line_info array */
+	struct line_info *info;
 };
 
 /** @brief Structure for compilation directory information. */
 struct comp_dir {
-        /** file name */
-        char		*src;
-        /** directory */
-        char		*dir;
+	/** file name */
+	char		*src;
+	/** directory */
+	char		*dir;
 };
 
 /** @brief Dynamic vector data for comp_dir. */
 struct vector_comp_dir {
-        /** current size */
-        size_t		size;
-        /** total capacity */
-        size_t		capacity;
-        /** comp_dir array */
-        struct comp_dir	*info;
+	/** current size */
+	size_t		size;
+	/** total capacity */
+	size_t		capacity;
+	/** comp_dir array */
+	struct comp_dir	*info;
 };
 
 /**
  * @brief Initialize vector_line_info.
  * @return 0 at failed, 1 at success.
  */
-int			vector_line_info_init(struct vector_line_info *v);
+int	vector_line_info_init(struct vector_line_info *v);
 /** @brief Deallocate resource in vector_line_info. */
-void			vector_line_info_dest(struct vector_line_info *v);
+void	vector_line_info_dest(struct vector_line_info *v);
 
 /**
  * @brief Initialize vector_comp_dir.
  * @return 0 at failed, 1 at success.
  */
-int			vector_comp_dir_init(struct vector_comp_dir *v);
+int	vector_comp_dir_init(struct vector_comp_dir *v);
 /** @brief Deallocate resource in vector_comp_dir. */
-void			vector_comp_dir_dest(struct vector_comp_dir *v);
+void	vector_comp_dir_dest(struct vector_comp_dir *v);
 
 /**
  * @brief Get line information.
@@ -101,7 +101,8 @@ void			vector_comp_dir_dest(struct vector_comp_dir *v);
  * 1. Code clean
  * 2. Boundary check
  */
-int			get_dwarf_line_info(void *buf, uint64_t size, struct vector_comp_dir *comp_dir, struct vector_line_info *out);
+int	get_dwarf_line_info(void *buf, uint64_t size,
+	    struct vector_comp_dir *comp_dir, struct vector_line_info *out);
 /**
  * @brief Get compilation directory information.
  * @param info .debug_info section
@@ -116,6 +117,8 @@ int			get_dwarf_line_info(void *buf, uint64_t size, struct vector_comp_dir *comp
  * 1. Code clean
  * 2. Boundary check
  */
-int			get_dwarf_info(void *info, size_t info_len, void *abbrev, size_t abbrev_len, void *str, size_t str_len, struct vector_comp_dir *v);
+int	get_dwarf_info(void *info, size_t info_len, void *abbrev,
+	    size_t abbrev_len, void *str, size_t str_len,
+	    struct vector_comp_dir *v);
 
 #endif /* !GUARD_DWARF_LINE_NUMBER_H */

@@ -33,13 +33,13 @@
  *
  * Return new allocated demangled string or NULL if failed.
  */
-char			*cpp_demangle_ia64(const char *);
+char	*cpp_demangle_ia64(const char *);
 
 /*
  *  Test input string is mangled by IA-64 C++ ABI style.
  *
  * Return 0 at false.
  */
-int			is_cpp_mangled_ia64(const char *);
+int	is_cpp_mangled_ia64(const char *);
 
-#endif
+#endif /* !GUARD_CPP_DEMANGLE_H */
