@@ -128,6 +128,7 @@ static int		vector_comp_dir_push(struct vector_comp_dir *, const char *, const c
 static void		vector_str_reset(struct vector_str *);
 static int		get_current_path(struct vector_comp_dir *, const char *, size_t *, char **);
 static int		get_header(unsigned char *, struct header_32 *, struct header_64 *, int *);
+static int		duplicate_str(const char *, char **);
 
 /*
  * Get length of ULEB128.
@@ -488,6 +489,32 @@ get_header(unsigned char *p, struct header_32 *h32, struct header_64 *h64, int *
         }
 
         return (1);
+}
+
+/*
+ * Duplicate string orig to dest.
+ *
+ * Return 0 at fail or length of string.
+ */
+static int
+duplicate_str(const char *orig, char **dest)
+{
+        size_t len;
+
+        if (orig == NULL || dest == NULL)
+                return (0);
+
+        len = strlen(orig);
+
+        if (*dest != NULL)
+                free(*dest);
+
+        if ((*dest = malloc(sizeof(char) * (len + 1))) == NULL)
+                return (0);
+
+        snprintf(*dest, len + 1, "%s", orig);
+
+        return (len);
 }
 
 int
@@ -1039,27 +1066,15 @@ start:
                         break;
                 case DW_FORM_string:
                         if (attr == DW_AT_name) {
-                                len = strlen((char *)i_ptr);
-                                if (src != NULL)
-                                        free(src);
-
-                                if ((src = malloc(sizeof(char) * (len + 1)))
-                                    == NULL)
+                                if ((len = duplicate_str((char *)i_ptr, &src))
+                                    == 0)
                                         goto clean;
-
-                                snprintf(src, len + 1, "%s", i_ptr);
 
                                 i_ptr += len + 1;
                         } else if (attr == DW_AT_comp_dir) {
-                                len = strlen((char *)i_ptr);
-                                if (dir != NULL)
-                                        free(dir);
-
-                                if ((dir = malloc(sizeof(char) * (len + 1)))
-                                    == NULL)
+                                if ((len = duplicate_str((char *)i_ptr, &dir))
+                                    == 0)
                                         goto clean;
-
-                                snprintf(dir, len + 1, "%s", i_ptr);
 
                                 i_ptr += len + 1;
                         } else {
@@ -1100,77 +1115,42 @@ start:
                         if (str == NULL)
                                 goto clean;
 
+                        assert(is_64 == 1 || is_64 == 0);
                         if (attr == DW_AT_name) {
-                                assert(is_64 == 1 || is_64 == 0);
-
                                 if (is_64 == 0) {
                                         memcpy(&str_offset_32, i_ptr, 4);
 
                                         i_ptr += 4;
-                                        
-                                        len = strlen((char *)str +
-                                            str_offset_32);
-                                        if (src != NULL)
-                                                free(src);
 
-                                        if ((src = malloc(sizeof(char) *
-                                                    (len + 1))) == NULL)
+                                        if (duplicate_str((char *)str +
+                                                str_offset_32, &src) == 0)
                                                 goto clean;
-
-                                        snprintf(src, len + 1, "%s",
-                                            (char *)str + str_offset_32);
                                 } else if (is_64 == 1) {
                                         memcpy(&str_offset_64, i_ptr, 8);
 
                                         i_ptr += 8;
 
-                                        len = strlen((char *)str +
-                                            str_offset_64);
-                                        if (src != NULL)
-                                                free(src);
-
-                                        if ((src = malloc(sizeof(char) *
-                                                    (len + 1))) == NULL)
+                                        if (duplicate_str((char *)str +
+                                                str_offset_64, &src) == 0)
                                                 goto clean;
-
-                                        snprintf(src, len + 1, "%s",
-                                            (char *)str + str_offset_64);
                                 }
                         } else if (attr == DW_AT_comp_dir) {
-                                assert(is_64 == 1 || is_64 == 0);
-
                                 if (is_64 == 0) {
                                         memcpy(&str_offset_32, i_ptr, 4);
 
                                         i_ptr += 4;
 
-                                        len = strlen((char *)str +
-                                            str_offset_32);
-                                        if (dir != NULL)
-                                                free(src);
-
-                                        if ((dir = malloc(sizeof(char) *
-                                                    (len + 1))) == NULL)
+                                        if (duplicate_str((char *)str +
+                                                str_offset_32, &dir) == 0)
                                                 goto clean;
-
-                                        snprintf(dir, len + 1, "%s",
-                                            (char *)str + str_offset_32);
                                 } if (is_64 == 1) {
                                         memcpy(&str_offset_64, i_ptr, 8);
 
                                         i_ptr += 8;
 
-                                        len = strlen((char *)str +
-                                            str_offset_64);
-                                        if (dir != NULL)
-                                                free(src);
-
-                                        if ((dir = malloc(sizeof(char) *
-                                                    (len + 1))) == NULL)
+                                        if (duplicate_str((char *)str +
+                                                str_offset_64, &dir) == 0)
                                                 goto clean;
-
-                                        snprintf(dir, len + 1, "%s",
-                                            (char *)str + str_offset_64);
                                 }
                         } else
                                 i_ptr += is_64 == 0 ? 4 : 8;
