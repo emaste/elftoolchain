@@ -32,15 +32,15 @@
  * -t, -w, -W
  */
 
-void			aout_set_print_all(int);
-void			aout_set_print_ext(int);
-void			aout_set_print_file(int);
-void			aout_set_print_und(int);
+void	aout_set_print_all(int);
+void	aout_set_print_ext(int);
+void	aout_set_print_file(int);
+void	aout_set_print_und(int);
 
-void			aout_set_sort_rname(void);
-void			aout_set_sort_value(void);
+void	aout_set_sort_rname(void);
+void	aout_set_sort_value(void);
 
-int			is_aout_file(int fd);
-int			process_aout_file(const char *);
+int	is_aout_file(int fd);
+int	process_aout_file(const char *);
 
-#endif
+#endif /* !GUARD_NM_AOUT_H */

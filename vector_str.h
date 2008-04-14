@@ -33,17 +33,17 @@
 #define BUFFER_GROWFACTOR	1.61
 
 struct vector_str {
-	size_t          size, capacity;
-	char            **container;
+	size_t		size, capacity;
+	char		**container;
 };
 
-void			vector_str_dest(struct vector_str *);
-int			vector_str_find(struct vector_str *, const char *, size_t);
-char			*vector_str_get_flat(struct vector_str *, size_t *);
-int			vector_str_init(struct vector_str *);
-int			vector_str_pop(struct vector_str *);
-char			*vector_str_substr(struct vector_str *, size_t, size_t, size_t *);
-int			vector_str_push(struct vector_str *, const char *, size_t);
-int			vector_str_push_vector_head(struct vector_str *, struct vector_str*);
+void	vector_str_dest(struct vector_str *);
+int	vector_str_find(struct vector_str *, const char *, size_t);
+char	*vector_str_get_flat(struct vector_str *, size_t *);
+int	vector_str_init(struct vector_str *);
+int	vector_str_pop(struct vector_str *);
+char	*vector_str_substr(struct vector_str *, size_t, size_t, size_t *);
+int	vector_str_push(struct vector_str *, const char *, size_t);
+int	vector_str_push_vector_head(struct vector_str *, struct vector_str*);
 
 #endif /* !GUARD_VECTOR_STR_H */
