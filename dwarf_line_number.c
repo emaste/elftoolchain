@@ -77,21 +77,21 @@ struct header_64 {
 
 #define	DW_FORM_addr		0x01 /* machine dependent */
 #define	DW_FORM_block2		0x03 /* 2 bytes */
-#define DW_FORM_block4		0x04 /* 4 bytes */
+#define	DW_FORM_block4		0x04 /* 4 bytes */
 #define	DW_FORM_data2		0x05 /* 2 bytes */
-#define DW_FORM_data4		0x06 /* 4 bytes */
-#define DW_FORM_data8		0x07 /* 8 bytes */
+#define	DW_FORM_data4		0x06 /* 4 bytes */
+#define	DW_FORM_data8		0x07 /* 8 bytes */
 #define	DW_FORM_string		0x08
 #define	DW_FORM_block		0x09 /* ULEB128 */
-#define DW_FORM_block1		0x0a /* 1 byte */
-#define DW_FORM_data1		0x0b /* 1 byte */
+#define	DW_FORM_block1		0x0a /* 1 byte */
+#define	DW_FORM_data1		0x0b /* 1 byte */
 #define	DW_FORM_flag		0x0c /* 1 byte */
 #define	DW_FORM_sdata		0x0d /* LEB128 */
 #define	DW_FORM_strp		0x0e /* uint32 at 32DWARF, uint64 at 64DWARF */
-#define DW_FORM_udata		0x0f /* ULEB128 */
+#define	DW_FORM_udata		0x0f /* ULEB128 */
 #define	DW_FORM_ref_addr	0x10 /* uint32 at 32DWARF, uint64 at 64DWARF */
-#define DW_FORM_ref1		0x11 /* 1 byte */
-#define DW_FORM_ref2		0x12 /* 2 bytes */
+#define	DW_FORM_ref1		0x11 /* 1 byte */
+#define	DW_FORM_ref2		0x12 /* 2 bytes */
 #define	DW_FORM_ref4		0x13 /* 4 bytes */
 #define	DW_FORM_ref8		0x14 /* 8 bytes */
 #define	DW_FORM_ref_udata	0x15 /* ULEB128 */
@@ -100,8 +100,8 @@ struct header_64 {
 /* Standard opcodes */
 #define	DW_LNS_copy			0x01
 #define	DW_LNS_advance_pc		0x02
-#define DW_LNS_advance_line		0x03
-#define DW_LNS_set_file			0x04
+#define	DW_LNS_advance_line		0x03
+#define	DW_LNS_set_file			0x04
 #define	DW_LNS_set_column		0x05
 #define	DW_LNS_negate_stmt		0x06
 #define	DW_LNS_set_basic_block		0x07
@@ -109,7 +109,7 @@ struct header_64 {
 #define	DW_LNS_fixed_advance_pc		0x09
 #define	DW_LNS_set_prologue_end		0x0a
 #define	DW_LNS_set_epilogue_begin	0x0b
-#define DW_LNS_set_isa			0x0c
+#define	DW_LNS_set_isa			0x0c
 
 /* Extened opcodes */
 #define	DW_LNE_end_sequence		0x01
@@ -920,21 +920,9 @@ start:
         vector_str_reset(&file_names);
         vector_str_reset(&dir_names);
 
-        assert(is_64 == 0 || is_64 == 1);
         /* skip to match unit length */
-        if (is_64 == 0) {
-                if ((ptr - this_cu) < h32.unit_len + 4)
-                        ptr += h32.unit_len + 4 - (ptr - this_cu);
-
-                assert((ptr - this_cu) == h32.unit_len + 4);
-        } else if (is_64 == 1) {
-                if ((ptr - this_cu) < h64.unit_len + 12)
-                        ptr += h64.unit_len + 12 - (ptr - this_cu);
-
-                assert((ptr - this_cu) == h64.unit_len + 12);
-        }
-
-        this_cu = ptr;
+        this_cu = ptr = this_cu +
+            (is_64 == 0 ? h32.unit_len + 4 : h64.unit_len + 12);
 
         if (ptr - (unsigned char *)buf < size)
                 goto start;
@@ -1025,24 +1013,28 @@ start:
         /* child */
         ++a_ptr;
 
-        /* attr */
-        if ((i = decode_ULEB128(a_ptr, &attr)) == 0) {
-                rtn = 0;
-
-                goto clean;
-        }
-        a_ptr += i;
-
-        /* form */
-        if ((i = decode_ULEB128(a_ptr, &form)) == 0) {
-                rtn = 0;
-
-                goto clean;
-        }
-        a_ptr += i;
-
         /* read first abbrev table */
-        while (attr != 0 && form != 0) {
+        for (;;) {
+                /* attr */
+                if ((i = decode_ULEB128(a_ptr, &attr)) == 0) {
+                        rtn = 0;
+
+                        goto clean;
+                }
+                a_ptr += i;
+
+                /* form */
+                if ((i = decode_ULEB128(a_ptr, &form)) == 0) {
+                        rtn = 0;
+
+                        goto clean;
+                }
+                a_ptr += i;
+
+                /* end with 0, 0 */
+                if (attr == 0 && form == 0)
+                        break;
+
                 switch(form) {
                 case DW_FORM_addr:
                         i_ptr += is_64 == 0 ? 4 : 8;
@@ -1202,22 +1194,6 @@ start:
                         }
                         i_ptr += i;
                 };
-
-                /* attr */
-                if ((i = decode_ULEB128(a_ptr, &attr)) == 0) {
-                        rtn = 0;
-
-                        goto clean;
-                }
-                a_ptr += i;
-
-                /* form */
-                if ((i = decode_ULEB128(a_ptr, &form)) == 0) {
-                        rtn = 0;
-
-                        goto clean;
-                }
-                a_ptr += i;
         }
 
         if (src != NULL && dir != NULL) {
