@@ -172,7 +172,7 @@ main(int argc, char **argv)
 		rc = handle_file(*argv);
 		argv++;
 	}
-	return(rc);
+	return (rc);
 }
 
 int
@@ -181,21 +181,21 @@ handle_file(const char *name)
 	int fd, rt;
 	
 	if (name == NULL)
-		return(EX_NOINPUT);
+		return (EX_NOINPUT);
 	if (strcmp("{standard input}", name) != 0) {
 		if (freopen(name, "rb", stdin) == NULL) {
 			warnx("'%s': %s", name, strerror(errno));
-			return(EX_NOINPUT);	
+			return (EX_NOINPUT);	
 		}
 	} else {
-		return find_strings(name, (off_t)0, (off_t)0);
+		return (find_strings(name, (off_t)0, (off_t)0));
 	}
 
 	fd = fileno(stdin);	
 	if (fd < 0)
-		return(EX_NOINPUT);
+		return (EX_NOINPUT);
 	rt = handle_elf(name, fd);
-	return(rt);
+	return (rt);
 }
 
 /*
@@ -210,8 +210,8 @@ handle_binary(const char *name, int fd)
 	memset(&buf, 0, sizeof(struct stat));
 	(void) lseek(fd, (off_t)0, SEEK_SET);
 	if (!fstat(fd, &buf))
-		return find_strings(name, (off_t)0, buf.st_size);
-	return(EX_SOFTWARE);
+		return (find_strings(name, (off_t)0, buf.st_size));
+	return (EX_SOFTWARE);
 }
 
 /*
@@ -232,24 +232,24 @@ handle_elf(const char *name, int fd)
 	rc = EX_OK;
 	/* If entire file is choosen, treat it as a binary file */
 	if (entire_file)
-		return handle_binary(name, fd);
+		return (handle_binary(name, fd));
 		
 	(void) lseek(fd, (off_t)0, SEEK_SET);
 	elf = elf_begin(fd, ELF_C_READ, NULL);
 	if (elf_kind(elf) != ELF_K_ELF) {
 		(void) elf_end(elf);
-		return handle_binary(name, fd);    	
+		return (handle_binary(name, fd));
 	}
 
 	if (gelf_getehdr(elf, &elfhdr) == NULL) {
 		(void) elf_end(elf);
 		warnx("%s: ELF file could not be processed", name);
-		return(EX_SOFTWARE);	
+		return (EX_SOFTWARE);	
 	}
 	
 	if (elfhdr.e_shnum == 0 && elfhdr.e_type == ET_CORE) {
 		(void) elf_end(elf);
-		return handle_binary(name, fd);
+		return (handle_binary(name, fd));
 	} else {
 		scn = NULL;
 		while ((scn = elf_nextscn(elf, scn)) != NULL) {
@@ -263,7 +263,7 @@ handle_elf(const char *name, int fd)
 		}
 	}
 	(void) elf_end(elf);
-	return(rc);
+	return (rc);
 }
 
 /*
@@ -281,7 +281,7 @@ getcharacter()
 	for(i = 0; i < encoding_size; i++) {
 		c = getc(stdin);
 		if (feof(stdin))
-			return(EOF);
+			return (EOF);
 		buf[i] = c;		
 	}
 	
@@ -305,7 +305,7 @@ getcharacter()
         	    ((long) buf[3] << 24);
            	break;		
 	}
-	return(rt);
+	return (rt);
 }
 
 /*
@@ -324,7 +324,7 @@ find_strings(const char *name, off_t offset, off_t size)
 	if ((obuf = (char*)calloc(1, min_len + 1)) == NULL) {
 		(void) fprintf(stderr, "Unable to allocate memory: %s\n",
 		     strerror(errno));
-		return(EX_SOFTWARE);
+		return (EX_SOFTWARE);
 	}
 	
 	(void) fseeko(stdin, offset, SEEK_SET);
@@ -363,16 +363,16 @@ find_strings(const char *name, off_t offset, off_t size)
 			if (show_loc) {
 				switch(radix) {
 				case RADIX_DECIMAL:
-					(void) printf("%7Ld ",
-					    (uint64_t)start_off);
+					(void) printf("%7ju ",
+					    (uintmax_t)start_off);
 					break;
 				case RADIX_HEX:
-					(void) printf("%7Lx ",
-					    (uint64_t)start_off);
+					(void) printf("%7jx ",
+					    (uintmax_t)start_off);
 					break;
 				case RADIX_OCTAL:
-					(void) printf("%7Lo ",
-					    (uint64_t)start_off);
+					(void) printf("%7jo ",
+					    (uintmax_t)start_off);
 					break;
 				}
 			}			    	
@@ -398,7 +398,7 @@ find_strings(const char *name, off_t offset, off_t size)
 	}
 _exit1:
 	free(obuf);
-	return(EX_OK);
+	return (EX_OK);
 }
 
 void
