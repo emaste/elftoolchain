@@ -156,6 +156,7 @@ const char		*g_default_filename;
 enum print_symbol	g_print_symbol;
 enum print_name		g_print_name;
 enum demangle		g_demangle_type;
+int			g_print_debug;
 int		        g_print_armap;
 int			g_print_size;
 int			g_debug_line;
@@ -184,7 +185,7 @@ fn_sym_print		g_value_print_fn;
 fn_sym_print		g_size_print_fn;
 
 static const struct option nm_longopts[] = {
-        { "debug-syms",		no_argument,		NULL,		'a' },
+        { "debug-syms",		no_argument,		&g_print_debug,	1   },
         { "defined-only",	no_argument,		&g_def_only,	1   },
         { "demangle",		optional_argument,	NULL,		'C' },
         { "dynamic",		no_argument,		NULL,		'D' },
@@ -487,6 +488,7 @@ global_init(void)
         g_print_symbol = PRINT_SYM_SYM;
         g_print_name = PRINT_NAME_NONE;
         g_demangle_type = DEMANGLE_NONE;
+        g_print_debug = 0;
         g_print_armap = 0;
         g_print_size = 0;
 
@@ -563,6 +565,11 @@ sym_section_filter(const GElf_Shdr *shdr)
 
         if (shdr == NULL)
                 return (-1);
+
+        if (g_print_debug != 1 &&
+            shdr->sh_type == SHT_PROGBITS &&
+            shdr->sh_flags == 0)
+                return (1);
 
         if (g_print_symbol == PRINT_SYM_SYM &&
             shdr->sh_type == SHT_SYMTAB)
@@ -1601,9 +1608,8 @@ usage(int exitcode)
 /*
  * Todo
  *
- * 1. -a --debug-syms
- * 2. universe build test
- * 3. test
+ * 1. universe build test
+ * 2. test
  */
 
 /*
@@ -1618,13 +1624,12 @@ usage(int exitcode)
 int
 main(int argc, char *argv[])
 {
-        int ch, print_debug, return_code;
+        int ch, rtn;
         enum radix t;
         const char *target;
 
         global_init();
 
-        print_debug = 0;
         t = RADIX_DEFAULT;
         target = NULL;
 
@@ -1691,7 +1696,7 @@ main(int argc, char *argv[])
 
                         break;
                 case 'a':
-                        print_debug = 1;
+                        g_print_debug = 1;
                         aout_set_print_all(1);
 
                         break;
@@ -1811,21 +1816,21 @@ main(int argc, char *argv[])
                             "-u with --defined-only is meaningless");
         }
 
-        if (print_debug != 1)
+        if (g_print_debug != 1)
                 filter_insert(sym_elem_nondebug);
 
         if (g_sort_reverse == 1)
                 aout_set_sort_rname();
 
-        return_code = 0;
+        rtn = 0;
         if (argc == 0)
-                return_code |= readfile(g_default_filename, target);
+                rtn |= readfile(g_default_filename, target);
         else {
                 if (g_print_name == PRINT_NAME_NONE && argc > 1)
                         g_print_name = PRINT_NAME_MULTI;
 
                 while (argc > 0) {
-                        return_code |= readfile(*argv, target);
+                        rtn |= readfile(*argv, target);
 
                         --argc;
                         ++argv;
@@ -1834,5 +1839,5 @@ main(int argc, char *argv[])
 
         filter_dest();
 
-        return (return_code);
+        return (rtn);
 }
