@@ -36,6 +36,7 @@
 #include <gelf.h>
 #include <getopt.h>
 #include <libelf.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -168,14 +169,14 @@ const char		*g_default_filename;
 enum print_symbol	g_print_symbol;
 enum print_name		g_print_name;
 enum demangle		g_demangle_type;
-int			g_print_debug;
-int			g_print_armap;
+bool			g_print_debug;
+bool			g_print_armap;
 int			g_print_size;
-int			g_debug_line;
+bool			g_debug_line;
 int			g_def_only;
-int			g_undef_only;
+bool			g_undef_only;
 int			g_sort_size;
-int			g_sort_reverse;
+bool			g_sort_reverse;
 int			g_no_demangle;
 int			g_target;
 
@@ -197,12 +198,12 @@ fn_sym_print		g_value_print_fn;
 fn_sym_print		g_size_print_fn;
 
 static const struct option nm_longopts[] = {
-	{ "debug-syms",		no_argument,		&g_print_debug,	1   },
+	{ "debug-syms",		no_argument,		NULL,		'a'},
 	{ "defined-only",	no_argument,		&g_def_only,	1   },
 	{ "demangle",		optional_argument,	NULL,		'C' },
 	{ "dynamic",		no_argument,		NULL,		'D' },
 	{ "format",		required_argument,	NULL,		'F' },
-	{ "line-numbers",	no_argument,		&g_debug_line,	1   },
+	{ "line-numbers",	no_argument,		NULL,		'l' },
 	{ "no-demangle",	no_argument,		&g_no_demangle,	1   },
 	{ "no-sort",		no_argument,		NULL,		'p' },
 	{ "numeric-sort",	no_argument,		NULL,		'v' },
@@ -366,13 +367,12 @@ get_sym(Elf *elf, struct sym_head *headp, int shnum,
 	const Elf_Data *table;
 	GElf_Shdr shdr;
 	GElf_Sym sym;
-	int i, j;
 	const char *sym_name;
 
 	assert(elf != NULL);
 	assert(headp != NULL);
 
-	for (i = 1; i < shnum; ++i) {
+	for (int i = 1; i < shnum; ++i) {
 		if ((scn = elf_getscn(elf, i)) == NULL)
 			return (0);
 
@@ -391,7 +391,7 @@ get_sym(Elf *elf, struct sym_head *headp, int shnum,
 
 		data = NULL;
 		while ((data = elf_getdata(scn, data)) != NULL) {
-			j = 1;
+			int j = 1;
 			while (gelf_getsym(data, j++, &sym) != NULL) {
 				sym_name = table == NULL ? "(null)" :
 				    (char *)((char *)(table->d_buf) +
@@ -409,7 +409,7 @@ get_sym(Elf *elf, struct sym_head *headp, int shnum,
 static char
 get_sym_type(const GElf_Sym *sym, const char *type_table)
 {
-	int is_local;
+	bool is_local;
 	unsigned char type;
 
 	if (sym == NULL || type_table == NULL)
@@ -430,7 +430,7 @@ get_sym_type(const GElf_Sym *sym, const char *type_table)
 	if (sym->st_shndx == SHN_UNDEF) /* undefined */
 		return (is_local ? 'u' : 'U');
 
-	return (is_local ?
+	return (is_local == true ?
 	    TOLOWER(type_table[sym->st_shndx]) :
 	    type_table[sym->st_shndx]);
 }
@@ -505,17 +505,17 @@ global_init(void)
 	g_print_symbol = PRINT_SYM_SYM;
 	g_print_name = PRINT_NAME_NONE;
 	g_demangle_type = DEMANGLE_NONE;
-	g_print_debug = 0;
-	g_print_armap = 0;
+	g_print_debug = false;
+	g_print_armap = false;
 	g_print_size = 0;
 
-	g_debug_line = 0;
+	g_debug_line = false;
 
 	g_def_only = 0;
-	g_undef_only = 0;
+	g_undef_only = false;
 
 	g_sort_size = 0;
-	g_sort_reverse = 0;
+	g_sort_reverse = false;
 	g_no_demangle = 0;
 	g_target = 0;
 
@@ -530,9 +530,7 @@ global_init(void)
 static void
 print_ar_index(int fd, Elf *arf)
 {
-	Elf *elf;
 	Elf_Arsym *arsym;
-	Elf_Arhdr *arhdr;
 	Elf_Cmd cmd;
 	size_t arsym_size;
 
@@ -546,6 +544,9 @@ print_ar_index(int fd, Elf *arf)
 
 	cmd = ELF_C_READ;
 	while (arsym_size > 1) {
+		Elf *elf;
+		Elf_Arhdr *arhdr;
+
 		if (elf_rand(arf, arsym->as_off) == arsym->as_off &&
 		    (elf = elf_begin(fd, cmd, arf)) != NULL) {
 			if ((arhdr = elf_getarhdr(elf)) != NULL)
@@ -583,7 +584,7 @@ sym_section_filter(const GElf_Shdr *shdr)
 	if (shdr == NULL)
 		return (-1);
 
-	if (g_print_debug != 1 &&
+	if (g_print_debug == false &&
 	    shdr->sh_type == SHT_PROGBITS &&
 	    shdr->sh_flags == 0)
 		return (1);
@@ -657,7 +658,7 @@ read_elf(const char *filename)
 		goto end_read_elf;
 	}
 
-	if (g_print_armap && kind == ELF_K_AR)
+	if (g_print_armap == true && kind == ELF_K_AR)
 		print_ar_index(fd, arf);
 
 	objname = NULL;
@@ -792,7 +793,7 @@ read_elf(const char *filename)
 				/* not in SysV special sections,
 				 * but has .debug_ stuff in DWARF.
 				 */
-				if (g_debug_line == 1) {
+				if (g_debug_line == true) {
 					if (strncmp(shname, ".debug_info",
 						11) == 0) {
 						if ((debug_info_data =
@@ -872,7 +873,7 @@ read_elf(const char *filename)
 
 		TAILQ_INIT(&list_head);
 
-		if (g_debug_line == 1 && debug_info_data != NULL &&
+		if (g_debug_line == true && debug_info_data != NULL &&
 		    debug_abbrev_data != NULL && debug_line_data != NULL) {
 
 			if ((v_comp_dir =
@@ -937,7 +938,7 @@ read_elf(const char *filename)
 
 		sym_list_print(&p_data, v_line_info);
 next_cmd:
-		if (g_debug_line == 1) {
+		if (g_debug_line == true) {
 			if (v_comp_dir != NULL) {
 				vector_comp_dir_dest(v_comp_dir);
 				free(v_comp_dir);
@@ -1034,10 +1035,7 @@ search_addr(struct vector_line_info *v, GElf_Sym *g)
 			j = k;
 	}
 
-	if ((i < v->size) && (v->info[i].addr == g->st_value))
-		return (i);
-	else
-		return (-1);
+	return ((i < v->size) && (v->info[i].addr == g->st_value) ? i : -1);
 }
 
 static void
@@ -1079,7 +1077,6 @@ sym_elem_print_all(char type, const char *sec, const GElf_Sym *sym,
     const char *name)
 {
 	enum demangle d;
-	char *demangle;
 
 	if (sec == NULL || sym == NULL || name == NULL ||
 	    g_value_print_fn == NULL)
@@ -1126,12 +1123,13 @@ sym_elem_print_all(char type, const char *sec, const GElf_Sym *sym,
 
 	switch (d) {
 	case DEMANGLE_GV3:
-		demangle = cpp_demangle_ia64(name);
+		{
+			char *demangle = cpp_demangle_ia64(name);
+		
+			printf("%s", demangle == NULL ? name : demangle);
 
-		printf("%s", demangle == NULL ? name : demangle);
-
-		free(demangle);
-
+			free(demangle);
+		}
 		break;
 	case DEMANGLE_AUTO:
 		/* NOTREACHED */
@@ -1147,7 +1145,6 @@ sym_elem_print_all_portable(char type, const char *sec, const GElf_Sym *sym,
     const char *name)
 {
 	enum demangle d;
-	char *demangle;
 
 	if (sec == NULL || sym == NULL || name == NULL ||
 	    g_value_print_fn == NULL)
@@ -1158,11 +1155,13 @@ sym_elem_print_all_portable(char type, const char *sec, const GElf_Sym *sym,
 
 	switch (d) {
 	case DEMANGLE_GV3:
-		demangle = cpp_demangle_ia64(name);
+		{
+			char *demangle = cpp_demangle_ia64(name);
 
-		printf("%s", demangle == NULL ? name : demangle);
+			printf("%s", demangle == NULL ? name : demangle);
 
-		free(demangle);
+			free(demangle);
+		}
 
 		break;
 	case DEMANGLE_AUTO:
@@ -1190,7 +1189,6 @@ sym_elem_print_all_sysv(char type, const char *sec, const GElf_Sym *sym,
     const char *name)
 {
 	enum demangle d;
-	char *demangle;
 
 	if (sec == NULL || sym == NULL || name == NULL ||
 	    g_value_print_fn == NULL)
@@ -1201,11 +1199,13 @@ sym_elem_print_all_sysv(char type, const char *sec, const GElf_Sym *sym,
 
 	switch (d) {
 	case DEMANGLE_GV3:
-		demangle = cpp_demangle_ia64(name);
+		{
+			char *demangle = cpp_demangle_ia64(name);
 
-		printf("%-20s|", demangle == NULL ? name : demangle);
+			printf("%-20s|", demangle == NULL ? name : demangle);
 
-		free(demangle);
+			free(demangle);
+		}
 
 		break;
 	case DEMANGLE_AUTO:
@@ -1374,7 +1374,7 @@ sym_list_print(struct sym_print_data *p, struct vector_line_info *line_info)
 
 	if (g_elem_print_fn == &sym_elem_print_all_sysv) {
 		printf("\n\n%s from %s",
-		    g_undef_only == 0 ? "Symbols" : "Undefined symbols",
+		    g_undef_only == false ? "Symbols" : "Undefined symbols",
 		    p->filename);
 
 		if (p->objname != NULL)
@@ -1393,7 +1393,7 @@ Name		      Value	      Class	   Type		  Size		   Line	 Section\n");
 			printf("%s:\n", p->filename);
 	}
 
-	if (g_sort_reverse == 0)
+	if (g_sort_reverse == false)
 		TAILQ_FOREACH(ep, p->headp, sym_entries)
 		    sym_list_print_each(ep, p, line_info);
 	else
@@ -1479,7 +1479,7 @@ sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
 	
 	g_elem_print_fn(type, sec, ep->sym, ep->name);
 
-	if (g_debug_line == 1 && line_info != NULL) {
+	if (g_debug_line == true && line_info != NULL) {
 		if ((i = search_addr(line_info, ep->sym)) != -1) {
 			printf("\t%s:%ld", line_info->info[i].file,
 			    line_info->info[i].line);
@@ -1493,7 +1493,7 @@ static void
 sym_list_sort(struct sym_head *headp, const char *type_table, fn_sort fn)
 {
 	struct sym_head sorted;
-	struct sym_entry *ep, *e_min;
+	struct sym_entry *e_min;
 
 	assert(headp != NULL && type_table != NULL);
 
@@ -1509,6 +1509,8 @@ sym_list_sort(struct sym_head *headp, const char *type_table, fn_sort fn)
 	TAILQ_INIT(&sorted);
 
 	while ((e_min = TAILQ_FIRST(headp)) != NULL) {
+		struct sym_entry *ep;
+
 		TAILQ_FOREACH(ep, headp, sym_entries) {
 			if (fn(e_min, ep, type_table) > 0)
 				e_min = ep;
@@ -1724,7 +1726,7 @@ main(int argc, char *argv[])
 
 			break;
 		case 'a':
-			g_print_debug = 1;
+			g_print_debug = true;
 			aout_set_print_all(1);
 
 			break;
@@ -1746,11 +1748,11 @@ main(int argc, char *argv[])
 
 			break;
 		case 'r':
-			g_sort_reverse = 1;
+			g_sort_reverse = true;
 
 			break;
 		case 's':
-			g_print_armap = 1;
+			g_print_armap = true;
 
 			break;
 		case 't':
@@ -1779,12 +1781,12 @@ main(int argc, char *argv[])
 			break;
 		case 'u':
 			filter_insert(sym_elem_undef);
-			g_undef_only = 1;
+			g_undef_only = true;
 			aout_set_print_und(1);
 
 			break;
 		case 'l':
-			g_debug_line = 1;
+			g_debug_line = true;
 
 			break;
 		case 'n':
@@ -1835,7 +1837,7 @@ main(int argc, char *argv[])
 
 	set_g_value_print_fn(t);
 
-	if (g_undef_only == 1) {
+	if (g_undef_only == true) {
 		if (g_sort_fn == &cmp_size)
 			errx(EX_USAGE, "--size-sort with -u is meaningless");
 
@@ -1844,10 +1846,10 @@ main(int argc, char *argv[])
 			    "-u with --defined-only is meaningless");
 	}
 
-	if (g_print_debug != 1)
+	if (g_print_debug == false)
 		filter_insert(sym_elem_nondebug);
 
-	if (g_sort_reverse == 1)
+	if (g_sort_reverse == true)
 		aout_set_sort_rname();
 
 	rtn = 0;

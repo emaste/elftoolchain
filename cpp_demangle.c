@@ -30,6 +30,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -78,13 +79,13 @@ struct cpp_demangle_data {
 	struct vector_str output, output_tmp, subst, tmpl;
 	struct vector_str class_type;
 	struct vector_read_cmd cmd;
-	int		paren, pfirst;
-	int		mem_rst, mem_vat, mem_cst;
+	bool		paren, pfirst;
+	bool		mem_rst, mem_vat, mem_cst;
 	int		func_type;
 	const char	*cur, *last_sname;
 };
 
-#define SIMPLE_HASH(x,y)        (64 * x + y)
+#define SIMPLE_HASH(x,y)	(64 * x + y)
 
 static void	cpp_demangle_data_dest(struct cpp_demangle_data *);
 static int	cpp_demangle_data_init(struct cpp_demangle_data *,
@@ -163,8 +164,8 @@ int		g_vector_str_push_head;
  * 1. Testing and more test case.
  * 2. Code cleaning.
  */
-char
-*cpp_demangle_ia64(const char *org)
+char *
+cpp_demangle_ia64(const char *org)
 {
 	struct cpp_demangle_data ddata;
 	ssize_t org_len;
@@ -215,18 +216,18 @@ char
 	if (ddata.output.size == 0)
 		goto clean;
 
-	if (ddata.paren == 1 && vector_str_push(&ddata.output, ")", 1) == 0)
+	if (ddata.paren == true && vector_str_push(&ddata.output, ")", 1) == 0)
 		goto clean;
 
-	if (ddata.mem_vat == 1 &&
+	if (ddata.mem_vat == true &&
 	    vector_str_push(&ddata.output, " volatile", 9) == 0)
 		goto clean;
 
-	if (ddata.mem_cst == 1 &&
+	if (ddata.mem_cst == true &&
 	    vector_str_push(&ddata.output, " const", 6) == 0)
 		goto clean;
 
-	if (ddata.mem_rst == 1 &&
+	if (ddata.mem_rst == true &&
 	    vector_str_push(&ddata.output, " restrict", 9) == 0)
 		goto clean;
 
@@ -283,11 +284,11 @@ cpp_demangle_data_init(struct cpp_demangle_data *d, const char *cur)
 	assert(d->tmpl.container != NULL);
 	assert(d->class_type.container != NULL);
 
-	d->paren = 0;
-	d->pfirst = 0;
-	d->mem_rst = 0;
-	d->mem_vat = 0;
-	d->mem_cst = 0;
+	d->paren = false;
+	d->pfirst = false;
+	d->mem_rst = false;
+	d->mem_vat = false;
+	d->mem_cst = false;
 	d->func_type = 0;
 	d->cur = cur;
 	d->last_sname = NULL;
@@ -617,7 +618,7 @@ cpp_demangle_get_tmpl_param(struct cpp_demangle_data *ddata, size_t idx)
 static int
 cpp_demangle_read_array(struct cpp_demangle_data *ddata)
 {
-	size_t num_len, exp_len, p_idx, idx, i;
+	size_t num_len, exp_len, p_idx, idx;
 	const char *num;
 	char *exp;
 
@@ -671,7 +672,7 @@ cpp_demangle_read_array(struct cpp_demangle_data *ddata)
 				return (0);
 
 			idx = ddata->output.size;
-			for (i = p_idx; i < idx; ++i)
+			for (size_t i = p_idx; i < idx; ++i)
 				if (vector_str_pop(&ddata->output) == 0) {
 					free(exp);
 
@@ -1382,11 +1383,11 @@ cpp_demangle_read_local_name(struct cpp_demangle_data *ddata)
 	if (*(++ddata->cur) == '\0')
 		return (0);
 
-	if (ddata->paren == 1) {
+	if (ddata->paren == true) {
 		if (cpp_demangle_push_str(ddata, ")", 1) == 0)
 			return (0);
 
-		ddata->paren = 0;
+		ddata->paren = false;
 	}
 
 	if (*ddata->cur == 's')
@@ -1503,13 +1504,13 @@ cpp_demangle_read_nested_name(struct cpp_demangle_data *ddata)
 	    *ddata->cur == 'K') {
 		switch (*ddata->cur) {
 		case 'r':
-			ddata->mem_rst = 1;
+			ddata->mem_rst = true;
 			break;
 		case 'V':
-			ddata->mem_vat = 1;
+			ddata->mem_vat = true;
 			break;
 		case 'K':
-			ddata->mem_cst = 1;
+			ddata->mem_cst = true;
 			break;
 		};
 
@@ -1659,7 +1660,7 @@ cpp_demangle_read_offset(struct cpp_demangle_data *ddata)
 static int
 cpp_demangle_read_offset_number(struct cpp_demangle_data *ddata)
 {
-	int negative;
+	bool negative;
 	const char *start;
 
 	if (ddata == NULL || *ddata->cur == '\0')
@@ -1667,19 +1668,17 @@ cpp_demangle_read_offset_number(struct cpp_demangle_data *ddata)
 
 	/* offset could be negative */
 	if (*ddata->cur == 'n') {
-		negative = 1;
+		negative = true;
 		start = ddata->cur + 1;
 	} else {
-		negative = 0;
+		negative = false;
 		start = ddata->cur;
 	}
 
 	while (*ddata->cur != '_')
 		++ddata->cur;
 
-	assert(negative == 1 || negative == 0);
-
-	if (negative == 1 && cpp_demangle_push_str(ddata, "-", 1) == 0)
+	if (negative == true && cpp_demangle_push_str(ddata, "-", 1) == 0)
 		return (0);
 
 	assert(start != NULL);
@@ -1698,7 +1697,7 @@ cpp_demangle_read_offset_number(struct cpp_demangle_data *ddata)
 static int
 cpp_demangle_read_pointer_to_member(struct cpp_demangle_data *ddata)
 {
-	size_t class_type_len, i, idx, p_idx;
+	size_t class_type_len, idx, p_idx;
 	int p_func_type, rtn;
 	char *class_type;
 
@@ -1715,7 +1714,7 @@ cpp_demangle_read_pointer_to_member(struct cpp_demangle_data *ddata)
 
 	rtn = 0;
 	idx = ddata->output.size;
-	for (i = p_idx; i < idx; ++i)
+	for (size_t i = p_idx; i < idx; ++i)
 		if (vector_str_pop(&ddata->output) == 0)
 			goto clean1;
 	
@@ -2148,15 +2147,15 @@ cpp_demangle_read_type(struct cpp_demangle_data *ddata, int delimit)
 
 		output = &ddata->output_tmp;
 	} else if (delimit == 1) {
-		if (ddata->paren == 0) {
+		if (ddata->paren == false) {
 			if (cpp_demangle_push_str(ddata, "(", 1) == 0)
 				return (0);
 
 			if (ddata->output.size < 2)
 				return (0);
 
-			ddata->paren = 1;
-			ddata->pfirst = 1;
+			ddata->paren = true;
+			ddata->pfirst = true;
 
 			/* Need pop function name */
 			if (ddata->subst.size == 1 &&
@@ -2164,8 +2163,8 @@ cpp_demangle_read_type(struct cpp_demangle_data *ddata, int delimit)
 				return (0);
 		}
 
-		if (ddata->pfirst == 1)
-			ddata->pfirst = 0;
+		if (ddata->pfirst == true)
+			ddata->pfirst = false;
 		else if (*ddata->cur != 'I' &&
 		    cpp_demangle_push_str(ddata, ", ", 2) == 0)
 			return (0);
@@ -2524,8 +2523,8 @@ rtn:
 		if (cpp_demangle_push_str(ddata, "(", 1) == 0)
 			return (0);
 
-		ddata->paren = 1;
-		ddata->pfirst = 1;
+		ddata->paren = true;
+		ddata->pfirst = true;
 	}
 
 	return (1);
@@ -3062,7 +3061,7 @@ static char *
 decode_fp_to_double(const char *p, size_t len)
 {
 	double f;
-	size_t i, rtn_len, limit;
+	size_t rtn_len, limit;
 	int byte;
 	char *rtn;
 
@@ -3071,7 +3070,7 @@ decode_fp_to_double(const char *p, size_t len)
 
 	memset(&f, 0, sizeof(double));
 
-	for (i = 0; i < len / 2; ++i) {
+	for (size_t i = 0; i < len / 2; ++i) {
 		byte = hex_to_dec(p[len - i * 2 - 1]) +
 		    hex_to_dec(p[len - i * 2 - 2]) * 16;
 
@@ -3158,7 +3157,7 @@ static char *
 decode_fp_to_float128(const char *p, size_t len)
 {
 	long double f;
-	size_t i, rtn_len, limit;
+	size_t rtn_len, limit;
 	int byte;
 	unsigned char buf[FLOAT_QUADRUPLE_BYTES];
 	char *rtn;
@@ -3173,7 +3172,7 @@ decode_fp_to_float128(const char *p, size_t len)
 
 		memset(buf, 0, FLOAT_QUADRUPLE_BYTES);
 
-		for (i = 0; i < len / 2; ++i) {
+		for (size_t i = 0; i < len / 2; ++i) {
 			byte = hex_to_dec(p[len - i * 2 - 1]) +
 			    hex_to_dec(p[len - i * 2 - 2]) * 16;
 
@@ -3223,7 +3222,7 @@ static char *
 decode_fp_to_float80(const char *p, size_t len)
 {
 	long double f;
-	size_t i, rtn_len, limit;
+	size_t rtn_len, limit;
 	int byte;
 	unsigned char buf[FLOAT_EXTENED_BYTES];
 	char *rtn;
@@ -3236,7 +3235,7 @@ decode_fp_to_float80(const char *p, size_t len)
 
 		memset(buf, 0, FLOAT_EXTENED_BYTES);
 
-		for (i = 0; i < len / 2; ++i) {
+		for (size_t i = 0; i < len / 2; ++i) {
 			byte = hex_to_dec(p[len - i * 2 - 1]) +
 			    hex_to_dec(p[len - i * 2 - 2]) * 16;
 
@@ -3288,7 +3287,7 @@ static char *
 decode_fp_to_long_double(const char *p, size_t len)
 {
 	long double f;
-	size_t i, rtn_len, limit;
+	size_t rtn_len, limit;
 	int byte;
 	char *rtn;
 
@@ -3298,7 +3297,7 @@ decode_fp_to_long_double(const char *p, size_t len)
 
 	memset(&f, 0, sizeof(long double));
 
-	for (i = 0; i < len / 2; ++i) {
+	for (size_t i = 0; i < len / 2; ++i) {
 		byte = hex_to_dec(p[len - i * 2 - 1]) +
 		    hex_to_dec(p[len - i * 2 - 2]) * 16;
 
@@ -3400,12 +3399,11 @@ vector_read_cmd_dest(struct vector_read_cmd *v)
 static int
 vector_read_cmd_find(struct vector_read_cmd *v, enum read_cmd dst)
 {
-	size_t i;
 
 	if (v == NULL || dst == READ_FAIL)
 		return (-1);
 
-	for (i = 0; i < v->size; ++i)
+	for (size_t i = 0; i < v->size; ++i)
 		if (v->r_container[i] == dst)
 			return (1);
 
@@ -3446,20 +3444,20 @@ vector_read_cmd_pop(struct vector_read_cmd *v)
 static int
 vector_read_cmd_push(struct vector_read_cmd *v, enum read_cmd cmd)
 {
-	size_t tmp_cap, i;
-	enum read_cmd *tmp_r_ctn;
 
 	if (v == NULL)
 		return (0);
 
 	if (v->size == v->capacity) {
-		tmp_cap = v->capacity * BUFFER_GROWFACTOR;
+		const size_t tmp_cap = v->capacity * BUFFER_GROWFACTOR;
+		enum read_cmd *tmp_r_ctn;
+
 
 		if ((tmp_r_ctn = malloc(sizeof(enum read_cmd) * tmp_cap))
 		    == NULL)
 			return (0);
 
-		for (i = 0; i < v->size; ++i)
+		for (size_t i = 0; i < v->size; ++i)
 			tmp_r_ctn[i] = v->r_container[i];
 
 		free(v->r_container);
@@ -3516,20 +3514,19 @@ static int
 vector_type_qualifier_push(struct vector_type_qualifier *v,
     enum type_qualifier t)
 {
-	size_t i, tmp_cap;
-	enum type_qualifier *tmp_ctn;
 
 	if (v == NULL)
 		return (0);
 
 	if (v->size == v->capacity) {
-		tmp_cap = v->capacity * BUFFER_GROWFACTOR;
+		const size_t tmp_cap = v->capacity * BUFFER_GROWFACTOR;
+		enum type_qualifier *tmp_ctn;
 
 		if ((tmp_ctn = malloc(sizeof(enum type_qualifier) * tmp_cap))
 		    == NULL)
 			return (0);
 
-		for (i = 0; i < v->size; ++i)
+		for (size_t i = 0; i < v->size; ++i)
 			tmp_ctn[i] = v->q_container[i];
 
 		free(v->q_container);
