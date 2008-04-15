@@ -33,12 +33,11 @@
 void
 vector_str_dest(struct vector_str *v)
 {
-	size_t i;
 
 	if (v == NULL)
 		return;
 
-	for (i = 0; i < v->size; ++i)
+	for (size_t i = 0; i < v->size; ++i)
 		free(v->container[i]);
 
 	free(v->container);
@@ -48,12 +47,11 @@ vector_str_dest(struct vector_str *v)
 int
 vector_str_find(struct vector_str *v, const char *o, size_t l)
 {
-	size_t i;
 
 	if (v == NULL || o == NULL)
 		return (-1);
 
-	for (i = 0; i < v->size; ++i)
+	for (size_t i = 0; i < v->size; ++i)
 		if (strncmp(v->container[i], o, l) == 0)
 			return (1);
 
@@ -68,7 +66,6 @@ vector_str_find(struct vector_str *v, const char *o, size_t l)
 char *
 vector_str_get_flat(struct vector_str *v, size_t *l)
 {
-	size_t i;
 	ssize_t elem_pos, elem_size, rtn_size;
 	char *rtn;
 
@@ -76,7 +73,7 @@ vector_str_get_flat(struct vector_str *v, size_t *l)
 		return (NULL);
 
 	rtn_size = 0;
-	for (i = 0; i < v->size; ++i)
+	for (size_t i = 0; i < v->size; ++i)
 		rtn_size += strlen(v->container[i]);
 
 	if (rtn_size == 0)
@@ -86,7 +83,7 @@ vector_str_get_flat(struct vector_str *v, size_t *l)
 		return (NULL);
 
 	elem_pos = 0;
-	for (i = 0; i < v->size; ++i) {
+	for (size_t i = 0; i < v->size; ++i) {
 		elem_size = strlen(v->container[i]);
 
 		memcpy(rtn + elem_pos, v->container[i], elem_size);
@@ -147,14 +144,14 @@ char *
 vector_str_substr(struct vector_str *v, size_t begin, size_t end,
     size_t *r_len)
 {
-	size_t cur, i, len;
+	size_t cur, len;
 	char *rtn;
 
 	if (v == NULL || begin > end)
 		return (NULL);
 
 	len = 0;
-	for (i = begin; i < end + 1; ++i)
+	for (size_t i = begin; i < end + 1; ++i)
 		len += strlen(v->container[i]);
 
 	if ((rtn = malloc(sizeof(char) * (len + 1))) == NULL)
@@ -164,7 +161,7 @@ vector_str_substr(struct vector_str *v, size_t begin, size_t end,
 		*r_len = len;
 
 	cur = 0;
-	for (i = begin; i < end + 1; ++i) {
+	for (size_t i = begin; i < end + 1; ++i) {
 		len = strlen(v->container[i]);
 		memcpy(rtn + cur, v->container[i], len);
 		cur += len;
@@ -177,19 +174,18 @@ vector_str_substr(struct vector_str *v, size_t begin, size_t end,
 int
 vector_str_push(struct vector_str *v, const char *str, size_t len)
 {
-	size_t i, tmp_cap;
-	char **tmp_ctn;
 
 	if (v == NULL || str == NULL)
 		return (0);
 
 	if (v->size == v->capacity) {
-		tmp_cap = v->capacity * BUFFER_GROWFACTOR;
+		const size_t tmp_cap = v->capacity * BUFFER_GROWFACTOR;
+		char **tmp_ctn;
 
 		if ((tmp_ctn = malloc(sizeof(char *) * tmp_cap)) == NULL)
 			return (0);
 
-		for (i = 0; i < v->size; ++i)
+		for (size_t i = 0; i < v->size; ++i)
 			tmp_ctn[i] = v->container[i];
 
 		free(v->container);
@@ -211,7 +207,7 @@ vector_str_push(struct vector_str *v, const char *str, size_t len)
 int
 vector_str_push_vector_head(struct vector_str *dst, struct vector_str *org)
 {
-	size_t i, j, tmp_cap;
+	size_t tmp_cap;
 	char **tmp_ctn;
 
 	if (dst == NULL || org == NULL)
@@ -224,18 +220,17 @@ vector_str_push_vector_head(struct vector_str *dst, struct vector_str *org)
 	if ((tmp_ctn = malloc(sizeof(char *) * tmp_cap)) == NULL)
 		return (0);
 
-	for (i = 0; i < org->size; ++i) {
+	for (size_t i = 0; i < org->size; ++i)
 		if ((tmp_ctn[i] = strdup(org->container[i])) == NULL) {
-			for (j = 0; j < i; ++j)
+			for (size_t j = 0; j < i; ++j)
 				free(tmp_ctn[j]);
 
 			free(tmp_ctn);
 
 			return (0);
 		}
-	}
 
-	for (i = 0; i < dst->size; ++i)
+	for (size_t i = 0; i < dst->size; ++i)
 		tmp_ctn[i + org->size] = dst->container[i];
 
 	free(dst->container);

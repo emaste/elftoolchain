@@ -25,6 +25,7 @@
  */
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -131,7 +132,7 @@ static void	vector_str_reset(struct vector_str *);
 static int	get_current_path(struct vector_comp_dir *, const char *,
 		    size_t *, char **);
 static int	get_header(unsigned char *, struct header_32 *,
-		    struct header_64 *, int *);
+		    struct header_64 *, bool *);
 static int	duplicate_str(const char *, char **);
 
 /*
@@ -242,12 +243,11 @@ decode_ULEB128(unsigned char *in, uint64_t *out)
 void
 vector_line_info_dest(struct vector_line_info *vec)
 {
-	size_t i;
 
 	if (vec == NULL)
 		return;
 
-	for (i = 0; i < vec->size; ++i)
+	for (size_t i = 0; i < vec->size; ++i)
 		free(vec->info[i].file);
 
 	free(vec->info);
@@ -279,20 +279,19 @@ static int
 vector_line_info_push(struct vector_line_info *vec, uint64_t addr,
     uint64_t line, const char *info, size_t info_len)
 {
-	size_t i, tmp_cap;
-	struct line_info *tmp_info;
 
 	if (vec == NULL || info == NULL || info_len == 0)
 		return (0);
 
 	if (vec->size == vec->capacity) {
-		tmp_cap = vec->capacity * BUFFER_GROWFACTOR;
+		const size_t tmp_cap = vec->capacity * BUFFER_GROWFACTOR;
+		struct line_info *tmp_info;
 
 		if ((tmp_info = malloc(sizeof(struct line_info) * tmp_cap))
 		    == NULL)
 			return (0);
 
-		for (i = 0; i < vec->size; ++i)
+		for (size_t i = 0; i < vec->size; ++i)
 			tmp_info[i] = vec->info[i];
 
 		free(vec->info);
@@ -335,12 +334,11 @@ vector_comp_dir_init(struct vector_comp_dir *v)
 void
 vector_comp_dir_dest(struct vector_comp_dir *v)
 {
-	size_t i;
 
 	if (v == NULL)
 		return;
 
-	for (i = 0; i < v->size; ++i) {
+	for (size_t i = 0; i < v->size; ++i) {
 		free(v->info[i].dir);
 		free(v->info[i].src);
 	}
@@ -351,20 +349,20 @@ vector_comp_dir_dest(struct vector_comp_dir *v)
 static int
 vector_comp_dir_push(struct vector_comp_dir *v, const char *s, const char *d)
 {
-	size_t i, tmp_cap, s_len, d_len;
-	struct comp_dir *tmp_comp_dir;
+	size_t s_len, d_len;
 
 	if (v == NULL || s == NULL || d == NULL)
 		return (0);
 
 	if (v->size == v->capacity) {
-		tmp_cap = v->capacity * BUFFER_GROWFACTOR;
+		const size_t tmp_cap = v->capacity * BUFFER_GROWFACTOR;
+		struct comp_dir *tmp_comp_dir;
 
 		if ((tmp_comp_dir = malloc(sizeof(struct comp_dir) * tmp_cap))
 		    == NULL)
 			return (0);
 
-		for (i = 0; i < v->size; ++i)
+		for (size_t i = 0; i < v->size; ++i)
 			tmp_comp_dir[i] = v->info[i];
 
 		free(v->info);
@@ -419,13 +417,12 @@ static int
 get_current_path(struct vector_comp_dir *v, const char *cur, size_t *len,
     char **out)
 {
-	size_t i;
 
 	if (len == NULL || out == NULL)
 		return (0);
 
 	if (v != NULL && v->size > 0) {
-		for (i = 0; i < v->size; ++i) {
+		for (size_t i = 0; i < v->size; ++i) {
 			if (strncmp(v->info[i].src, cur, *len) == 0) {
 				*len = *len + strlen(v->info[i].dir) + 1;
 				
@@ -452,7 +449,7 @@ get_current_path(struct vector_comp_dir *v, const char *cur, size_t *len,
 /* Return 0 at fail or 1 at success */
 static int
 get_header(unsigned char *p, struct header_32 *h32, struct header_64 *h64,
-    int *is_64)
+    bool *is_64)
 {
 	uint32_t tmp;
 
@@ -474,7 +471,7 @@ get_header(unsigned char *p, struct header_32 *h32, struct header_64 *h64,
 
 		memcpy(&h64->addr_size, p, 1);
 
-		*is_64 = 1;
+		*is_64 = true;
 	} else if (tmp >= 0xffffff00)
 		return (0);
 	else {
@@ -488,7 +485,7 @@ get_header(unsigned char *p, struct header_32 *h32, struct header_64 *h64,
 
 		memcpy(&h32->addr_size, p, 1);
 
-		*is_64 = 0;
+		*is_64 = false;
 	}
 
 	return (1);
@@ -534,7 +531,8 @@ get_dwarf_line_info(void *buf, uint64_t size, struct vector_comp_dir *comp_dir,
 	uint16_t operand_16;
 	uint64_t file, line, address_64, column, ex_op_len, operand, dir_index;
 	int64_t s_operand;
-	int is_64, i, rtn;
+	int i, rtn;
+	bool is_64;
 	size_t len;
 	struct vector_str file_names, dir_names;
 	struct header_32 h32;
@@ -559,15 +557,14 @@ start:
 	if (get_header(ptr, &h32, &h64, &is_64) == 0)
 		return (0);
 
-	assert(is_64 == 0 || is_64 == 1);
-	if (is_64 == 0) {
+	if (is_64 == false) {
 		if (h32.ver != 2 && h32.ver != 3)
 			return (0);
 
 		min_inst_length = h32.addr_size;
 
 		ptr += 11;
-	} else if (is_64 == 1) {
+	} else {
 		if (h64.ver != 2 && h64.ver != 3)
 			return (0);
 
@@ -926,7 +923,7 @@ start:
 
 	/* skip to match unit length */
 	this_cu = ptr = this_cu +
-	    (is_64 == 0 ? h32.unit_len + 4 : h64.unit_len + 12);
+	    (is_64 == false ? h32.unit_len + 4 : h64.unit_len + 12);
 
 	if (ptr - (unsigned char *)buf < size)
 		goto start;
@@ -946,7 +943,8 @@ get_dwarf_info(void *info, size_t info_len, void *abbrev, size_t abbrev_len,
 {
 	char *src, *dir;
 	unsigned char *i_ptr, *a_ptr, *this_cu;
-	int is_64, rtn, i;
+	int rtn, i;
+	bool is_64;
 	size_t len;
 	uint32_t str_offset_32;
 	uint64_t str_offset_64, tmp_64, attr, form, i_idx, a_idx;
@@ -973,15 +971,14 @@ start:
 	if (get_header(i_ptr, &h32, &h64, &is_64) == 0)
 		return (0);
 
-	assert(is_64 == 0 || is_64 == 1);
-	if (is_64 == 0) {
+	if (is_64 == false) {
 		if (h32.ver != 2 && h32.ver != 3)
 			return (0);
 
 		i_ptr += 11;
 
 		a_ptr = (unsigned char *)abbrev + h32.len;
-	} else if (is_64 == 1) {
+	} else {
 		if (h64.ver != 2 && h64.ver != 3)
 			return (0);
 
@@ -1042,7 +1039,7 @@ start:
 
 		switch(form) {
 		case DW_FORM_addr:
-			i_ptr += is_64 == 0 ? 4 : 8;
+			i_ptr += is_64 == false ? 4 : 8;
 
 			break;
 		case DW_FORM_block2:
@@ -1112,9 +1109,8 @@ start:
 			if (str == NULL)
 				goto clean;
 
-			assert(is_64 == 1 || is_64 == 0);
 			if (attr == DW_AT_name) {
-				if (is_64 == 0) {
+				if (is_64 == false) {
 					memcpy(&str_offset_32, i_ptr, 4);
 
 					i_ptr += 4;
@@ -1122,7 +1118,7 @@ start:
 					if (duplicate_str((char *)str +
 						str_offset_32, &src) == 0)
 						goto clean;
-				} else if (is_64 == 1) {
+				} else {
 					memcpy(&str_offset_64, i_ptr, 8);
 
 					i_ptr += 8;
@@ -1132,7 +1128,7 @@ start:
 						goto clean;
 				}
 			} else if (attr == DW_AT_comp_dir) {
-				if (is_64 == 0) {
+				if (is_64 == false) {
 					memcpy(&str_offset_32, i_ptr, 4);
 
 					i_ptr += 4;
@@ -1140,7 +1136,7 @@ start:
 					if (duplicate_str((char *)str +
 						str_offset_32, &dir) == 0)
 						goto clean;
-				} if (is_64 == 1) {
+				} else {
 					memcpy(&str_offset_64, i_ptr, 8);
 
 					i_ptr += 8;
@@ -1150,7 +1146,7 @@ start:
 						goto clean;
 				}
 			} else
-				i_ptr += is_64 == 0 ? 4 : 8;
+				i_ptr += is_64 == false ? 4 : 8;
 
 			break;
 		case DW_FORM_udata:
@@ -1163,7 +1159,7 @@ start:
 
 			break;
 		case DW_FORM_ref_addr:
-			i_ptr += is_64 == 0 ? 4 : 8;
+			i_ptr += is_64 == false ? 4 : 8;
 
 			break;
 		case DW_FORM_ref1:
@@ -1207,7 +1203,7 @@ start:
 
 	/* skip to next cu, because need only comp_dir */
 	this_cu = i_ptr = this_cu +
-	    (is_64 == 0 ? h32.unit_len + 4 : h64.unit_len + 12);
+	    (is_64 == false ? h32.unit_len + 4 : h64.unit_len + 12);
 
 	if (i_ptr - (unsigned char *)info < info_len) {
 		free(dir);
