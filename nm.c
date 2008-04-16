@@ -35,6 +35,7 @@
 #include <fcntl.h>
 #include <gelf.h>
 #include <getopt.h>
+#include <inttypes.h>
 #include <libelf.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -1481,7 +1482,7 @@ sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
 
 	if (g_debug_line == true && line_info != NULL) {
 		if ((i = search_addr(line_info, ep->sym)) != -1) {
-			printf("\t%s:%ld", line_info->info[i].file,
+			printf("\t%s:%" PRIu64, line_info->info[i].file,
 			    line_info->info[i].line);
 		}
 	}
@@ -1532,7 +1533,7 @@ sym_size_oct_print(const GElf_Sym *sym)
 
 	assert(sym != NULL && "sym is null");
 
-	printf("%016lo", sym->st_size);
+	printf("%016" PRIo64, sym->st_size);
 }
 
 static void
@@ -1541,7 +1542,7 @@ sym_size_hex_print(const GElf_Sym *sym)
 
 	assert(sym != NULL && "sym is null");
 
-	printf("%016lx", sym->st_size);
+	printf("%016" PRIx64, sym->st_size);
 
 }
 
@@ -1551,7 +1552,7 @@ sym_size_dec_print(const GElf_Sym *sym)
 
 	assert(sym != NULL && "sym is null");
 
-	printf("%016ld", sym->st_size);
+	printf("%016" PRId64, sym->st_size);
 }
 
 static void
@@ -1560,7 +1561,7 @@ sym_value_oct_print(const GElf_Sym *sym)
 
 	assert(sym != NULL && "sym is null");
 
-	printf("%016lo", sym->st_value);
+	printf("%016" PRIo64, sym->st_value);
 }
 
 static void
@@ -1569,7 +1570,7 @@ sym_value_hex_print(const GElf_Sym *sym)
 
 	assert(sym != NULL && "sym is null");
 
-	printf("%016lx", sym->st_value);
+	printf("%016" PRIx64, sym->st_value);
 }
 
 static void
@@ -1578,7 +1579,7 @@ sym_value_dec_print(const GElf_Sym *sym)
 
 	assert(sym != NULL && "sym is null");
 
-	printf("%016ld", sym->st_value);
+	printf("%016" PRId64, sym->st_value);
 }
 
 static void
