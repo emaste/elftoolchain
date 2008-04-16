@@ -14,6 +14,17 @@ On FreeBSD, you may install the following ports:
    - misc/tet, version 3.7 or later
    - devel/py-yaml, version 3.04 or later
 
+: Using make(1) to build the test suite
+
+For developers who prefer using make(1) as their build tool, a
+top-level 'Makefile' that builds the test suite and executes a test
+run is provided.
+
+This Makefile also supports the following targets:
+
+  'tccbuild'	Build the test suite using tcc.
+  'tccclean'	Clean the test suite using tcc.
+  'execute'	Execute the test suite using tcc.
 
 : Notes on TET Configuration
 
