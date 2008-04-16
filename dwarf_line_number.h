@@ -97,9 +97,6 @@ void	vector_comp_dir_dest(struct vector_comp_dir *v);
  * @param comp_dir Compilation directory information. NULL for ignore.
  * @param out Vector to contain results. Not gaurantee rollback 'out' if failed.
  * @return 0 at failed, 1 at success.
- * @todo
- * 1. Code clean
- * 2. Boundary check
  */
 int	get_dwarf_line_info(void *buf, uint64_t size,
 	    struct vector_comp_dir *comp_dir, struct vector_line_info *out);
@@ -113,9 +110,6 @@ int	get_dwarf_line_info(void *buf, uint64_t size,
  * @param str_len length of str
  * @param v Vector to contain results. Not gaurantee rollback 'v' if failed.
  * @return 0 at failed, 1 at success.
- * @todo
- * 1. Code clean
- * 2. Boundary check
  */
 int	get_dwarf_info(void *info, size_t info_len, void *abbrev,
 	    size_t abbrev_len, void *str, size_t str_len,

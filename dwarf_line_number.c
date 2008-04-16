@@ -150,7 +150,7 @@ static int	vector_comp_dir_push(struct vector_comp_dir *, const char *,
 static void	vector_str_reset(struct vector_str *);
 static int	find_current_path(struct vector_comp_dir *, const char *,
 		    size_t);
-static int	get_LNP_header(unsigned char *, struct LNP_header *);
+static int	get_LNP_header(unsigned char *, uint64_t, struct LNP_header *);
 static int	get_current_path(struct vector_comp_dir *, const char *,
 		    size_t *, char **);
 static int	get_file_names(char *, struct vector_comp_dir *,
@@ -159,8 +159,8 @@ static int	get_header(unsigned char *, struct header_32 *,
 		    struct header_64 *, bool *);
 static int	get_include_dir(char *, struct vector_str *);
 static int	duplicate_str(const char *, char **);
-static int	read_abbrev_table(unsigned char *, unsigned char *, char *, bool,
-		    char **, char **);
+static int	read_abbrev_table(unsigned char *, unsigned char *, char *,
+		    size_t, bool, char **, char **);
 static void	state_register_init(struct state_register *);
 static int	state_op_ext(unsigned char *, struct state_register *,
 		    struct vector_comp_dir *, struct vector_str *,
@@ -491,11 +491,14 @@ find_current_path(struct vector_comp_dir *v, const char *cur, size_t len)
 }
 
 static int
-get_LNP_header(unsigned char *p, struct LNP_header *h)
+get_LNP_header(unsigned char *p, uint64_t size, struct LNP_header *h)
 {
 	int rtn = 0;
 
 	if (p == NULL || h == NULL)
+		return (0);
+
+	if (size < 4)
 		return (0);
 
 	/* def_is_stmt */
@@ -513,6 +516,9 @@ get_LNP_header(unsigned char *p, struct LNP_header *h)
 	memcpy(&h->opcode_base, p, 1);
 	++p;
 	++rtn;
+
+	if (size < (uint64_t)(h->opcode_base - 1))
+		return (0);
 
 	memcpy(h->std_opcode_length, p, h->opcode_base - 1);
 	rtn += h->opcode_base - 1;
@@ -712,7 +718,7 @@ get_include_dir(char *p, struct vector_str *v)
 /* Read first abbrev table and find src, dir */
 static int
 read_abbrev_table(unsigned char *i_ptr, unsigned char *a_ptr, char *str,
-    bool is_64, char **src, char **dir)
+    size_t str_len, bool is_64, char **src, char **dir)
 {
 	int i;
 	size_t len;
@@ -812,6 +818,8 @@ read_abbrev_table(unsigned char *i_ptr, unsigned char *a_ptr, char *str,
 			if (attr == DW_AT_name) {
 				if (is_64 == false) {
 					memcpy(&str_offset_32, i_ptr, 4);
+					if (str_offset_32 > str_len)
+						return (0);
 
 					i_ptr += 4;
 
@@ -820,6 +828,8 @@ read_abbrev_table(unsigned char *i_ptr, unsigned char *a_ptr, char *str,
 						return (0);
 				} else {
 					memcpy(&str_offset_64, i_ptr, 8);
+					if (str_offset_64 > str_len)
+						return (0);
 
 					i_ptr += 8;
 
@@ -830,6 +840,8 @@ read_abbrev_table(unsigned char *i_ptr, unsigned char *a_ptr, char *str,
 			} else if (attr == DW_AT_comp_dir) {
 				if (is_64 == false) {
 					memcpy(&str_offset_32, i_ptr, 4);
+					if (str_offset_32 > str_len)
+						return (0);
 
 					i_ptr += 4;
 
@@ -838,6 +850,8 @@ read_abbrev_table(unsigned char *i_ptr, unsigned char *a_ptr, char *str,
 						return (0);
 				} else {
 					memcpy(&str_offset_64, i_ptr, 8);
+					if (str_offset_64 > str_len)
+						return (0);
 
 					i_ptr += 8;
 
@@ -1116,7 +1130,8 @@ start:
 		ptr += 23;
 	}
 
-	if ((i = get_LNP_header(ptr, &lnp_header)) == 0)
+	if ((i = get_LNP_header(ptr, (unsigned char *)buf - ptr + size,
+		    &lnp_header)) == 0)
 		return (0);
 	
 	ptr += i;
@@ -1193,7 +1208,7 @@ start:
 	this_cu = ptr = this_cu +
 	    (is_64 == false ? h32.unit_len + 4 : h64.unit_len + 12);
 
-	if (ptr - (unsigned char *)buf < size)
+	if ((uint64_t)(ptr - (unsigned char *)buf) < size)
 		goto start;
 clean:
 	if (dir_names.container != NULL)
@@ -1280,7 +1295,8 @@ start:
 	/* child */
 	++a_ptr;
 
-	if (read_abbrev_table(i_ptr, a_ptr, str, is_64, &src, &dir) == 0) {
+	if (read_abbrev_table(i_ptr, a_ptr, str, str_len, is_64, &src, &dir)
+	    == 0) {
 		rtn = 0;
 
 		goto clean;
@@ -1294,7 +1310,7 @@ start:
 	this_cu = i_ptr = this_cu +
 	    (is_64 == false ? h32.unit_len + 4 : h64.unit_len + 12);
 
-	if (i_ptr - (unsigned char *)info < info_len) {
+	if ((uint64_t)(i_ptr - (unsigned char *)info) < info_len) {
 		free(dir);
 		free(src);
 		src = dir = NULL;
