@@ -2133,8 +2133,8 @@ cpp_demangle_read_type(struct cpp_demangle_data *ddata, int delimit)
 	struct vector_type_qualifier v;
 	struct vector_str *output;
 	size_t p_idx, type_str_len;
-	ssize_t len;
 	int extern_c, is_builtin;
+	long len;
 	char *type_str;
 
 	if (ddata == NULL)

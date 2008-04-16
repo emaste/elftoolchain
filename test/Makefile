@@ -5,13 +5,13 @@ CSTD=	-std=iso9899:1999
 all: test
 
 cpp_demangle.o: ../cpp_demangle.c
-	$(CC) $(CSTD) $(CFLAGS) $(CPPFLAGS) -c ../cpp_demangle.c -o cpp_demangle.o
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(CSTD) -c ../cpp_demangle.c -o cpp_demangle.o
 
 vector_str.o: ../vector_str.c
-	$(CC) $(CSTD) $(CFLAGS) $(CPPFLAGS) -c ../vector_str.c -o vector_str.o
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(CSTD) -c ../vector_str.c -o vector_str.o
 
 test_cpp_demangle.o: test_cpp_demangle.c
-	$(CC) $(CSTD) $(CFLAGS) $(CPPFLAGS) -c test_cpp_demangle.c -o test_cpp_demangle.o
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(CSTD) -c test_cpp_demangle.c -o test_cpp_demangle.o
 
 test_cpp_demangle: cpp_demangle.o vector_str.o test_cpp_demangle.o
 	$(CC) -o test_cpp_demangle cpp_demangle.o vector_str.o test_cpp_demangle.o
