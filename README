@@ -17,8 +17,7 @@ On FreeBSD, you may install the following ports:
 : Using make(1) to build the test suite
 
 For developers who prefer using make(1) as their build tool, a
-top-level 'Makefile' that builds the test suite and executes a test
-run is provided.
+top-level 'Makefile' that builds the test suite is provided.
 
 This Makefile also supports the following targets:
 
