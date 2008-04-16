@@ -1607,6 +1607,7 @@ cpp_demangle_read_number(struct cpp_demangle_data *ddata, long *rtn)
 	if (isdigit(*ddata->cur) == 0)
 		return (0);
 
+	errno = 0;
 	if ((len = strtol(ddata->cur, (char **)NULL, 10)) == 0 &&
 	    errno != 0)
 		return (0);
@@ -1777,7 +1778,6 @@ cpp_demangle_read_sname(struct cpp_demangle_data *ddata)
 static int
 cpp_demangle_read_subst(struct cpp_demangle_data *ddata)
 {
-	long nth;
 
 	if (ddata == NULL || *ddata->cur == '\0')
 		return (0);
@@ -1880,6 +1880,9 @@ cpp_demangle_read_subst(struct cpp_demangle_data *ddata)
 	if (*ddata->cur == '_')
 		return (cpp_demangle_get_subst(ddata, 0));
 	else {
+		long nth;
+
+		errno = 0;
 		/* substitution number is base 36 */
 		if ((nth = strtol(ddata->cur, (char **)NULL, 36)) == 0 &&
 		    errno != 0)
@@ -2098,7 +2101,6 @@ cpp_demangle_read_tmpl_args(struct cpp_demangle_data *ddata)
 static int
 cpp_demangle_read_tmpl_param(struct cpp_demangle_data *ddata)
 {
-	long nth;
 
 	if (ddata == NULL || *ddata->cur != 'T')
 		return (0);
@@ -2108,6 +2110,9 @@ cpp_demangle_read_tmpl_param(struct cpp_demangle_data *ddata)
 	if (*ddata->cur == '_')
 		return (cpp_demangle_get_tmpl_param(ddata, 0));
 	else {
+		long nth;
+
+		errno = 0;
 		if ((nth = strtol(ddata->cur, (char **)NULL, 36)) == 0 &&
 		    errno != 0)
 			return (0);
@@ -3091,7 +3096,7 @@ again:
 	if ((rtn = malloc(sizeof(char) * rtn_len)) == NULL)
 		return (NULL);
 
-	if (snprintf(rtn, rtn_len, "%fld", f) >= rtn_len) {
+	if (snprintf(rtn, rtn_len, "%fld", f) >= (int)rtn_len) {
 		free(rtn);
 
 		if (limit++ > FLOAT_SPRINTF_TRY_LIMIT)
@@ -3139,7 +3144,7 @@ again:
 	if ((rtn = malloc(sizeof(char) * rtn_len)) == NULL)
 		return (NULL);
 
-	if (snprintf(rtn, rtn_len, "%ff", f) >= rtn_len) {
+	if (snprintf(rtn, rtn_len, "%ff", f) >= (int)rtn_len) {
 		free(rtn);
 
 		if (limit++ > FLOAT_SPRINTF_TRY_LIMIT)
@@ -3201,7 +3206,7 @@ again:
 		if ((rtn = malloc(sizeof(char) * rtn_len)) == NULL)
 			return (NULL);
 
-		if (snprintf(rtn, rtn_len, "%Lfd", f) >= rtn_len) {
+		if (snprintf(rtn, rtn_len, "%Lfd", f) >= (int)rtn_len) {
 			free(rtn);
 
 			if (limit++ > FLOAT_SPRINTF_TRY_LIMIT)
@@ -3264,7 +3269,7 @@ again:
 		if ((rtn = malloc(sizeof(char) * rtn_len)) == NULL)
 			return (NULL);
 
-		if (snprintf(rtn, rtn_len, "%Lfd", f) >= rtn_len) {
+		if (snprintf(rtn, rtn_len, "%Lfd", f) >= (int)rtn_len) {
 			free(rtn);
 
 			if (limit++ > FLOAT_SPRINTF_TRY_LIMIT)
@@ -3318,7 +3323,7 @@ again:
 	if ((rtn = malloc(sizeof(char) * rtn_len)) == NULL)
 		return (NULL);
 
-	if (snprintf(rtn, rtn_len, "%Lfd", f) >= rtn_len) {
+	if (snprintf(rtn, rtn_len, "%Lfd", f) >= (int)rtn_len) {
 		free(rtn);
 
 		if (limit++ > FLOAT_SPRINTF_TRY_LIMIT)
