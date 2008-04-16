@@ -110,6 +110,7 @@ p->t_table == NULL || p->s_table == NULL || p->filename == NULL)
 #define	TOLOWER(t)		(STDLOWER(t))
 #define	TAILQ_HINIT_AFTER(l)	{l.tqh_first = NULL; \
 l.tqh_last = &(l).tqh_first;}
+#define	UNUSED(p)		((void)p)
 
 static int		cmp_name(const struct sym_entry *,
 			    const struct sym_entry *, const char *);
@@ -229,6 +230,8 @@ cmp_name(const struct sym_entry *l, const struct sym_entry *r,
 	assert(r != NULL);
 	assert(l->name != NULL);
 	assert(r->name != NULL);
+	
+	UNUSED(ttable);
 
 	return (strcmp(l->name, r->name));
 }
@@ -237,6 +240,10 @@ static int
 cmp_none(const struct sym_entry *l, const struct sym_entry *r,
     const char *ttable)
 {
+
+	UNUSED(l);
+	UNUSED(r);
+	UNUSED(ttable);
 
 	return (0);
 }
@@ -253,6 +260,8 @@ cmp_size(const struct sym_entry *l, const struct sym_entry *r,
 	assert(r != NULL);
 	assert(r->name != NULL);
 	assert(r->sym != NULL);
+
+	UNUSED(ttable);
 
 	if (l->sym->st_size == r->sym->st_size)
 		return (strcmp(l->name, r->name));
@@ -1036,7 +1045,8 @@ search_addr(struct vector_line_info *v, GElf_Sym *g)
 			j = k;
 	}
 
-	return ((i < v->size) && (v->info[i].addr == g->st_value) ? i : -1);
+	return (((size_t)i < v->size) &&
+	    (v->info[i].addr == g->st_value) ? i : -1);
 }
 
 static void
@@ -1268,6 +1278,9 @@ sym_elem_def(char type, const GElf_Sym *sym, const char *name)
 
 	assert(IS_SYM_TYPE(type));
 
+	UNUSED(sym);
+	UNUSED(name);
+
 	return (!IS_UNDEF_SYM_TYPE(type));
 }
 
@@ -1277,6 +1290,9 @@ sym_elem_global(char type, const GElf_Sym *sym, const char *name)
 
 	assert(IS_SYM_TYPE(type));
 
+	UNUSED(sym);
+	UNUSED(name);
+
 	return (isupper(type));
 }
 
@@ -1285,6 +1301,9 @@ sym_elem_nondebug(char type, const GElf_Sym *sym, const char *name)
 {
 
 	assert(sym != NULL);
+
+	UNUSED(type);
+	UNUSED(name);
 
 	if (sym->st_value == 0 && (sym->st_info & 0xf) == STT_FILE)
 		return (0);
@@ -1301,6 +1320,9 @@ sym_elem_nonzero_size(char type, const GElf_Sym *sym, const char *name)
 
 	assert(sym != NULL);
 
+	UNUSED(type);
+	UNUSED(name);
+
 	return (sym->st_size > 0);
 }
 
@@ -1309,6 +1331,9 @@ sym_elem_undef(char type, const GElf_Sym *sym, const char *name)
 {
 
 	assert(IS_SYM_TYPE(type));
+
+	UNUSED(sym);
+	UNUSED(name);
 
 	return (IS_UNDEF_SYM_TYPE(type));
 }
@@ -1407,7 +1432,7 @@ static void
 sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
     struct vector_line_info *line_info)
 {
-	size_t i;
+	int i;
 	struct filter_entry *fep;
 	const char *sec;
 	char type;
