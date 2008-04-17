@@ -90,8 +90,10 @@ static void	mcs_usage(void);
 static void	elfcopy_main(struct elfcopy *ecp, int argc, char **argv);
 static void	elfcopy_usage(void);
 
-
-/*  _____________
+/* 
+ * An ELF object usually has a sturcture described by the
+ * diagram below.
+ *  _____________
  * |             |
  * |     NULL    | <- always a SHT_NULL section
  * |_____________|
@@ -111,7 +113,7 @@ static void	elfcopy_usage(void);
  * |  .comment   | <- above(include) this: normal sections
  * |_____________|
  * |             |
- * | add sections| <- sections added by --add-section
+ * | add sections| <- unloadable sections added by --add-section
  * |_____________|
  * |             |
  * |  .shstrtab  | <- section name string table
@@ -125,13 +127,16 @@ static void	elfcopy_usage(void);
  * |             |
  * |   .strtab   | <- symbol name string table, if any
  * |_____________|
+ * |             |
+ * |  .rel.text  | <- relocation info for .o files.
+ * |_____________|
  */
 static void
 create_elf(struct elfcopy *ecp)
 {
+	struct section *shtab;
 	GElf_Ehdr ieh;
 	GElf_Ehdr oeh;
-	size_t shtab_size, off;
 
 	ecp->flags |= SYMTAB_INTACT;
 
@@ -170,12 +175,7 @@ create_elf(struct elfcopy *ecp)
 
 	setup_phdr(ecp);
 
-	off = create_sections(ecp, 0);
-
-	if (ecp->strip == STRIP_NONE) {
-		ecp->symtab_size = ecp->symtab_orig_size;
-		ecp->strtab_size = ecp->strtab_orig_size;
-	}
+	create_scn(ecp);
 
 	/* FIXME */
 	if (ecp->strip == STRIP_DEBUG ||
@@ -185,7 +185,9 @@ create_elf(struct elfcopy *ecp)
 		ecp->flags &= ~SYMTAB_INTACT;
 
 	if (ecp->sections_to_add != 0)
-		off = add_sections(ecp, off);
+		add_unloadables(ecp);
+
+	copy_content(ecp);
 
 	/*
 	 * Write the underlying ehdr. Note that it should be called
@@ -195,48 +197,20 @@ create_elf(struct elfcopy *ecp)
 		errx(EX_SOFTWARE, "gelf_update_ehdr() failed: %s",
 		    elf_errmsg(-1));
 
-	/*
-	 * If we don't have a symbol table, skip those a few bytes
-	 * which are reserved for it in the beginning of shstrtab,
-	 * and adjust sh_name of each section.
-	 */
-	if (!(ecp->flags & SYMTAB_EXIST)) {
-		ecp->old_shstrtab = ecp->shstrtab;
-		ecp->shstrtab = &ecp->shstrtab[sizeof(".symtab\0.strtab")];
-		ecp->shstrtab_size -= sizeof(".symtab\0.strtab");
-		resync_shname(ecp);
-	}
-
 	/* Put .shstrtab after sections added from file. */
-	ecp->os_cnt++;
-	off = create_shstrtab(ecp, off);
+	set_shstrtab(ecp);
 
 	/* Renew oeh to get the updated e_shstrndx */
 	if (gelf_getehdr(ecp->eout, &oeh) == NULL)
 		errx(EX_SOFTWARE, "gelf_getehdr() failed: %s",
 		    elf_errmsg(-1));
 
-	/*
-	 * Put section header table after .shstrtab section.
-	 */
-	oeh.e_shoff = off = roundup(off, 4);
+	shtab = insert_shtab(ecp);
 
-	/*
-	 * If there is a symbol table, put it after the section
-	 * header table.
-	 */
-	if (ecp->flags & SYMTAB_EXIST) {
-		/* .symtab & .symstr */
-		ecp->os_cnt += 2;
+	/* Resync section offsets in the output object. */
+	resync_sections(ecp);
 
-		/* Remember there is always a null section, so we +1 here. */
-		shtab_size = gelf_fsize(ecp->eout, ELF_T_SHDR,
-		    ecp->os_cnt + 1, EV_CURRENT);
-		if (shtab_size == 0)
-			errx(EX_SOFTWARE, "gelf_fsize() failed: %s",
-			    elf_errmsg(-1));
-		off = create_symtab(ecp, off + shtab_size);
-	}
+	oeh.e_shoff = shtab->off;
 
 #if 0
 	fprintf(stderr, "ecp->shstrtab_off = %d\n", (int)ecp->shstrtab_off);
@@ -265,13 +239,6 @@ create_elf(struct elfcopy *ecp)
 	if (gelf_update_ehdr(ecp->eout, &oeh) == 0)
 		errx(EX_SOFTWARE, "gelf_update_ehdr() failed: %s",
 		    elf_errmsg(-1));
-
-	/*
-	 * process mcs(1) operations.
-	 */
-	if (ecp->sections_to_append || ecp->sections_to_compress ||
-	    ecp->sections_to_print)
-		mcs_sections(ecp);
 
 	if (ecp->ophnum > 0)
 		copy_phdr(ecp);
@@ -443,7 +410,7 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 				err(EX_DATAERR, "fread failed");
 			fclose(fp);
 
-			STAILQ_INSERT_TAIL(&ecp->v_sadd, sa, sadds);
+			STAILQ_INSERT_TAIL(&ecp->v_sadd, sa, sadd_list);
 			ecp->sections_to_add = 1;
 			break;
 		case ECP_STRIP_UNNEEDED:
@@ -530,7 +497,7 @@ mcs_main(struct elfcopy *ecp, int argc, char **argv)
 	if (!name)
 		(void)lookup_sec_act(ecp, ".comment", 1);
 
-	STAILQ_FOREACH(sac, &ecp->v_sac, sacs) {
+	STAILQ_FOREACH(sac, &ecp->v_sac, sac_list) {
 		sac->append = append;
 		sac->compress = compress;
 		sac->print = print;
@@ -637,10 +604,12 @@ main(int argc, char **argv)
 		err(EX_SOFTWARE, "malloc failed");
 	memset(ecp, 0, sizeof(*ecp));
 
+	STAILQ_INIT(&ecp->v_seg);
 	STAILQ_INIT(&ecp->v_sac);
 	STAILQ_INIT(&ecp->v_sadd);
 	STAILQ_INIT(&ecp->v_sym_strip);
 	STAILQ_INIT(&ecp->v_sym_keep);
+	TAILQ_INIT(&ecp->v_sec);
 
 	/* format convert not support yet. */
 	ecp->infmt = ecp->outfmt = 0;

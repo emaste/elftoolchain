@@ -33,7 +33,7 @@
 struct symlist {
 	const char *name;
 
-	STAILQ_ENTRY(symlist) syms;
+	STAILQ_ENTRY(symlist) sym_list;
 };
 
 /* Sections to copy/remove/rename/... */
@@ -51,7 +51,7 @@ struct sec_action {
 	int remove;
 	int rename;
 
-	STAILQ_ENTRY(sec_action) sacs;
+	STAILQ_ENTRY(sec_action) sac_list;
 };
 
 /* Sections to add from file. */
@@ -60,27 +60,38 @@ struct sec_add {
 	char *content;
 	size_t size;
 
-	STAILQ_ENTRY(sec_add) sadds;
+	STAILQ_ENTRY(sec_add) sadd_list;
 };
 
-/* Section extent */
+/* Internal data structure for sections. */
 struct section {
 	const char *name;
-	size_t off;
-	size_t size;
+	Elf_Scn *is;		/* input scn */
+	Elf_Scn *os;		/* output scn */
+	void *buf;		/* section content */
+	uint64_t off;		/* section offset */
+	uint64_t sz;		/* section size */
+	uint64_t align;		/* section alignment */
+	uint64_t type;		/* section type */
+	int ndx;		/* original index */
+	int loadable;		/* whether loadable */
+	int pseudo;
 
-	TAILQ_ENTRY(section) sec_next;
+	TAILQ_ENTRY(section) sec_list;	/* list of all sections */
+	TAILQ_ENTRY(section) in_seg; /* list of sections in a segment */
 };
 
-/* Segment extent */
+/* Internal data structure for segments. */
 struct segment {
-	size_t off;
-	size_t fsize;
-	size_t msize;
+	uint64_t off;
+	uint64_t fsz;		/* file size */
+	uint64_t msz;		/* memory size */
+	uint64_t type;
 
-	char remove;
+	int remove;
 
 	TAILQ_HEAD(sec_head, section) v_sec;
+	STAILQ_ENTRY(segment) seg_list;
 };
 
 
@@ -93,27 +104,15 @@ struct elfcopy {
 	/* Format convertion not supported yet. */
 	int infmt;
 	int outfmt;
+	
+	int iec;	/* elfclass of intput object */
+	int oec;	/* elfclass of output object */
+	Elf *ein;	/* ELF descriptor of input object */
+	Elf *eout;	/* ELF descriptor of output object */
 
-	/* elfclass of intput object */
-	int iec;
-	/* elfclass of output object */
-	int oec;
-	/* ELF descriptor of input object */
-	Elf *ein;
-	/* ELF descriptor of output object */
-	Elf *eout;
-	/*
-	 * keep track of the number of sections of output object.
-	 */
-	int os_cnt;
-	/*
-	 * number of program headers of input object;
-	 */
-	int iphnum;
-	/*
-	 * number of program headers of output object;
-	 */
-	int ophnum;
+	int iphnum;	/* number of program headers of input object */
+	int ophnum;	/* number of program headers of output object */
+
 	/*
 	 * flags indicating whether there exist sections
 	 * to add/remove/(only)copy. FIXME use bit instead.
@@ -125,12 +124,10 @@ struct elfcopy {
 	int sections_to_remove;
 	int sections_to_copy;
 
-	/* buffer for .shstrtab section */
-	char *shstrtab;
-	char *old_shstrtab;
-	size_t shstrtab_cap;
-	size_t shstrtab_size;
-
+	struct section *symtab;
+	struct section *strtab;
+	struct section *shstrtab;
+	
 	enum {
 		STRIP_NONE = 0,
 		STRIP_ALL,
@@ -139,63 +136,47 @@ struct elfcopy {
 		STRIP_UNNEEDED
 	} strip;
 
-	Elf_Scn *symscn;
-	union {
-		Elf32_Sym *symtab32;
-		Elf64_Sym *symtab64;
-	} st;
-	size_t symtab_cnt;
-	size_t symtab_cap;
-	size_t symtab_size;
-	size_t symtab_orig_size;
-	size_t symtab_align;
-
-	Elf_Scn *strscn;
-	char *strtab;
-	size_t strtab_cap;
-	size_t strtab_size;
-	size_t strtab_orig_size;
-
-	char *mcsbuf;
-	size_t mcsbuf_cap;
-	size_t mcsbuf_size;
-
 #define	EXECUTABLE	0x0001
 #define	DYNAMIC		0x0002
 #define	RELOCATABLE	0x0004
 #define	SYMTAB_EXIST	0x0010
 #define	SYMTAB_INTACT	0x0020
+#define SYMTAB_CREATED	0x0040
 
 	int flags;
 
 	/* bit vector to mark symbols involving relocation */
 	unsigned char *v_rel;
 
-	struct segment *v_seg;
-
+	STAILQ_HEAD(, segment) v_seg;
 	STAILQ_HEAD(, sec_action) v_sac;
 	STAILQ_HEAD(, sec_add) v_sadd;
 	/* list of symbols to strip */
 	STAILQ_HEAD(, symlist) v_sym_strip;
 	/* list of symbols to keep */
 	STAILQ_HEAD(, symlist) v_sym_keep;
+	/* list of internal section structure */
+	TAILQ_HEAD(, section) v_sec;
+	/* list of modified section data buffers */
+	SLIST_HEAD(, section) v_mdat;
 };
 
-size_t	add_sections(struct elfcopy *ecp, size_t off);
+void	add_unloadables(struct elfcopy *ecp);
 void	add_to_keep_list(struct elfcopy *ecp, const char *name);
 void	add_to_strip_list(struct elfcopy *ecp, const char *name);
-void	add_to_sec_list(struct segment *seg, struct section *sec);
+int	add_to_inseg_list(struct elfcopy *ecp, struct section *sec);
+void	copy_content(struct elfcopy *ecp);
 void	copy_data(Elf_Scn *is, Elf_Scn *os);
 void	copy_phdr(struct elfcopy *ecp);
-void	create_shdr(struct elfcopy *ecp, Elf_Scn *is, Elf_Scn *os,
+void	copy_shdr(struct elfcopy *ecp, Elf_Scn *is, Elf_Scn *os,
 	    const char *name);
-size_t	create_sections(struct elfcopy *ecp, size_t off);
-size_t	create_shstrtab(struct elfcopy *ecp, size_t off);
-size_t	create_symtab(struct elfcopy *ecp, size_t off);
+void	create_scn(struct elfcopy *ecp);
+void	create_symtab(struct elfcopy *ecp);
+struct section *insert_shtab(struct elfcopy *ecp);
 int	find_duplicate(const char *tab, const char *s, int sz);
 struct sec_action *lookup_sec_act(struct elfcopy *ecp,
 	    const char *name, int add);
-void	mcs_sections(struct elfcopy *ecp);
-void	remove_section(struct elfcopy *ecp, GElf_Shdr *sh, const char *name);
-void	resync_shname(struct elfcopy *ecp);
+
+void	resync_sections(struct elfcopy *ecp);
+void	set_shstrtab(struct elfcopy *ecp);
 void	setup_phdr(struct elfcopy *ecp);

@@ -164,7 +164,7 @@ mark_symbols(struct elfcopy *ecp, size_t sc)
 }
 
 /*
- * Symbols related with relocation are needed.
+ * Symbols related to relocation are needed.
  */
 static int
 is_needed_symbol(struct elfcopy *ecp, int i, GElf_Sym *s)
@@ -186,35 +186,35 @@ is_needed_symbol(struct elfcopy *ecp, int i, GElf_Sym *s)
 	return (0);
 }
 
-#define	ALLOCSYM(SZ) do {						\
-	if (ecp->st.symtab##SZ == NULL) {				\
-		ecp->st.symtab##SZ = malloc(ecp->symtab_cap *		\
-		    sizeof(Elf##SZ##_Sym));				\
-		if (ecp->st.symtab##SZ == NULL)				\
-			err(EX_SOFTWARE, "malloc failed");		\
-	} else {							\
-		ecp->symtab_cap *= 2;					\
-		ecp->st.symtab##SZ = realloc(ecp->st.symtab##SZ,	\
-		    ecp->symtab_cap * sizeof(Elf##SZ##_Sym));		\
-		if (ecp->st.symtab##SZ == NULL)				\
-			err(EX_SOFTWARE, "realloc failed");		\
-	}								\
+#define	ALLOCSYM(SZ) do {					\
+	if (sy_buf##SZ == NULL) {				\
+		sy_buf##SZ = malloc(sy_cap *			\
+		    sizeof(Elf##SZ##_Sym));			\
+		if (sy_buf##SZ == NULL)				\
+			err(EX_SOFTWARE, "malloc failed");	\
+	} else {						\
+		sy_cap *= 2;					\
+		sy_buf##SZ = realloc(sy_buf##SZ,		\
+		    sy_cap * sizeof(Elf##SZ##_Sym));		\
+		if (sy_buf##SZ == NULL)				\
+			err(EX_SOFTWARE, "realloc failed");	\
+	}							\
 } while (0)
 
-#define	COPYSYM(SZ) do {						\
-	if ((dup_pos = find_duplicate(ecp->strtab, name,		\
-	    ecp->strtab_size)) > -1)					\
-		ecp->st.symtab##SZ[j].st_name = dup_pos;		\
-	else {								\
-		if (strlen(name) > 0)					\
-			ecp->strtab_size++;				\
-		ecp->st.symtab##SZ[j].st_name = ecp->strtab_size;	\
-	}								\
-	ecp->st.symtab##SZ[j].st_info = sym.st_info;			\
-	ecp->st.symtab##SZ[j].st_other = sym.st_other;			\
-	ecp->st.symtab##SZ[j].st_shndx = sym.st_shndx;			\
-	ecp->st.symtab##SZ[j].st_value = sym.st_value;			\
-	ecp->st.symtab##SZ[j].st_size = sym.st_size;			\
+#define	COPYSYM(SZ) do {					\
+	if ((dup_pos = find_duplicate(st_buf, name,		\
+	    st_sz)) > -1)					\
+		sy_buf##SZ[j].st_name = dup_pos;		\
+	else {							\
+		if (strlen(name) > 0)				\
+			st_sz++;				\
+		sy_buf##SZ[j].st_name = st_sz;			\
+	}							\
+	sy_buf##SZ[j].st_info = sym.st_info;			\
+	sy_buf##SZ[j].st_other = sym.st_other;			\
+	sy_buf##SZ[j].st_shndx = sym.st_shndx;			\
+	sy_buf##SZ[j].st_value = sym.st_value;			\
+	sy_buf##SZ[j].st_size = sym.st_size;			\
 } while (0)
 
 static int
@@ -230,12 +230,14 @@ is_weak_symbol(GElf_Sym *s)
 static void
 generate_symbols(struct elfcopy *ecp)
 {
-	GElf_Shdr ishdr;
+	GElf_Shdr ish;
 	GElf_Sym sym;
-	Elf_Data* idata;
-	Elf_Scn *iscn;
-	size_t ishstrndx, n, sc, symndx;
-	char *name;
+	Elf_Data* id;
+	Elf_Scn *is;
+	Elf32_Sym *sy_buf32;
+	Elf64_Sym *sy_buf64;
+	size_t ishstrndx, n, nsyms, sc, symndx, sy_cap, st_sz, st_cap;
+	char *name, *st_buf;
 	int ec, elferr, i, j, dup_pos;
 
 	if (elf_getshstrndx(ecp->ein, &ishstrndx) == 0)
@@ -245,33 +247,33 @@ generate_symbols(struct elfcopy *ecp)
 		errx(EX_SOFTWARE, "gelf_getclass failed: %s",
 		    elf_errmsg(-1));
 
-	/*
-	 * Allocate storage for symbol table and string table.
-	 */
-	ecp->symtab_cnt = 0;
-	ecp->symtab_cap = 64;
+	/* Allocate storage for symbol table and string table. */
+	nsyms = 0;
+	sy_cap = 64;
+	sy_buf32 = NULL;
+	sy_buf64 = NULL;
 	if (ec == ELFCLASS32)
 		ALLOCSYM(32);
 	else
 		ALLOCSYM(64);
-	ecp->strtab_size = 0;
-	ecp->strtab_cap = 512;
-	ecp->strtab = malloc(ecp->strtab_cap);
-	if (ecp->strtab == NULL)
+	st_sz = 0;
+	st_cap = 512;
+	st_buf = malloc(st_cap);
+	if (st_buf == NULL)
 		err(EX_SOFTWARE, "malloc failed");
-	ecp->strtab[0] = '\0';
+	st_buf[0] = '\0';
 
 	symndx = 0;
-	iscn = NULL;
-	while ((iscn = elf_nextscn(ecp->ein, iscn)) != NULL) {
-		if (gelf_getshdr(iscn, &ishdr) != &ishdr)
+	is = NULL;
+	while ((is = elf_nextscn(ecp->ein, is)) != NULL) {
+		if (gelf_getshdr(is, &ish) != &ish)
 			errx(EX_SOFTWARE, "elf_getshdr failed: %s",
 			    elf_errmsg(-1));
-		if ((name = elf_strptr(ecp->ein, ishstrndx, ishdr.sh_name)) == NULL)
+		if ((name = elf_strptr(ecp->ein, ishstrndx, ish.sh_name)) == NULL)
 			errx(EX_SOFTWARE, "elf_strptr failed: %s",
 			    elf_errmsg(-1));
 		if (strcmp(name, ".strtab") == 0) {
-			symndx = elf_ndxscn(iscn);
+			symndx = elf_ndxscn(is);
 			break;
 		}
 	}
@@ -283,12 +285,13 @@ generate_symbols(struct elfcopy *ecp)
 	if (symndx == 0)
 		errx(EX_DATAERR, "can't find .strtab section");
 
-	iscn = NULL;
-	while ((iscn = elf_nextscn(ecp->ein, iscn)) != NULL) {
-		if (gelf_getshdr(iscn, &ishdr) != &ishdr)
+	is = NULL;
+	while ((is = elf_nextscn(ecp->ein, is)) != NULL) {
+		if (gelf_getshdr(is, &ish) != &ish)
 			errx(EX_SOFTWARE, "elf_getshdr failed: %s",
 			    elf_errmsg(-1));
-		if ((name = elf_strptr(ecp->ein, ishstrndx, ishdr.sh_name)) == NULL)
+		if ((name = elf_strptr(ecp->ein, ishstrndx, ish.sh_name)) ==
+		    NULL)
 			errx(EX_SOFTWARE, "elf_strptr failed: %s",
 			    elf_errmsg(-1));
 		if (strcmp(name, ".symtab") == 0)
@@ -298,16 +301,15 @@ generate_symbols(struct elfcopy *ecp)
 	if (elferr != 0)
 		errx(EX_SOFTWARE, "elf_nextscn failed: %s",
 		    elf_errmsg(elferr));
-	if (iscn == NULL)
+	if (is == NULL)
 		errx(EX_DATAERR, "can't find .strtab section");
 
-	idata = NULL;
+	id = NULL;
 	n = 0;
-	while (n < ishdr.sh_size && (idata = elf_getdata(iscn, idata)) !=
-	    NULL) {
-		sc = idata->d_size / ishdr.sh_entsize;
+	while (n < ish.sh_size && (id = elf_getdata(is, id)) != NULL) {
+		sc = id->d_size / ish.sh_entsize;
 		for (i = 0; (size_t)i < sc; i++) {
-			if (gelf_getsym(idata, i, &sym) != &sym)
+			if (gelf_getsym(id, i, &sym) != &sym)
 				errx(EX_SOFTWARE, "gelf_getsym failed: %s",
 				     elf_errmsg(-1));
 			if ((name = elf_strptr(ecp->ein, symndx,
@@ -320,14 +322,14 @@ generate_symbols(struct elfcopy *ecp)
 				continue;
 
 			/* increase storage if need */
-			if (ecp->symtab_cnt >= ecp->symtab_cap) {
+			if (nsyms >= sy_cap) {
 				if (ec == ELFCLASS32)
 					ALLOCSYM(32);
 				else
 					ALLOCSYM(64);
 			}
 
-			j = ecp->symtab_cnt;
+			j = nsyms;
 
 			/* FIXME: st_shndx may change. */
 			if (ec == ELFCLASS32)
@@ -335,93 +337,92 @@ generate_symbols(struct elfcopy *ecp)
 			else
 				COPYSYM(64);
 
-			ecp->symtab_cnt++;
+			nsyms++;
 
 			if (dup_pos > -1)
 				continue;
 
-			while (ecp->strtab_size + strlen(name) >=
-			    ecp->strtab_cap - 1) {
-				ecp->strtab_cap *= 2;
-				ecp->strtab = realloc(ecp->strtab,
-				    ecp->strtab_cap);
-				if (ecp->strtab == NULL)
+			while (st_sz + strlen(name) >= st_cap - 1) {
+				st_cap *= 2;
+				st_buf = realloc(st_buf, st_cap);
+				if (st_buf == NULL)
 					err(EX_SOFTWARE, "realloc failed");
 			}
 
-			strncpy(&ecp->strtab[ecp->strtab_size], name,
-				strlen(name));
-			ecp->strtab_size += strlen(name);
-			ecp->strtab[ecp->strtab_size] = '\0';
+			strncpy(&st_buf[st_sz], name, strlen(name));
+			st_buf[st_sz + strlen(name)] = '\0';
+			st_sz += strlen(name) + 1;
 		}
-		n += idata->d_size;
+		n += id->d_size;
 	}
 	elferr = elf_errno();
 	if (elferr != 0)
 		errx(EX_SOFTWARE, "elf_getdata failed: %s",
 		     elf_errmsg(elferr));
 
-	/* Compute symbol table size. */
-	ecp->symtab_size = ecp->symtab_cnt *
+	ecp->symtab->sz = nsyms *
 	    (ec == ELFCLASS32 ? sizeof(Elf32_Sym) : sizeof(Elf64_Sym));
+	if (ec == ELFCLASS32)
+		ecp->symtab->buf = sy_buf32;
+	else
+		ecp->symtab->buf = sy_buf64;
+	ecp->strtab->sz = st_sz;
+	ecp->strtab->buf = st_buf;
 }
 
-size_t
-create_symtab(struct elfcopy *ecp, size_t off)
+void
+create_symtab(struct elfcopy *ecp)
 {
-	Elf_Scn *sy, *st;
+	struct section *sy, *st;
 	Elf_Data *sydata, *stdata;
 	GElf_Shdr shy, sht;
 
-	if ((sy = elf_newscn(ecp->eout)) == NULL)
-		errx(EX_SOFTWARE, "elf_newscn() failed: %s",
-		    elf_errmsg(-1));
-	if ((st = elf_newscn(ecp->eout)) == NULL)
-		errx(EX_SOFTWARE, "elf_newscn() failed: %s",
-		    elf_errmsg(-1));
+	sy = ecp->symtab;
+	st = ecp->strtab;
 
-	create_shdr(ecp, ecp->symscn, sy, ".symtab");
-	create_shdr(ecp, ecp->strscn, st, ".strtab");
+	copy_shdr(ecp, sy->is, sy->os, ".symtab");
+	copy_shdr(ecp, st->is, st->os, ".strtab");
 
-	if (gelf_getshdr(sy, &shy) == NULL)
+	if (gelf_getshdr(sy->os, &shy) == NULL)
 		errx(EX_SOFTWARE, "gelf_getshdr() failed: %s",
 		    elf_errmsg(-1));
-	if (gelf_getshdr(st, &sht) == NULL)
+	if (gelf_getshdr(st->os, &sht) == NULL)
 		errx(EX_SOFTWARE, "gelf_getshdr() failed: %s",
 		    elf_errmsg(-1));
 
 	if (ecp->flags & SYMTAB_INTACT) {
-		copy_data(ecp->symscn, sy);
-		copy_data(ecp->strscn, st);
+		copy_data(sy->is, sy->os);
+		copy_data(st->is, st->os);
 		goto update_symtab;
 	}
 
 	generate_symbols(ecp);
 
-	if ((sydata = elf_newdata(sy)) == NULL)
+	if ((sydata = elf_newdata(sy->os)) == NULL)
 		errx(EX_SOFTWARE, "elf_newdata() failed: %s.",
 		    elf_errmsg(-1));
-	if ((stdata = elf_newdata(st)) == NULL)
+	if ((stdata = elf_newdata(st->os)) == NULL)
 		errx(EX_SOFTWARE, "elf_newdata() failed: %s.",
 		    elf_errmsg(-1));
 
 	/* FIXME support format conversion. */
 	sydata->d_align		= 4;
 	sydata->d_off		= 0;
-	sydata->d_buf		= ecp->st.symtab32;
-	sydata->d_size		= ecp->symtab_size;
+	sydata->d_buf		= sy->buf;
+	sydata->d_size		= sy->sz;
 	sydata->d_type		= ELF_T_SYM;
 	sydata->d_version	= EV_CURRENT;
 
 	stdata->d_align		= 1;
 	stdata->d_off		= 0;
-	stdata->d_buf		= ecp->strtab;
-	stdata->d_size		= ecp->strtab_size;
+	stdata->d_buf		= st->buf;
+	stdata->d_size		= st->sz;
 	stdata->d_type		= ELF_T_BYTE;
 	stdata->d_version	= EV_CURRENT;
 
 	shy.sh_addr		= 0;
 	shy.sh_addralign	= 4; /* FIXME */
+	shy.sh_size		= sy->sz;
 	shy.sh_type		= SHT_SYMTAB;
 	shy.sh_flags		= 0;
 	shy.sh_entsize		= gelf_fsize(ecp->eout, ELF_T_SYM, 1,
@@ -437,6 +438,7 @@ create_symtab(struct elfcopy *ecp, size_t off)
 
 	sht.sh_addr		= 0;
 	sht.sh_addralign	= 1;
+	sht.sh_size		= st->sz;
 	sht.sh_type		= SHT_STRTAB;
 	sht.sh_flags		= 0;
 	sht.sh_entsize		= 0;
@@ -444,33 +446,16 @@ create_symtab(struct elfcopy *ecp, size_t off)
 	sht.sh_link		= 0;
 
 update_symtab:
-	shy.sh_offset = off = roundup(off, shy.sh_addralign);
-
-	if (ecp->symtab_size) {
-		shy.sh_size = ecp->symtab_size;
-		off += ecp->symtab_size;
-	} else
-		off += shy.sh_size;
-
-	sht.sh_offset = off;
-
-	if (ecp->strtab_size) {
-		sht.sh_size = ecp->strtab_size;
-		off += ecp->strtab_size;
-	} else
-		off += sht.sh_size;
 
 	/* Link .symtab and .strtab */
-	shy.sh_link	 = elf_ndxscn(st);
+	shy.sh_link = elf_ndxscn(st->os);
 
-	if (!gelf_update_shdr(sy, &shy))
+	if (!gelf_update_shdr(sy->os, &shy))
 		errx(EX_SOFTWARE, "gelf_update_shdr() failed: %s",
 		    elf_errmsg(-1));
-	if (!gelf_update_shdr(st, &sht))
+	if (!gelf_update_shdr(st->os, &sht))
 		errx(EX_SOFTWARE, "gelf_update_shdr() failed: %s",
 		    elf_errmsg(-1));
-
-	return (off);
 }
 
 void
@@ -482,7 +467,7 @@ add_to_keep_list(struct elfcopy *ecp, const char *name)
 		errx(EX_SOFTWARE, "not enough memory");
 	memset(s, 0, sizeof(*s));
 	s->name = name;
-	STAILQ_INSERT_TAIL(&ecp->v_sym_keep, s, syms);
+	STAILQ_INSERT_TAIL(&ecp->v_sym_keep, s, sym_list);
 }
 
 void
@@ -494,7 +479,7 @@ add_to_strip_list(struct elfcopy *ecp, const char *name)
 		errx(EX_SOFTWARE, "not enough memory");
 	memset(s, 0, sizeof(*s));
 	s->name = name;
-	STAILQ_INSERT_TAIL(&ecp->v_sym_strip, s, syms);
+	STAILQ_INSERT_TAIL(&ecp->v_sym_strip, s, sym_list);
 }
 
 static int
@@ -502,7 +487,7 @@ lookup_keep_symlist(struct elfcopy *ecp, const char *name)
 {
 	struct symlist *s;
 
-	STAILQ_FOREACH(s, &ecp->v_sym_keep, syms) {
+	STAILQ_FOREACH(s, &ecp->v_sym_keep, sym_list) {
 		if (strcmp(name, s->name) == 0)
 			return 1;
 	}
@@ -515,11 +500,10 @@ lookup_strip_symlist(struct elfcopy *ecp, const char *name)
 {
 	struct symlist *s;
 
-	STAILQ_FOREACH(s, &ecp->v_sym_strip, syms) {
+	STAILQ_FOREACH(s, &ecp->v_sym_strip, sym_list) {
 		if (strcmp(name, s->name) == 0)
 			return 1;
 	}
 
 	return (0);
 }
-
