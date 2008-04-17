@@ -30,29 +30,78 @@ __FBSDID("$FreeBSD$");
 #include <sys/queue.h>
 #include <err.h>
 #include <gelf.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
 
 #include "elfcopy.h"
 
+static void	insert_to_inseg_list(struct segment *seg, struct section *sec);
+
+/*
+ * Check whether a section is "loadable". If so, add it to the
+ * corresponding segment list(s) and return 1.
+ */
+int
+add_to_inseg_list(struct elfcopy *ecp, struct section *s)
+{
+	struct segment *seg;
+	int loadable;
+
+	if (ecp->ophnum == 0)
+		return (0);
+
+	/*
+	 * Segment is a different view of an ELF object. One segment can
+	 * contain one or more sections, and one section can be included
+	 * in one or more segments, or not included in any segment at all.
+	 * We call those sections which can be found in one or more segments
+	 * "loadable" sections, and call the rest "unloadable" sections.
+	 * We keep track of "loadable" sections in their containing
+	 * segment(s)' v_sec queue. These information are later used to
+	 * recalculate the extents of segments, when sections are removed,
+	 * for example.
+	 */
+	loadable = 0;
+	STAILQ_FOREACH(seg, &ecp->v_seg, seg_list) {
+		if (s->off < seg->off)
+			continue;
+		if (s->off + s->sz > seg->off + seg->fsz &&
+		    s->type != SHT_NOBITS)
+			continue;
+		if (s->off + s->sz > seg->off + seg->msz)
+			continue;
+
+		insert_to_inseg_list(seg, s);
+		loadable = 1;
+	}
+
+	return (loadable);
+}
+
+static void
+insert_to_inseg_list(struct segment *seg, struct section *sec)
+{
+	struct section *s;
+
+	TAILQ_FOREACH(s, &seg->v_sec, in_seg) {
+		if (sec->off < s->off) {
+			TAILQ_INSERT_BEFORE(s, sec, in_seg);
+			return;
+		}
+	}
+
+	TAILQ_INSERT_TAIL(&seg->v_sec, sec, in_seg);
+}
+
 void
 setup_phdr(struct elfcopy *ecp)
 {
 	struct segment *seg;
-	struct section *sec;
-	GElf_Shdr ishdr;
 	GElf_Phdr iphdr;
-	Elf_Scn *iscn;
-	char *name;
-	size_t ishstrndx;
-	int iphnum;
-	int elferr;
-	int i;
+	int iphnum, i;
 
-	if (elf_getshstrndx(ecp->ein, &ishstrndx) == 0)
-		errx(EX_SOFTWARE, "elf_getshstrndx failed: %s",
-		     elf_errmsg(-1));
 	if (elf_getphnum(ecp->ein, &iphnum) == 0)
 		errx(EX_DATAERR, "elf_getphnum failed: %s",
 		    elf_errmsg(-1));
@@ -61,79 +110,38 @@ setup_phdr(struct elfcopy *ecp)
 	if (iphnum == 0)
 		return;
 
-	if ((ecp->v_seg = malloc(sizeof(*ecp->v_seg) * iphnum)) == NULL)
-		err(EX_SOFTWARE, "malloc failed");
-	memset(ecp->v_seg, 0, sizeof(*ecp->v_seg) * iphnum);
-
 	for (i = 0; i < iphnum; i++) {
 		if (gelf_getphdr(ecp->ein, i, &iphdr) != &iphdr)
 			errx(EX_SOFTWARE, "gelf_getphdr failed: %s",
 			    elf_errmsg(-1));
-		seg = &ecp->v_seg[i];
-		seg->off = iphdr.p_offset;
-		seg->fsize = iphdr.p_filesz;
-		seg->msize = iphdr.p_memsz;
+		if ((seg = calloc(1, sizeof(*seg))) == NULL)
+			err(EX_SOFTWARE, "calloc failed");
+		seg->off	= iphdr.p_offset;
+		seg->fsz	= iphdr.p_filesz;
+		seg->msz	= iphdr.p_memsz;
+		seg->type	= iphdr.p_type;
 		TAILQ_INIT(&seg->v_sec);
+		STAILQ_INSERT_TAIL(&ecp->v_seg, seg, seg_list);
 	}
-
-	/*
-	 * Some of the sections are included in one or more segments.
-	 * Find these sections and keep a record in their containing
-	 * segments' v_sec queues. These information are later used to
-	 * recalculate the extents of segments, when sections are removed,
-	 * for example.
-	 */
-	iscn = NULL;
-	while ((iscn = elf_nextscn(ecp->ein, iscn)) != NULL) {
-		if (gelf_getshdr(iscn, &ishdr) != &ishdr)
-			errx(EX_SOFTWARE, "elf_getshdr failed: %s",
-			    elf_errmsg(-1));
-		if ((name = elf_strptr(ecp->ein, ishstrndx, ishdr.sh_name)) ==
-		    NULL)
-			errx(EX_SOFTWARE, "elf_strptr failed: %s",
-			    elf_errmsg(-1));
-
-		for (i = 0; i < iphnum; i++) {
-			seg = &ecp->v_seg[i];
-			if (ishdr.sh_offset < seg->off)
-				continue;
-			if (ishdr.sh_offset + ishdr.sh_size > seg->off +
-			    seg->fsize && ishdr.sh_type != SHT_NOBITS)
-				continue;
-			if (ishdr.sh_offset + ishdr.sh_size > seg->off +
-			    seg->msize)
-				continue;
-
-			if ((sec = malloc(sizeof(*sec))) == NULL)
-				errx(EX_SOFTWARE, "malloc failed");
-			sec->name = name;
-			sec->off = ishdr.sh_offset;
-			sec->size = ishdr.sh_size;
-			add_to_sec_list(seg, sec);
-		}
-	}
-	elferr = elf_errno();
-	if (elferr != 0)
-		errx(EX_SOFTWARE, "elf_nextscn failed: %s",
-		    elf_errmsg(elferr));
-
-
 }
 
 void
 copy_phdr(struct elfcopy *ecp)
 {
 	struct segment *seg;
-	struct section *lsec;
+	struct section *s;
 	GElf_Phdr iphdr, ophdr;
 	size_t t;
 	int i;
 
-	for (i = 1; i < ecp->iphnum; i++) {
-		seg = &ecp->v_seg[i];
+	STAILQ_FOREACH(seg, &ecp->v_seg, seg_list) {
+		/* Do not touch phdr itself. */
+		if (seg->type == PT_PHDR)
+			continue;
+
 		if (!TAILQ_EMPTY(&seg->v_sec)) {
-			lsec = TAILQ_LAST(&seg->v_sec, sec_head);
-			t = lsec->off + lsec->size - seg->off;
+			s = TAILQ_LAST(&seg->v_sec, sec_head);
+			t = s->off + s->sz - seg->off;
 			/*
 			 * XXX Here we check whether need to "Shrink"
 			 * fsize and msize by comparing the extend of
@@ -144,10 +152,10 @@ copy_phdr(struct elfcopy *ecp)
 			 * removed, we assume file size and mem size
 			 * become the same. This might not be right.
 			 */
-			if (seg->msize != t)
-				seg->fsize = seg->msize = t;
+			if (seg->msz != t)
+				seg->fsz = seg->msz = t;
 		} else
-			seg->fsize = seg->msize = 0;
+			seg->fsz = seg->msz = 0;
 	}
 
 	/*
@@ -171,7 +179,10 @@ copy_phdr(struct elfcopy *ecp)
 	 * headers even if they no longer contain sections.
 	 * Need more observation of objcopy's behaviour.
 	 */
-	for (i = 0; i < ecp->iphnum; i++) {
+	i = 0;
+	STAILQ_FOREACH(seg, &ecp->v_seg, seg_list) {
+		if (i >= ecp->iphnum)
+			break;
 		if (gelf_getphdr(ecp->ein, i, &iphdr) != &iphdr)
 			errx(EX_SOFTWARE, "gelf_getphdr failed: %s",
 			    elf_errmsg(-1));
@@ -179,40 +190,18 @@ copy_phdr(struct elfcopy *ecp)
 			errx(EX_SOFTWARE, "gelf_getphdr failed: %s",
 			    elf_errmsg(-1));
 
-		seg = &ecp->v_seg[i];
 		ophdr.p_type = iphdr.p_type;
 		ophdr.p_vaddr = iphdr.p_vaddr;
 		ophdr.p_paddr = iphdr.p_paddr;
 		ophdr.p_flags = iphdr.p_flags;
 		ophdr.p_align = iphdr.p_align;
 		ophdr.p_offset = iphdr.p_offset;
-		ophdr.p_filesz = seg->fsize;
-		ophdr.p_memsz = seg->msize;
-
+		ophdr.p_filesz = seg->fsz;
+		ophdr.p_memsz = seg->msz;
 		if (!gelf_update_phdr(ecp->eout, i, &ophdr))
 			err(EX_SOFTWARE, "gelf_update_phdr failed :%s",
 			    elf_errmsg(-1));
+
+		i++;
 	}
 }
-
-void
-remove_section(struct elfcopy *ecp, GElf_Shdr *sh, const char *name)
-{
-	struct section *s, *s_temp;
-	struct segment *seg;
-	int i;
-
-	for(i = 0; i < ecp->iphnum; i++) {
-		seg = &ecp->v_seg[i];
-		TAILQ_FOREACH_SAFE(s, &seg->v_sec, sec_next, s_temp) {
-			if (strcmp(name, s->name) == 0 &&
-			    sh->sh_offset == s->off &&
-			    sh->sh_size == s->size) {
-				TAILQ_REMOVE(&seg->v_sec, s, sec_next);
-				free(s);
-				break;
-			}
-		}
-	}
-}
-
