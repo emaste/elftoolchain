@@ -39,9 +39,7 @@
  * DWARF debug information from http://dwarfstd.org/Dwarf3.pdf
  */
 
-/**
- * @brief Common header for CU, line number program for 32-bit DWARF
- */
+/** @brief Common header for CU, line number program for 32-bit DWARF. */
 struct header_32 {
 	/**
 	 * address size for CU.
@@ -56,9 +54,7 @@ struct header_32 {
 	uint32_t	len;
 };
 
-/**
- * @brief Common header for CU, line number program for 64-bit DWARF
- */
+/** @brief Common header for CU, line number program for 64-bit DWARF. */
 struct header_64 {
 	/**
 	 * address size for CU.
@@ -73,20 +69,29 @@ struct header_64 {
 	uint64_t	len;
 };
 
-/**
- * @brief Register of line number information state machine.
- */
+/** @brief Register of line number information state machine. */
 struct state_register {
+	/** Address */
 	uint64_t	addr;
+	/** Filename idx */
 	uint64_t	file;
+	/** Line number */
 	uint64_t	line;
+	/** Column */
 	uint64_t	col;
 };
 
-/* line number program specific header */
+/** @brief Line number program specific header. */
 struct LNP_header {
+	/** Line base */
 	char		line_base;
-	unsigned char	min_inst_len, line_range, opcode_base;
+	/** Minimum instruction length */
+	unsigned char	min_inst_len;
+	/** Line range */
+	unsigned char	line_range;
+	/** Opcode base */
+	unsigned char	opcode_base;
+	/** Standard opcode lengths */
 	unsigned char	std_opcode_length[255];
 };
 
@@ -618,7 +623,7 @@ get_file_names(char *p, struct vector_comp_dir *c_dir, struct vector_str *dir,
 			    dir->container[dir_idx - 1], cur_file_name);
 		}
 
-		if (vector_str_push(f, full_file_name, len) == 0) {
+		if (vector_str_push(f, full_file_name, len) == false) {
 			free(full_file_name);
 
 			return (0);
@@ -699,7 +704,7 @@ get_include_dir(char *p, struct vector_str *v)
 
 	for (;;) {
 		const size_t len = strlen(p);
-		if (vector_str_push(v, p, len) == 0)
+		if (vector_str_push(v, p, len) == false)
 			return (0);
 
 		p += len + 1;
@@ -1137,7 +1142,7 @@ start:
 	ptr += i;
 
 	/* include_directory */
-	if (vector_str_init(&dir_names) == 0)
+	if (vector_str_init(&dir_names) == false)
 		return (0);
 
 	if ((i = get_include_dir((char *)ptr, &dir_names)) == 0) {
@@ -1149,7 +1154,7 @@ start:
 	ptr += i;
 
 	/* file_names */
-	if (vector_str_init(&file_names) == 0) {
+	if (vector_str_init(&file_names) == false) {
 		rtn = 0;
 
 		goto clean;
