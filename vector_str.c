@@ -30,6 +30,13 @@
 
 #include "vector_str.h"
 
+/**
+ * @file vector_str.c
+ * @brief Dynamic vector data for string implementation.
+ *
+ * Resemble to std::vector<std::string> in C++.
+ */
+
 void
 vector_str_dest(struct vector_str *v)
 {
@@ -43,7 +50,6 @@ vector_str_dest(struct vector_str *v)
 	free(v->container);
 }
 
-/* return -1 at failed, 0 at not found, 1 at found. */
 int
 vector_str_find(struct vector_str *v, const char *o, size_t l)
 {
@@ -58,11 +64,6 @@ vector_str_find(struct vector_str *v, const char *o, size_t l)
 	return (0);
 }
 
-/*
- * Get new allocated flat string from vector
- * Return NULL at failed or NUL terminated new allocated string.
- * If l is not NULL, return length of string.
-*/
 char *
 vector_str_get_flat(struct vector_str *v, size_t *l)
 {
@@ -99,47 +100,42 @@ vector_str_get_flat(struct vector_str *v, size_t *l)
 	return (rtn);
 }
 
-int
+bool
 vector_str_init(struct vector_str *v)
 {
 
 	if (v == NULL)
-		return (0);
+		return (false);
 
 	v->size = 0;
 	v->capacity = VECTOR_DEF_CAPACITY;
 
 	if ((v->container = malloc(sizeof(char *) * v->capacity)) == NULL)
-		return (0);
+		return (false);
 
 	assert(v->container != NULL);
 
-	return (1);
+	return (true);
 }
 
-int
+bool
 vector_str_pop(struct vector_str *v)
 {
 
 	if (v == NULL)
-		return (0);
+		return (false);
 
 	if (v->size == 0)
-		return (1);
+		return (true);
 
 	--v->size;
 
 	free(v->container[v->size]);
 	v->container[v->size] = NULL;
 
-	return (1);
+	return (true);
 }
 
-/*
- * Return substring begin to end.
- * Return new allocated string or NULL. If r_len is not null, string length
- * will be returned.
- */
 char *
 vector_str_substr(struct vector_str *v, size_t begin, size_t end,
     size_t *r_len)
@@ -171,19 +167,19 @@ vector_str_substr(struct vector_str *v, size_t begin, size_t end,
 	return (rtn);
 }
 
-int
+bool
 vector_str_push(struct vector_str *v, const char *str, size_t len)
 {
 
 	if (v == NULL || str == NULL)
-		return (0);
+		return (false);
 
 	if (v->size == v->capacity) {
 		const size_t tmp_cap = v->capacity * BUFFER_GROWFACTOR;
 		char **tmp_ctn;
 
 		if ((tmp_ctn = malloc(sizeof(char *) * tmp_cap)) == NULL)
-			return (0);
+			return (false);
 
 		for (size_t i = 0; i < v->size; ++i)
 			tmp_ctn[i] = v->container[i];
@@ -195,30 +191,30 @@ vector_str_push(struct vector_str *v, const char *str, size_t len)
 	}
 
 	if ((v->container[v->size] = malloc(sizeof(char) * (len + 1))) == NULL)
-		return (0);
+		return (false);
 
 	snprintf(v->container[v->size], len + 1, "%s", str);
 
 	++v->size;
 
-	return (1);
+	return (true);
 }
 
-int
+bool
 vector_str_push_vector_head(struct vector_str *dst, struct vector_str *org)
 {
 	size_t tmp_cap;
 	char **tmp_ctn;
 
 	if (dst == NULL || org == NULL)
-		return (0);
+		return (false);
 
 	tmp_cap = dst->capacity;
 	while (tmp_cap - dst->size < org->size)
 		tmp_cap *= BUFFER_GROWFACTOR;
 
 	if ((tmp_ctn = malloc(sizeof(char *) * tmp_cap)) == NULL)
-		return (0);
+		return (false);
 
 	for (size_t i = 0; i < org->size; ++i)
 		if ((tmp_ctn[i] = strdup(org->container[i])) == NULL) {
@@ -227,7 +223,7 @@ vector_str_push_vector_head(struct vector_str *dst, struct vector_str *org)
 
 			free(tmp_ctn);
 
-			return (0);
+			return (false);
 		}
 
 	for (size_t i = 0; i < dst->size; ++i)
@@ -239,5 +235,5 @@ vector_str_push_vector_head(struct vector_str *dst, struct vector_str *org)
 	dst->capacity = tmp_cap;
 	dst->size += org->size;
 
-	return (1);
+	return (true);
 }

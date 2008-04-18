@@ -27,23 +27,83 @@
 #ifndef	GUARD_VECTOR_STR_H
 #define	GUARD_VECTOR_STR_H
 
+#include <stdbool.h>
 #include <stdlib.h>
+
+/**
+ * @file vector_str.h
+ * @brief Dynamic vector data for string.
+ *
+ * Resemble to std::vector<std::string> in C++.
+ */
 
 #define VECTOR_DEF_CAPACITY	12
 #define BUFFER_GROWFACTOR	1.61
 
+/** @brief Dynamic vector data for string. */
 struct vector_str {
-	size_t		size, capacity;
+	/** Current size */
+	size_t		size;
+	/** Total capacity */
+	size_t		capacity;
+	/** String array */
 	char		**container;
 };
 
+/** @brief Deallocate resource in vector_str. */
 void	vector_str_dest(struct vector_str *);
-int	vector_str_find(struct vector_str *, const char *, size_t);
-char	*vector_str_get_flat(struct vector_str *, size_t *);
-int	vector_str_init(struct vector_str *);
-int	vector_str_pop(struct vector_str *);
-char	*vector_str_substr(struct vector_str *, size_t, size_t, size_t *);
-int	vector_str_push(struct vector_str *, const char *, size_t);
-int	vector_str_push_vector_head(struct vector_str *, struct vector_str*);
+
+/**
+ * @brief Find string in vector_str.
+ * @param v Destination vector.
+ * @param o String to find.
+ * @param l Length of the string.
+ * @return -1 at failed, 0 at not found, 1 at found.
+ */
+int	vector_str_find(struct vector_str *v, const char *o, size_t l);
+
+/**
+ * @brief Get new allocated flat string from vector.
+ *
+ * If l is not NULL, return length of the string.
+ * @param v Destination vector.
+ * @param l Length of the string.
+ * @return NULL at failed or NUL terminated new allocated string.
+ */
+char	*vector_str_get_flat(struct vector_str *v, size_t *l);
+
+/**
+ * @brief Initialize vector_str.
+ * @return false at failed, true at success.
+ */
+bool	vector_str_init(struct vector_str *);
+
+/**
+ * @brief Remove last element in vector_str.
+ * @return false at failed, true at success.
+ */
+bool	vector_str_pop(struct vector_str *);
+
+/**
+ * @brief Get new allocated flat string from vector between begin and end.
+ *
+ * If r_len is not NULL, string length will be returned.
+ * @return NULL at failed or NUL terminated new allocated string.
+ */
+char	*vector_str_substr(struct vector_str *v, size_t begin, size_t end,
+	    size_t *r_len);
+
+/**
+ * @brief Push back string to vector.
+ * @return false at failed, true at success.
+ */
+bool	vector_str_push(struct vector_str *, const char *, size_t);
+
+/**
+ * @brief Push front org vector to det vector.
+ * @return false at failed, true at success.
+ */
+bool	vector_str_push_vector_head(struct vector_str *dst,
+	    struct vector_str *org);
 
 #endif /* !GUARD_VECTOR_STR_H */
