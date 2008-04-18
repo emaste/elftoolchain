@@ -852,7 +852,7 @@ read_elf(const char *filename)
 					}
 
 					if (strncmp(shname, ".rela.debug_line",
-						11) == 0) {
+						16) == 0) {
 						if ((dbg_rela_line =
 							elf_getdata(scn, NULL))
 						    == NULL)
