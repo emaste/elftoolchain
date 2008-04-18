@@ -27,19 +27,33 @@
 #ifndef	GUARD_CPP_DEMANGLE_H
 #define	GUARD_CPP_DEMANGLE_H
 
-/*
- *  Decode(demangle) the input string by IA-64 C++ ABI style that
- * used in GNU GCC v3.
+#include <stdbool.h>
+
+/**
+ * @file cpp_demangle.h
+ * @brief Decode IA-64 C++ ABI style.
  *
- * Return new allocated demangled string or NULL if failed.
+ * IA-64 standard ABI(Itanium C++ ABI) references.
+ *
+ * http://www.codesourcery.com/cxx-abi/abi.html#mangling \n
+ * http://www.codesourcery.com/cxx-abi/abi-mangling.html
+ */
+
+/**
+ * @brief Decode the input string by IA-64 C++ ABI style.
+ *
+ * GNU GCC v3 use IA-64 standard ABI.
+ * @return New allocated demangled string or NULL if failed.
+ * @todo 1. Testing and more test case. 2. Code cleaning.
  */
 char	*cpp_demangle_ia64(const char *);
 
-/*
- *  Test input string is mangled by IA-64 C++ ABI style.
+/**
+ * @brief Test input string is mangled by IA-64 C++ ABI style.
  *
- * Return 0 at false.
+ * Test string heads with "_Z" or "_GLOBAL__I_".
+ * @return Return 0 at false.
  */
-int	is_cpp_mangled_ia64(const char *);
+bool	is_cpp_mangled_ia64(const char *);
 
 #endif /* !GUARD_CPP_DEMANGLE_H */
