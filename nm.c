@@ -134,6 +134,7 @@ static void		print_ar_index(int fd, Elf *);
 static void		print_version(void);
 static int		read_elf(const char *);
 static int		readfile(const char *, const char *);
+static unsigned char	*relocate_sec(Elf_Data *, Elf_Data *, int);
 static int		search_addr(struct vector_line_info *, GElf_Sym *);
 static void		set_g_value_print_fn(enum radix);
 static int		sym_elem_def(char, const GElf_Sym *, const char *);
@@ -622,7 +623,8 @@ read_elf(const char *filename)
 	GElf_Half i;
 	const char *shname, *objname;
 	char *type_table, **sec_table;
-	size_t strndx, shnum;
+	void *dbg_info_buf, *dbg_str_buf, *dbg_line_buf;
+	size_t strndx, shnum, dbg_info_size, dbg_str_size, dbg_line_size;
 	struct sym_head list_head;
 	Elf_Cmd elf_cmd;
 	Elf *arf, *elf;
@@ -630,8 +632,8 @@ read_elf(const char *filename)
 	struct sym_print_data p_data;
 	Elf_Arhdr *arhdr;
 	Elf_Scn *scn;
-	Elf_Data *dynstr_data, *strtab_data, *debug_info_data;
-	Elf_Data *debug_abbrev_data, *debug_str_data, *debug_line_data;
+	Elf_Data *dynstr_data, *strtab_data, *dbg_info, *dbg_rela_info;
+	Elf_Data *dbg_abbrev, *dbg_str, *dbg_line, *dbg_rela_line;
 	GElf_Shdr shdr;
 	struct vector_comp_dir *v_comp_dir;
 	struct vector_line_info *v_line_info;
@@ -679,12 +681,17 @@ read_elf(const char *filename)
 	while ((elf = elf_begin(fd, elf_cmd, arf)) != NULL) {
 		type_table = NULL;
 		sec_table = NULL;
+		dbg_info_buf = NULL;
+		dbg_str_buf = NULL;
+		dbg_line_buf = NULL;
 		dynstr_data = NULL;
 		strtab_data = NULL;
-		debug_info_data = NULL;
-		debug_abbrev_data = NULL;
-		debug_str_data = NULL;
-		debug_line_data = NULL;
+		dbg_info = NULL;
+		dbg_rela_info = NULL;
+		dbg_abbrev = NULL;
+		dbg_str = NULL;
+		dbg_line = NULL;
+		dbg_rela_line = NULL;
 		v_comp_dir = NULL;
 		v_line_info = NULL;
 
@@ -806,7 +813,15 @@ read_elf(const char *filename)
 				if (g_debug_line == true) {
 					if (strncmp(shname, ".debug_info",
 						11) == 0) {
-						if ((debug_info_data =
+						if ((dbg_info =
+							elf_getdata(scn, NULL))
+						    == NULL)
+							goto next_cmd;
+					}
+
+					if (strncmp(shname, ".rela.debug_info",
+						16) == 0) {
+						if ((dbg_rela_info =
 							elf_getdata(scn, NULL))
 						    == NULL)
 							goto next_cmd;
@@ -814,7 +829,7 @@ read_elf(const char *filename)
 
 					if (strncmp(shname, ".debug_abbrev",
 						11) == 0) {
-						if ((debug_abbrev_data =
+						if ((dbg_abbrev =
 							elf_getdata(scn, NULL))
 						    == NULL)
 							goto next_cmd;
@@ -822,7 +837,7 @@ read_elf(const char *filename)
 
 					if (strncmp(shname, ".debug_str", 11) ==
 					    0) {
-						if ((debug_str_data =
+						if ((dbg_str =
 							elf_getdata(scn, NULL))
 						    == NULL)
 							goto next_cmd;
@@ -830,7 +845,15 @@ read_elf(const char *filename)
 
 					if (strncmp(shname, ".debug_line",
 						11) == 0) {
-						if ((debug_line_data =
+						if ((dbg_line =
+							elf_getdata(scn, NULL))
+						    == NULL)
+							goto next_cmd;
+					}
+
+					if (strncmp(shname, ".rela.debug_line",
+						11) == 0) {
+						if ((dbg_rela_line =
 							elf_getdata(scn, NULL))
 						    == NULL)
 							goto next_cmd;
@@ -883,37 +906,41 @@ read_elf(const char *filename)
 
 		TAILQ_INIT(&list_head);
 
-		if (g_debug_line == true && debug_info_data != NULL &&
-		    debug_abbrev_data != NULL && debug_line_data != NULL) {
+		if (g_debug_line == true && dbg_info != NULL &&
+		    dbg_abbrev != NULL && dbg_line != NULL) {
 
 			if ((v_comp_dir =
 				malloc(sizeof(struct vector_comp_dir)))
 			    != NULL) {
 				vector_comp_dir_init(v_comp_dir);
 
-				if (debug_str_data == NULL) {
-					if (get_dwarf_info(debug_info_data->d_buf,
-						debug_info_data->d_size,
-						debug_abbrev_data->d_buf,
-						debug_abbrev_data->d_size,
-						NULL, 0,
-						v_comp_dir) == 0) {
-						vector_comp_dir_dest(v_comp_dir);
-						free(v_comp_dir);
-						v_comp_dir = NULL;
-					}
+				if (dbg_rela_info == NULL) {
+					dbg_info_buf = dbg_info->d_buf;
+					dbg_info_size = dbg_info->d_size;
 				} else {
-					if (get_dwarf_info(debug_info_data->d_buf,
-						debug_info_data->d_size,
-						debug_abbrev_data->d_buf,
-						debug_abbrev_data->d_size,
-						debug_str_data->d_buf,
-						debug_str_data->d_size,
-						v_comp_dir) == 0) {						   
-						vector_comp_dir_dest(v_comp_dir);
-						free(v_comp_dir);
-						v_comp_dir = NULL;
-					}
+					dbg_info_buf = relocate_sec(dbg_info,
+					    dbg_rela_info, gelf_getclass(elf));
+					dbg_info_size = dbg_info->d_size;
+				}
+
+				if (dbg_str == NULL) {
+					dbg_str_buf = NULL;
+					dbg_str_size = 0;
+				} else {
+					dbg_str_buf =
+					    dbg_str->d_buf;
+					dbg_str_size =
+					    dbg_str->d_size;
+				}
+
+				if (dbg_info_buf == NULL ||
+				    get_dwarf_info(dbg_info_buf, dbg_info_size,
+					dbg_abbrev->d_buf, dbg_abbrev->d_size,
+					dbg_str_buf, dbg_str_size,
+					v_comp_dir) == 0) {
+					vector_comp_dir_dest(v_comp_dir);
+					free(v_comp_dir);
+					v_comp_dir = NULL;
 				}
 			}
 
@@ -923,8 +950,18 @@ read_elf(const char *filename)
 
 				vector_line_info_init(v_line_info);
 
-				if (get_dwarf_line_info(debug_line_data->d_buf,
-					debug_line_data->d_size,
+				if (dbg_rela_line == NULL) {
+					dbg_line_buf = dbg_line->d_buf;
+					dbg_line_size = dbg_line->d_size;
+				} else {
+					dbg_line_buf = relocate_sec(dbg_line,
+					    dbg_rela_line, gelf_getclass(elf));
+					dbg_line_size = dbg_line->d_size;
+				}
+
+				if (dbg_line_buf == NULL ||
+				    get_dwarf_line_info(dbg_line_buf,
+					dbg_line_size,
 					v_comp_dir,
 					v_line_info) == 0) {
 
@@ -960,6 +997,12 @@ next_cmd:
 				free(v_line_info);
 				v_line_info = NULL;
 			}
+
+			if (dbg_rela_line != NULL)
+				free(dbg_line_buf);
+
+			if (dbg_rela_info != NULL)
+				free(dbg_info_buf);
 		}
 
 		sym_list_dest(&list_head);
@@ -1024,6 +1067,44 @@ readfile(const char *filename, const char *topt)
 	};
 
 	return (1);
+}
+
+static unsigned char *
+relocate_sec(Elf_Data *org, Elf_Data *rela, int class)
+{
+	unsigned char *rtn;
+	int i;
+	Elf32_Sword add32;
+	Elf64_Sword add64;
+	GElf_Rela ra;
+
+	if (org == NULL || rela == NULL || class == ELFCLASSNONE)
+		return (NULL);
+
+	if (class != ELFCLASS32 && class != ELFCLASS64)
+		return (NULL);
+
+	if ((rtn = malloc(sizeof(unsigned char) * org->d_size)) == NULL)
+		return (NULL);
+
+	memcpy(rtn, org->d_buf, org->d_size);
+	
+	i = 0;
+	while (gelf_getrela(rela, i, &ra) != NULL) {
+		if (class == ELFCLASS32) {
+			memcpy(&add32, rtn + ra.r_offset, sizeof(add32));
+			add32 += (Elf32_Sword)ra.r_addend;
+			memcpy(rtn + ra.r_offset, &add32, sizeof(add32));
+		} else {
+			memcpy(&add64, rtn + ra.r_offset, sizeof(add64));
+			add64 += (Elf64_Sword)ra.r_addend;
+			memcpy(rtn + ra.r_offset, &add64, sizeof(add64));
+		}
+
+		++i;
+	}
+
+	return (rtn);
 }
 
 static int
