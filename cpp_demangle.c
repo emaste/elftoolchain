@@ -38,6 +38,16 @@
 #include "cpp_demangle.h"
 #include "vector_str.h"
 
+/**
+ * @file cpp_demangle.c
+ * @brief Decode IA-64 C++ ABI style implementation.
+ *
+ * IA-64 standard ABI(Itanium C++ ABI) references.
+ *
+ * http://www.codesourcery.com/cxx-abi/abi.html#mangling \n
+ * http://www.codesourcery.com/cxx-abi/abi-mangling.html
+ */
+
 enum type_qualifier {
 	TYPE_PTR, TYPE_REF, TYPE_CMX, TYPE_IMG, TYPE_EXT, TYPE_RST, TYPE_VAT,
 	TYPE_CST
@@ -151,19 +161,6 @@ static int	vector_type_qualifier_push(struct vector_type_qualifier *,
 
 int		g_vector_str_push_head;
 
-/*
- * GNU GCC v3 use IA-64 standard ABI(Itanium C++ ABI), so I reference
- * below site to implement demangling :
- *
- * http://www.codesourcery.com/cxx-abi/abi.html#mangling
- * http://www.codesourcery.com/cxx-abi/abi-mangling.html
- *
- * Return new allocated demangled name or NULL.
- *
- * Todo
- * 1. Testing and more test case.
- * 2. Code cleaning.
- */
 char *
 cpp_demangle_ia64(const char *org)
 {
@@ -3382,7 +3379,7 @@ hex_to_dec(char c)
 	};
 }
 
-int
+bool
 is_cpp_mangled_ia64(const char *org)
 {
 	size_t len;
