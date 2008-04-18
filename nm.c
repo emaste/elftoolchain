@@ -1586,7 +1586,8 @@ sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
 	
 	g_elem_print_fn(type, sec, ep->sym, ep->name);
 
-	if (g_debug_line == true && line_info != NULL) {
+	if (g_debug_line == true && line_info != NULL &&
+	    !IS_UNDEF_SYM_TYPE(type)) {
 		if ((i = search_addr(line_info, ep->sym)) != -1) {
 			printf("\t%s:%" PRIu64, line_info->info[i].file,
 			    line_info->info[i].line);
