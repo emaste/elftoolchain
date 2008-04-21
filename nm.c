@@ -130,6 +130,11 @@ static char		get_sym_type(const GElf_Sym *, const char *);
 static enum target	get_target(const char *);
 static enum target	get_target_option(const char *);
 static void		global_init(void);
+static bool		is_sec_bss(GElf_Shdr *);
+static bool		is_sec_data(GElf_Shdr *);
+static bool		is_sec_debug(GElf_Shdr *);
+static bool		is_sec_readonly(GElf_Shdr *);
+static bool		is_sec_text(GElf_Shdr *);
 static void		print_ar_index(int fd, Elf *);
 static void		print_version(void);
 static int		read_elf(const char *);
@@ -538,6 +543,59 @@ global_init(void)
 	SLIST_INIT(&g_filter);
 }
 
+static bool
+is_sec_bss(GElf_Shdr *s)
+{
+
+	assert(s != NULL && "shdr is NULL");
+
+	return (s->sh_type == SHT_NOBITS &&
+	    s->sh_flags == (SHF_ALLOC + SHF_WRITE));
+}
+
+static bool
+is_sec_data(GElf_Shdr *s)
+{
+
+	assert(s != NULL && "shdr is NULL");
+
+	return ((s->sh_type == SHT_PROGBITS &&
+		s->sh_flags == (SHF_ALLOC + SHF_WRITE)) ||
+	    s->sh_type == SHT_DYNAMIC);
+}
+
+static bool
+is_sec_debug(GElf_Shdr *s)
+{
+
+	assert(s != NULL && "shdr is NULL");
+
+	return (s->sh_type == SHT_PROGBITS && s->sh_flags == 0);
+}
+
+static bool
+is_sec_readonly(GElf_Shdr *s)
+{
+
+	assert(s != NULL && "shdr is NULL");
+
+	return ((s->sh_type == SHT_PROGBITS &&
+		(s->sh_flags == SHF_ALLOC ||
+		    s->sh_flags == (SHF_ALLOC + SHF_MERGE) ||
+		    s->sh_flags == (SHF_ALLOC + SHF_MERGE + SHF_STRINGS))) ||
+	    s->sh_type == SHT_NOTE);
+}
+
+static bool
+is_sec_text(GElf_Shdr *s)
+{
+
+	assert(s != NULL && "shdr is NULL");
+
+	return (s->sh_type == SHT_PROGBITS &&
+	    s->sh_flags == (SHF_ALLOC + SHF_EXECINSTR));
+}
+
 static void
 print_ar_index(int fd, Elf *arf)
 {
@@ -862,38 +920,16 @@ read_elf(const char *filename)
 			} else if ((sec_table[i] = strdup("*UND*")) == NULL)
 				goto next_cmd;
 
-			if (shdr.sh_type == SHT_NOBITS &&
-			    shdr.sh_flags == (SHF_ALLOC + SHF_WRITE)) {
-
-				/* bss */
+			if (is_sec_bss(&shdr) == true)
 				type_table[i] = 'B';
-
-			} else if ((shdr.sh_type == SHT_PROGBITS &&
-				shdr.sh_flags == (SHF_ALLOC + SHF_WRITE)) ||
-			    shdr.sh_type == SHT_DYNAMIC) {
-
-				/* data */
+			else if (is_sec_data(&shdr) == true)
 				type_table[i] = 'D';
-
-			} else if (shdr.sh_type == SHT_PROGBITS &&
-			    shdr.sh_flags == (SHF_ALLOC + SHF_EXECINSTR)) {
-
-				/* text */
+			else if (is_sec_text(&shdr) == true)
 				type_table[i] = 'T';
-
-			} else if ((shdr.sh_type == SHT_PROGBITS &&
-				shdr.sh_flags == SHF_ALLOC) ||
-			    shdr.sh_type == SHT_NOTE) {
-
-				/* read only */
+			else if (is_sec_readonly(&shdr) == true)
 				type_table[i] = 'R';
-
-			} else if (shdr.sh_type == SHT_PROGBITS &&
-			    shdr.sh_flags == 0) {
-
-				/* debug */
+			else if (is_sec_debug(&shdr) == true)
 				type_table[i] = 'N';
-			}
 		}
 
 		if ((dynstr_data == NULL && g_print_symbol == PRINT_SYM_DYN) ||
@@ -1275,7 +1311,8 @@ sym_elem_print_all_portable(char type, const char *sec, const GElf_Sym *sym,
 
 		if (sym->st_size != 0)
 			g_size_print_fn(sym);
-	}
+	} else
+		printf("        ");
 }
 
 static void
@@ -1315,7 +1352,7 @@ sym_elem_print_all_sysv(char type, const char *sec, const GElf_Sym *sym,
 	else
 		g_value_print_fn(sym);
 
-	printf("|   %c	|", type);
+	printf("|   %c  |", type);
 
 	switch (sym->st_info & 0xf) {
 	case STT_OBJECT:
@@ -1492,14 +1529,18 @@ sym_list_print(struct sym_print_data *p, struct vector_line_info *line_info)
 		printf(":\n\n");
 
 		printf("\
-Name                  Value           Class        Type           Size             Line  Section\n");
+Name                  Value           Class        Type         Size             Line  Section\n\n");
 	} else {
 		/* archive file without -A option */
 		if (g_print_name != PRINT_NAME_FULL && p->objname != NULL)
 			printf("%s[%s]:\n", p->filename, p->objname);
 		/* multiple files(not archive) without -A option */
-		else if (g_print_name == PRINT_NAME_MULTI)
+		else if (g_print_name == PRINT_NAME_MULTI) {
+			if (g_elem_print_fn == sym_elem_print_all)
+				printf("\n");
+
 			printf("%s:\n", p->filename);
+		}
 	}
 
 	if (g_sort_reverse == false)
@@ -1571,7 +1612,7 @@ sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
 
 		break;
 	case SHN_COMMON:
-		sec = "*COMMON*";
+		sec = "*COM*";
 
 		break;
 	case SHN_HIRESERVE:
