@@ -583,7 +583,14 @@ is_sec_readonly(GElf_Shdr *s)
 		(s->sh_flags == SHF_ALLOC ||
 		    s->sh_flags == (SHF_ALLOC + SHF_MERGE) ||
 		    s->sh_flags == (SHF_ALLOC + SHF_MERGE + SHF_STRINGS))) ||
-	    s->sh_type == SHT_NOTE);
+	    s->sh_type == SHT_NOTE ||
+	    s->sh_type == SHT_HASH ||
+	    s->sh_type == SHT_DYNSYM ||
+	    s->sh_type == SHT_STRTAB ||
+	    s->sh_type == SHT_RELA ||
+	    s->sh_type == SHT_GNU_verdef ||
+	    s->sh_type == SHT_GNU_verneed ||
+	    s->sh_type == SHT_GNU_versym);
 }
 
 static bool
@@ -1413,7 +1420,8 @@ sym_elem_global(char type, const GElf_Sym *sym, const char *name)
 	UNUSED(sym);
 	UNUSED(name);
 
-	return (isupper(type));
+	/* weak symbols resemble global. */
+	return (isupper(type) || type == 'w');
 }
 
 static int
