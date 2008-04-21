@@ -1175,7 +1175,7 @@ sym_elem_print_all(char type, const char *sec, const GElf_Sym *sym,
 		return;
 
 	if (IS_UNDEF_SYM_TYPE(type))
-		printf("		");
+		printf("                ");
 	else {
 		switch ((g_sort_fn == & cmp_size ? 2 : 0) + g_print_size) {
 		case 3:
@@ -1309,7 +1309,7 @@ sym_elem_print_all_sysv(char type, const char *sec, const GElf_Sym *sym,
 	}
 
 	if (IS_UNDEF_SYM_TYPE(type))
-		printf("		");
+		printf("                ");
 	else
 		g_value_print_fn(sym);
 
@@ -1348,7 +1348,7 @@ sym_elem_print_all_sysv(char type, const char *sec, const GElf_Sym *sym,
 	if (sym->st_size != 0)
 		g_size_print_fn(sym);
 	else
-		printf("		");
+		printf("                ");
 
 	printf("|     |%s", sec);
 }
@@ -1490,7 +1490,7 @@ sym_list_print(struct sym_print_data *p, struct vector_line_info *line_info)
 		printf(":\n\n");
 
 		printf("\
-Name		      Value	      Class	   Type		  Size		   Line	 Section\n");
+Name                  Value           Class        Type           Size             Line  Section\n");
 	} else {
 		/* archive file without -A option */
 		if (g_print_name != PRINT_NAME_FULL && p->objname != NULL)
@@ -1747,8 +1747,7 @@ usage(int exitcode)
 /*
  * Todo
  *
- * 1. universe build test
- * 2. test
+ * 1. test
  */
 
 /*
