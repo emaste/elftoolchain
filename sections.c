@@ -212,12 +212,13 @@ create_scn(struct elfcopy *ecp)
 				err(EX_SOFTWARE, "calloc failed");
 			s->name		= name;
 			s->is		= is;
-			s->sz		= ish.sh_size;
 			s->off		= ish.sh_offset;
+			s->sz		= ish.sh_size;
 			s->align	= ish.sh_addralign;
 			s->type		= ish.sh_type;
 			s->loadable	= add_to_inseg_list(ecp, s);
 		} else {
+			/* Assuming .shstrtab is "unloadable". */
 			s		= ecp->shstrtab;
 			s->off		= ish.sh_offset;
 		}
@@ -229,6 +230,10 @@ create_scn(struct elfcopy *ecp)
 		if ((s->ndx = elf_ndxscn(is)) == SHN_UNDEF)
 			errx(EX_SOFTWARE, "elf_scnndx failed: %s",
 			    elf_errmsg(-1));
+
+		/* create section header based on input object. */
+		if (strcmp(name, ".shstrtab") != 0)
+			copy_shdr(ecp, s->is, s->os, s->name);
 
 		if (strcmp(name, ".symtab") == 0) {
 			ecp->flags |= SYMTAB_EXIST;
@@ -262,6 +267,7 @@ insert_shtab(struct elfcopy *ecp)
 		    elf_errmsg(-1));
 	if ((shtab = calloc(1, sizeof(*shtab))) == NULL)
 		errx(EX_SOFTWARE, "calloc failed");
+	/* shoff of input object is used as a hint. */
 	shtab->off = ieh.e_shoff;
 	/* Calculate number of sections in the output object. */
 	nsecs = 0;
@@ -306,12 +312,6 @@ copy_content(struct elfcopy *ecp)
 			continue;
 
 		/* Add check for whether change section name here */
-
-		/*
-		 * For normal sections, first create section header based
-		 * on input object.
-		 */
-		copy_shdr(ecp, s->is, s->os, s->name);
 
 		if (is_modify_section(ecp, s->name))
 			modify_section(ecp, s);
