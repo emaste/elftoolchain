@@ -38,7 +38,7 @@
  */
 
 #define VECTOR_DEF_CAPACITY	12
-#define BUFFER_GROWFACTOR	1.61
+#define BUFFER_GROWFACTOR	1.618
 
 /** @brief Dynamic vector data for string. */
 struct vector_str {

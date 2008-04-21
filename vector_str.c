@@ -37,6 +37,23 @@
  * Resemble to std::vector<std::string> in C++.
  */
 
+static size_t	get_strlen_sum(struct vector_str *v);
+static bool	vector_str_grow(struct vector_str *v);
+
+static size_t
+get_strlen_sum(struct vector_str *v)
+{
+	size_t len = 0;
+
+	if (v == NULL)
+		return (0);
+
+	for (size_t i = 0; i < v->size; ++i)
+		len += strlen(v->container[i]);
+
+	return (len);
+}
+
 void
 vector_str_dest(struct vector_str *v)
 {
@@ -73,11 +90,7 @@ vector_str_get_flat(struct vector_str *v, size_t *l)
 	if (v == NULL || v->size == 0)
 		return (NULL);
 
-	rtn_size = 0;
-	for (size_t i = 0; i < v->size; ++i)
-		rtn_size += strlen(v->container[i]);
-
-	if (rtn_size == 0)
+	if ((rtn_size = get_strlen_sum(v)) == 0)
 		return (0);
 
 	if ((rtn = malloc(sizeof(char) * (rtn_size + 1))) == NULL)
@@ -98,6 +111,31 @@ vector_str_get_flat(struct vector_str *v, size_t *l)
 		*l = rtn_size;
 
 	return (rtn);
+}
+
+static bool
+vector_str_grow(struct vector_str *v)
+{
+	size_t tmp_cap;
+	char **tmp_ctn;
+
+	if (v == NULL)
+		return (false);
+
+	tmp_cap = v->capacity * BUFFER_GROWFACTOR;
+
+	if ((tmp_ctn = malloc(sizeof(char *) * tmp_cap)) == NULL)
+		return (false);
+
+	for (size_t i = 0; i < v->size; ++i)
+		tmp_ctn[i] = v->container[i];
+
+	free(v->container);
+
+	v->container = tmp_ctn;
+	v->capacity = tmp_cap;
+
+	return (true);
 }
 
 bool
@@ -174,21 +212,8 @@ vector_str_push(struct vector_str *v, const char *str, size_t len)
 	if (v == NULL || str == NULL)
 		return (false);
 
-	if (v->size == v->capacity) {
-		const size_t tmp_cap = v->capacity * BUFFER_GROWFACTOR;
-		char **tmp_ctn;
-
-		if ((tmp_ctn = malloc(sizeof(char *) * tmp_cap)) == NULL)
-			return (false);
-
-		for (size_t i = 0; i < v->size; ++i)
-			tmp_ctn[i] = v->container[i];
-
-		free(v->container);
-
-		v->container = tmp_ctn;
-		v->capacity = tmp_cap;
-	}
+	if (v->size == v->capacity && vector_str_grow(v) == false)
+		return (false);
 
 	if ((v->container[v->size] = malloc(sizeof(char) * (len + 1))) == NULL)
 		return (false);
@@ -209,9 +234,7 @@ vector_str_push_vector_head(struct vector_str *dst, struct vector_str *org)
 	if (dst == NULL || org == NULL)
 		return (false);
 
-	tmp_cap = dst->capacity;
-	while (tmp_cap - dst->size < org->size)
-		tmp_cap *= BUFFER_GROWFACTOR;
+	tmp_cap = (dst->size + org->size) * BUFFER_GROWFACTOR;
 
 	if ((tmp_ctn = malloc(sizeof(char *) * tmp_cap)) == NULL)
 		return (false);
