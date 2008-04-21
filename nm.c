@@ -1978,8 +1978,11 @@ main(int argc, char *argv[])
 
 			break;
 		case 'h':
-		default :
 			usage(EX_OK);
+
+			/* NOTREACHED */
+		default :
+			usage(EX_USAGE);
 
 			/* NOTREACHED */
 		}
