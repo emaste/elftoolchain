@@ -868,8 +868,9 @@ read_elf(const char *filename)
 				/* bss */
 				type_table[i] = 'B';
 
-			} else if (shdr.sh_type == SHT_PROGBITS &&
-			    shdr.sh_flags == (SHF_ALLOC + SHF_WRITE)) {
+			} else if ((shdr.sh_type == SHT_PROGBITS &&
+				shdr.sh_flags == (SHF_ALLOC + SHF_WRITE)) ||
+			    shdr.sh_type == SHT_DYNAMIC) {
 
 				/* data */
 				type_table[i] = 'D';
@@ -880,8 +881,9 @@ read_elf(const char *filename)
 				/* text */
 				type_table[i] = 'T';
 
-			} else if (shdr.sh_type == SHT_PROGBITS &&
-			    shdr.sh_flags == SHF_ALLOC) {
+			} else if ((shdr.sh_type == SHT_PROGBITS &&
+				shdr.sh_flags == SHF_ALLOC) ||
+			    shdr.sh_type == SHT_NOTE) {
 
 				/* read only */
 				type_table[i] = 'R';
