@@ -300,6 +300,9 @@ cmp_value(const struct sym_entry *l, const struct sym_entry *r,
 	switch (l_is_undef + r_is_undef) {
 	case 0:
 		/* Both defined */
+		if (l->sym->st_value == r->sym->st_value)
+			return (strcmp(l->name, r->name));
+
 		return (l->sym->st_value > r->sym->st_value);
 	case 1:
 		/* One undefined */
@@ -987,7 +990,7 @@ read_elf(const char *filename)
 
 		if ((dynstr_data == NULL && g_print_symbol == PRINT_SYM_DYN) ||
 		    (strtab_data == NULL && g_print_symbol == PRINT_SYM_SYM)) {
-			warnx("%s: no symbols", objname == NULL ?
+			warnx("%s: No symbols", objname == NULL ?
 			    filename : objname);
 
 			/* this is not error case */
