@@ -1,0 +1,11 @@
+#	cpp_demangle test suite.
+
+all
+        "Starting Test Suite"
+        ^cpp_demangle
+        "Completet Test Suite"
+
+cpp_demangle
+        "Starting cpp demangle Test"
+        /ts/cpp_demangle/cpp_demangle-tc
+        "Completet cpp demangle Test"
