@@ -136,6 +136,7 @@ static bool		is_sec_debug(GElf_Shdr *);
 static bool		is_sec_readonly(GElf_Shdr *);
 static bool		is_sec_text(GElf_Shdr *);
 static void		print_ar_index(int fd, Elf *);
+static void		print_header(const char *, const char *);
 static void		print_version(void);
 static int		read_elf(const char *);
 static int		readfile(const char *, const char *);
@@ -608,6 +609,7 @@ print_ar_index(int fd, Elf *arf)
 {
 	Elf_Arsym *arsym;
 	Elf_Cmd cmd;
+	off_t start;
 	size_t arsym_size;
 
 	if (arf == NULL)
@@ -618,6 +620,7 @@ print_ar_index(int fd, Elf *arf)
 
 	printf("\nArchive index:\n");
 
+	start = arsym->as_off;
 	cmd = ELF_C_READ;
 	while (arsym_size > 1) {
 		Elf *elf;
@@ -636,9 +639,44 @@ print_ar_index(int fd, Elf *arf)
 		++arsym;
 		--arsym_size;
 	}
-	printf("\n");
 
-	elf_rand(arf, SARMAG);
+	elf_rand(arf, start);
+}
+
+static void
+print_header(const char *file, const char *obj)
+{
+
+	if (file == NULL)
+		return;
+
+	if (g_elem_print_fn == &sym_elem_print_all_sysv) {
+		printf("\n\n%s from %s",
+		    g_undef_only == false ? "Symbols" : "Undefined symbols",
+		    file);
+
+		if (obj != NULL)
+			printf("[%s]", obj);
+
+		printf(":\n\n");
+
+		printf("\
+Name                  Value           Class        Type         Size             Line  Section\n\n");
+	} else {
+		/* archive file without -A option and POSIX */
+		if (g_print_name != PRINT_NAME_FULL && obj != NULL) {
+			if (g_elem_print_fn == sym_elem_print_all_portable)
+				printf("%s[%s]:\n", file, obj);
+			else if (g_elem_print_fn == sym_elem_print_all)
+				printf("\n%s:\n", obj);
+			/* multiple files(not archive) without -A option */
+		} else if (g_print_name == PRINT_NAME_MULTI) {
+			if (g_elem_print_fn == sym_elem_print_all)
+				printf("\n");
+
+			printf("%s:\n", file);
+		}
+	}
 }
 
 static void
@@ -735,8 +773,14 @@ read_elf(const char *filename)
 		goto end_read_elf;
 	}
 
-	if (g_print_armap == true && kind == ELF_K_AR)
-		print_ar_index(fd, arf);
+	if (kind == ELF_K_AR) {
+		if (g_print_name == PRINT_NAME_MULTI &&
+		    g_elem_print_fn == sym_elem_print_all)
+			printf("\n%s:\n", filename);
+
+		if (g_print_armap == true)
+			print_ar_index(fd, arf);
+	}
 
 	objname = NULL;
 
@@ -938,6 +982,8 @@ read_elf(const char *filename)
 			else if (is_sec_debug(&shdr) == true)
 				type_table[i] = 'N';
 		}
+
+		print_header(filename, objname);
 
 		if ((dynstr_data == NULL && g_print_symbol == PRINT_SYM_DYN) ||
 		    (strtab_data == NULL && g_print_symbol == PRINT_SYM_SYM)) {
@@ -1526,31 +1572,6 @@ sym_list_print(struct sym_print_data *p, struct vector_line_info *line_info)
 	if (p == NULL || CHECK_SYM_PRINT_DATA(p))
 		return;
 
-	if (g_elem_print_fn == &sym_elem_print_all_sysv) {
-		printf("\n\n%s from %s",
-		    g_undef_only == false ? "Symbols" : "Undefined symbols",
-		    p->filename);
-
-		if (p->objname != NULL)
-			printf("[%s]", p->objname);
-
-		printf(":\n\n");
-
-		printf("\
-Name                  Value           Class        Type         Size             Line  Section\n\n");
-	} else {
-		/* archive file without -A option */
-		if (g_print_name != PRINT_NAME_FULL && p->objname != NULL)
-			printf("%s[%s]:\n", p->filename, p->objname);
-		/* multiple files(not archive) without -A option */
-		else if (g_print_name == PRINT_NAME_MULTI) {
-			if (g_elem_print_fn == sym_elem_print_all)
-				printf("\n");
-
-			printf("%s:\n", p->filename);
-		}
-	}
-
 	if (g_sort_reverse == false)
 		TAILQ_FOREACH(ep, p->headp, sym_entries)
 		    sym_list_print_each(ep, p, line_info);
@@ -1584,16 +1605,16 @@ sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
 	if (g_print_name == PRINT_NAME_FULL) {
 		printf("%s", p->filename);
 
-		if (g_elem_print_fn == &sym_elem_print_all_sysv) {
-			if (p->objname != NULL)
-				printf(":%s", p->objname);
-
-			printf(":");
-		} else {
+		if (g_elem_print_fn == &sym_elem_print_all_portable) {
 			if (p->objname != NULL)
 				printf("[%s]", p->objname);
 
 			printf(": ");
+		} else {
+			if (p->objname != NULL)
+				printf(":%s", p->objname);
+
+			printf(":");
 		}
 	}
 
