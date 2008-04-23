@@ -3,9 +3,9 @@
 all
         "Starting Test Suite"
         ^cpp_demangle
-        "Completet Test Suite"
+        "Complete Test Suite"
 
 cpp_demangle
         "Starting cpp demangle Test"
         /ts/cpp_demangle/cpp_demangle-tc
-        "Completet cpp demangle Test"
+        "Complete cpp demangle Test"
