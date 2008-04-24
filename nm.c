@@ -430,13 +430,11 @@ static char
 get_sym_type(const GElf_Sym *sym, const char *type_table)
 {
 	bool is_local;
-	unsigned char type;
 
 	if (sym == NULL || type_table == NULL)
 		return ('?');
 
 	is_local = sym->st_info >> 4 == STB_LOCAL;
-	type = sym->st_info & 0xf;
 
 	if (sym->st_shndx == SHN_ABS) /* absolute */
 		return (is_local ? 'a' : 'A');
@@ -445,7 +443,7 @@ get_sym_type(const GElf_Sym *sym, const char *type_table)
 		return (is_local ? 'c' : 'C');
 
 	if ((sym->st_info) >> 4 == STB_WEAK) /* weak */
-		return (sym->st_value == 0 ? 'w' : 'W');
+		return (sym->st_shndx == SHN_UNDEF ? 'w' : 'W');
 
 	if (sym->st_shndx == SHN_UNDEF) /* undefined */
 		return (is_local ? 'u' : 'U');
