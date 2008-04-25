@@ -105,6 +105,8 @@ enum target {
 p->t_table == NULL || p->s_table == NULL || p->filename == NULL)
 #define IS_SYM_TYPE(t)		(t == '?' || isalpha(t) != 0)
 #define	IS_UNDEF_SYM_TYPE(t)	(t == 'U' || t == 'u' || t == 'w')
+#define	IS_COM_SYM_TYPE(t)	(t == 'c' || t == 'C')
+#define	IS_COM_SYM(s)		(s->st_shndx == SHN_COMMON)
 #define	FASTLOWER(t)		(t + 32)
 #define	STDLOWER(t)		(tolower(t))
 #define	TOLOWER(t)		(STDLOWER(t))
@@ -1558,6 +1560,10 @@ sym_list_insert(struct sym_head *headp, const char *name, const GElf_Sym *sym)
 	}
 
 	memcpy(e->sym, sym, sizeof(GElf_Sym));
+
+	/* GNU nm display size instead value. */
+	if (IS_COM_SYM(sym))
+		e->sym->st_value = sym->st_size;
 
 	TAILQ_INSERT_TAIL(headp, e, sym_entries);
 
