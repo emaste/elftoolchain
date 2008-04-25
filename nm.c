@@ -104,7 +104,7 @@ enum target {
 #define CHECK_SYM_PRINT_DATA(p)	(p->headp == NULL || p->sh_num == 0 ||	      \
 p->t_table == NULL || p->s_table == NULL || p->filename == NULL)
 #define IS_SYM_TYPE(t)		(t == '?' || isalpha(t) != 0)
-#define	IS_UNDEF_SYM_TYPE(t)	(t == 'U' || t == 'u' || t == 'w')
+#define	IS_UNDEF_SYM_TYPE(t)	(t == 'U' || t == 'u' || t == 'v' || t == 'w')
 #define	IS_COM_SYM_TYPE(t)	(t == 'c' || t == 'C')
 #define	IS_COM_SYM(s)		(s->st_shndx == SHN_COMMON)
 #define	FASTLOWER(t)		(t + 32)
@@ -444,8 +444,12 @@ get_sym_type(const GElf_Sym *sym, const char *type_table)
 	if (sym->st_shndx == SHN_COMMON) /* common */
 		return (is_local ? 'c' : 'C');
 
-	if ((sym->st_info) >> 4 == STB_WEAK) /* weak */
+	if ((sym->st_info) >> 4 == STB_WEAK) { /* weak */
+		if ((sym->st_info & 0xf) == STT_OBJECT)
+			return (sym->st_shndx == SHN_UNDEF ? 'v' : 'V');
+
 		return (sym->st_shndx == SHN_UNDEF ? 'w' : 'W');
+	}
 
 	if (sym->st_shndx == SHN_UNDEF) /* undefined */
 		return (is_local ? 'u' : 'U');
