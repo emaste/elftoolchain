@@ -65,7 +65,7 @@ TET_CLEAN_TOOL=make
 TET_CLEAN_FILE=clean
 
 Since the test cases themselves are API compliant, we'll
-set TET_OUTPUT_CAPTIRE=False for test case execution.
+set TET_OUTPUT_CAPTURE=False for test case execution.
 
 : Notes on TET execution
 
