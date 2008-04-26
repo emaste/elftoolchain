@@ -71,6 +71,7 @@ struct section {
 	void *buf;		/* section content */
 	uint64_t off;		/* section offset */
 	uint64_t sz;		/* section size */
+	uint64_t cap;		/* section capacity */
 	uint64_t align;		/* section alignment */
 	uint64_t type;		/* section type */
 	int ndx;		/* original index */
@@ -93,7 +94,6 @@ struct segment {
 	TAILQ_HEAD(sec_head, section) v_sec;
 	STAILQ_ENTRY(segment) seg_list;
 };
-
 
 /*
  * Structure encapsulates the "global" data for "elfcopy" program.
@@ -172,11 +172,12 @@ void	copy_shdr(struct elfcopy *ecp, Elf_Scn *is, Elf_Scn *os,
 	    const char *name);
 void	create_scn(struct elfcopy *ecp);
 void	create_symtab(struct elfcopy *ecp);
-struct section *insert_shtab(struct elfcopy *ecp);
 int	find_duplicate(const char *tab, const char *s, int sz);
+struct section *insert_shtab(struct elfcopy *ecp);
+void	insert_to_strtab(struct section *t, const char *s);
 struct sec_action *lookup_sec_act(struct elfcopy *ecp,
 	    const char *name, int add);
-
+int	lookup_string(struct section *t, const char *s);
 void	resync_sections(struct elfcopy *ecp);
 void	set_shstrtab(struct elfcopy *ecp);
 void	setup_phdr(struct elfcopy *ecp);

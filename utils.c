@@ -28,26 +28,97 @@
 __FBSDID("$FreeBSD$");
 
 #include <sys/queue.h>
+#include <err.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sysexits.h>
 
 #include "elfcopy.h"
 
-int
-find_duplicate(const char *tab, const char *s, int sz)
+void
+insert_to_strtab(struct section *t, const char *s)
 {
-	const char *c, *r;
+	const char *r;
+	char *b, *c;
+	size_t len, slen;
+	int append;
+
+	if (t->sz == 0) {
+		t->cap = 512;
+		if ((t->buf = malloc(t->cap)) == NULL)
+			err(EX_SOFTWARE, "malloc failed");
+	}
+
+	slen = strlen(s);
+	append = 0;
+	b = t->buf;
+	for (c = b; c < b + t->sz;) {
+		len = strlen(c);
+		if (!append && len >= slen) {
+			r = c + (len - slen);
+			if (strcmp(r, s) == 0)
+				return;
+		} else if (len < slen && len != 0) {
+			r = s + (slen - len);
+			if (strcmp(c, r) == 0) {
+				t->sz -= len + 1;
+				memmove(c, c + len + 1, t->sz - (c - b));
+				append = 1;
+				continue;
+			}
+		}
+		c += len + 1;
+	}
+
+	while (t->sz + slen + 1 >= t->cap) {
+		t->cap *= 2;
+		if ((t->buf = realloc(t->buf, t->cap)) == NULL)
+			err(EX_SOFTWARE, "realloc failed");
+	}
+	b = t->buf;
+	strncpy(&b[t->sz], s, slen);
+	b[t->sz + slen] = '\0';
+	t->sz += slen + 1;
+}
+
+int
+lookup_string(struct section *t, const char *s)
+{
+	const char *b, *c, *r;
 	size_t len, slen;
 
 	slen = strlen(s);
-	for (c = tab; c < tab + sz;) {
+	b = t->buf;
+	for (c = b; c < b + t->sz;) {
 		len = strlen(c);
 		if (len >= slen) {
 			r = c + (len - slen);
 			if (strcmp(r, s) == 0)
-				return (r - tab);
+				return (r - b);
 		}
 		c += len + 1;
 	}
 
 	return (-1);
+}
+
+int
+find_duplicate(const char *tab, const char *s, int sz)
+{
+        const char *c, *r;
+        size_t len, slen;
+
+        slen = strlen(s);
+        for (c = tab; c < tab + sz;) {
+                len = strlen(c);
+                if (len >= slen) {
+                        r = c + (len - slen);
+                        if (strcmp(r, s) == 0)
+                                return (r - tab);
+                }
+                c += len + 1;
+        }
+
+        return (-1);
 }
