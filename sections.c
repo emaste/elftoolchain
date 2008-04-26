@@ -36,7 +36,7 @@ __FBSDID("$FreeBSD$");
 
 #include "elfcopy.h"
 
-static int	add_to_shstrtab(struct elfcopy *ecp, const char *name);
+static void	add_to_shstrtab(struct elfcopy *ecp, const char *name);
 static void	insert_to_sec_list(struct elfcopy *ecp, struct section *sec);
 static int	is_append_section(struct elfcopy *ecp, const char *name);
 static int	is_compress_section(struct elfcopy *ecp, const char *name);
@@ -47,7 +47,7 @@ static void	modify_section(struct elfcopy *ecp, struct section *s);
 static void	print_data(const char *d, size_t sz);
 static void	print_section(struct section *s);
 static void	*read_section(struct section *s, size_t *size);
-static void	resync_shname(struct elfcopy *ecp);
+static void	set_shname(struct elfcopy *ecp);
 
 static int
 is_remove_section(struct elfcopy *ecp, const char *name)
@@ -525,7 +525,7 @@ copy_shdr(struct elfcopy *ecp, Elf_Scn *is, Elf_Scn *os, const char *name)
 		    elf_errmsg(-1));
 
 	(void) memcpy(&osh, &ish, sizeof(ish));
-	osh.sh_name = add_to_shstrtab(ecp, name);
+	add_to_shstrtab(ecp, name);
 
 	if (!gelf_update_shdr(os, &osh))
 		errx(EX_SOFTWARE, "elf_update_shdr failed: %s",
@@ -602,7 +602,7 @@ add_unloadables(struct elfcopy *ecp)
 			errx(EX_SOFTWARE, "607 gelf_getshdr() failed: %s",
 			    elf_errmsg(-1));
 		osh.sh_type = SHT_PROGBITS;
-		osh.sh_name = add_to_shstrtab(ecp, sa->name);
+		add_to_shstrtab(ecp, sa->name);
 
 		/* Add section header vma/lma, flag changes here */
 
@@ -612,60 +612,37 @@ add_unloadables(struct elfcopy *ecp)
 	}
 }
 
-#define	_INIT_SHSTR "\0.symtab\0.strtab\0.shstrtab"
-
-static int
+static void
 add_to_shstrtab(struct elfcopy *ecp, const char *name)
 {
-	static size_t shstr_cap;
 	struct section *s;
-	char *d;
-	int t;
 
 	s = ecp->shstrtab;
 	if (s->buf == NULL) {
-		shstr_cap = 512;
-		s->buf = malloc(shstr_cap);
-		if (s->buf == NULL)
-			err(EX_SOFTWARE, "malloc failed");
-		(void) memcpy(s->buf, _INIT_SHSTR, sizeof(_INIT_SHSTR));
-		s->sz = sizeof(_INIT_SHSTR);
+		insert_to_strtab(s, "");
+		insert_to_strtab(s, ".symtab");
+		insert_to_strtab(s, ".strtab");
+		insert_to_strtab(s, ".shstrtab");
 	}
-
-	if ((t = find_duplicate(s->buf, name, s->sz)) > -1)
-		return (t);
-
-	while (s->sz + strlen(name) + 1 >= shstr_cap) {
-		shstr_cap *= 2;
-		if ((s->buf = realloc(s->buf, shstr_cap)) == NULL)
-			err(EX_SOFTWARE, "realloc failed");
-	}
-	d = (char *)s->buf + s->sz;
-	strncpy(d, name, strlen(name));
-	d[strlen(name)] ='\0';
-
-	if (strlen(name) > 0)
-		s->sz += strlen(name) + 1;
-
-	return (d - (char *)s->buf);
+	insert_to_strtab(s, name);
 }
 
 static void
-resync_shname(struct elfcopy *ecp)
+set_shname(struct elfcopy *ecp)
 {
-	Elf_Scn *os;
+	struct section *s;
 	GElf_Shdr osh;
 	int elferr;
 
-	os = NULL;
-	while ((os = elf_nextscn(ecp->eout, os)) != NULL) {
-		if (gelf_getshdr(os, &osh) == NULL)
+	TAILQ_FOREACH(s, &ecp->v_sec, sec_list) {
+		if (gelf_getshdr(s->os, &osh) == NULL)
 			errx(EX_SOFTWARE, "668 gelf_getshdr failed: %s",
 			    elf_errmsg(-1));
 
-		osh.sh_name -= sizeof(".symtab\0.strtab");
+		/* FIXME lookup_string may return -1 */
+		osh.sh_name = lookup_string(ecp->shstrtab, s->name);
 
-		if (!gelf_update_shdr(os, &osh))
+		if (!gelf_update_shdr(s->os, &osh))
 			errx(EX_SOFTWARE, "gelf_update_shdr() failed: %s",
 			    elf_errmsg(-1));
 	}
@@ -687,19 +664,14 @@ set_shstrtab(struct elfcopy *ecp)
 	if (gelf_getshdr(s->os, &sh) == NULL)
 		errx(EX_SOFTWARE, "692 gelf_getshdr() failed: %s",
 		    elf_errmsg(-1));
-	sh.sh_name	= add_to_shstrtab(ecp, ".shstrtab");
 	sh.sh_addr	= 0;
 	sh.sh_addralign	= 1;
 	sh.sh_offset	= s->off;
-	sh.sh_size	= s->sz;
 	sh.sh_type	= SHT_STRTAB;
 	sh.sh_flags	= 0;
 	sh.sh_entsize	= 0;
 	sh.sh_info	= 0;
 	sh.sh_link	= 0;
-	if (!gelf_update_shdr(s->os, &sh))
-		errx(EX_SOFTWARE, "gelf_update_shdr() failed: %s",
-		    elf_errmsg(-1));
 
 	if ((data = elf_newdata(s->os)) == NULL)
 		errx(EX_SOFTWARE, "elf_newdata() failed: %s",
@@ -707,22 +679,22 @@ set_shstrtab(struct elfcopy *ecp)
 
 	/*
 	 * If we don't have a symbol table, skip those a few bytes
-	 * which are reserved for it in the beginning of shstrtab,
-	 * and adjust sh_name of each section.
+	 * which are reserved for this in the beginning of shstrtab.
 	 */
 	if (!(ecp->flags & SYMTAB_EXIST)) {
-		data->d_buf	= (char *)s->buf + sizeof(".symtab\0.strtab");
-		data->d_size	= s->sz - sizeof(".symtab\0.strtab");
-		sh.sh_size	= s->sz = data->d_size;
-		if (!gelf_update_shdr(s->os, &sh))
-			errx(EX_SOFTWARE, "gelf_update_shdr() failed: %s",
-			    elf_errmsg(-1));
-		resync_shname(ecp);
-	} else {
-		data->d_buf	= s->buf;
-		data->d_size	= s->sz;
+		s->sz -= sizeof(".symtab\0.strtab");
+		memmove(s->buf, (char *)s->buf + sizeof(".symtab\0.strtab"),
+		    s->sz);
 	}
+
+	sh.sh_size	= s->sz;
+	if (!gelf_update_shdr(s->os, &sh))
+		errx(EX_SOFTWARE, "gelf_update_shdr() failed: %s",
+		    elf_errmsg(-1));
+
 	data->d_align	= 1;
+	data->d_buf	= s->buf;
+	data->d_size	= s->sz;
 	data->d_off	= 0;
 	data->d_type	= ELF_T_BYTE;
 	data->d_version	= EV_CURRENT;
@@ -731,4 +703,7 @@ set_shstrtab(struct elfcopy *ecp)
 	if (!elf_setshstrndx(ecp->eout, elf_ndxscn(s->os)))
 		errx(EX_SOFTWARE, "elf_setshstrndx() failed: %s",
 		     elf_errmsg(-1));
+
+	/* Update sh_name field of each section. */
+	set_shname(ecp);
 }
