@@ -40,8 +40,8 @@ static void	test_scope();
 static void	test_subst();
 static void	test_cpp_demangle_ia64(const char *, const char *);
 
-void (*tet_startup)() = startup;
-void (*tet_cleanup)() = cleanup;
+void (*tet_startup)() = NULL;
+void (*tet_cleanup)() = NULL;
 
 struct tet_testlist tet_testlist[] = {
 	{ test_func, 1},
@@ -51,14 +51,6 @@ struct tet_testlist tet_testlist[] = {
         { test_subst, 5},
 	{ NULL, 0}
 };
-
-static void
-startup()
-{}
-
-static void
-cleanup()
-{}
 
 static void
 test_func()
