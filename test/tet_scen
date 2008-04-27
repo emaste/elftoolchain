@@ -2,11 +2,17 @@
 
 all
         "Starting Test Suite"
+        ^vector_str
         ^cpp_demangle
         ^nm_object1
         ^nm_archive1
         ^nm_shared_object1
         "Complete Test Suite"
+
+vector_str
+        "Starting vector_str Test"
+        /ts/vector_str/vector_str-tc
+        "Complete vector_str Test"
 
 cpp_demangle
         "Starting cpp demangle Test"
@@ -26,4 +32,4 @@ nm_archive1
 nm_shared_object1
         "Starting nm Shared Object Test 1"
         /ts/nm_shared_object1/nm_shared_object1-tc
-        "Complete nm Shared Object 1"
+        "Complete nm Shared Object Test 1"
