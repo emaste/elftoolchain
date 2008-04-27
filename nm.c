@@ -2043,8 +2043,12 @@ main(int argc, char *argv[])
 	if (g_print_debug == false)
 		filter_insert(sym_elem_nondebug);
 
-	if (g_sort_reverse == true)
-		aout_set_sort_rname();
+	if (g_sort_reverse == true) {
+		if (g_sort_fn == cmp_none)
+			g_sort_reverse = false;
+		else
+			aout_set_sort_rname();
+	}
 
 	rtn = 0;
 	if (argc == 0)
