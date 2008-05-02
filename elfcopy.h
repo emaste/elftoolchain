@@ -74,7 +74,7 @@ struct section {
 	uint64_t cap;		/* section capacity */
 	uint64_t align;		/* section alignment */
 	uint64_t type;		/* section type */
-	int ndx;		/* original index */
+	uint32_t ndx;		/* original index */
 	int loadable;		/* whether loadable */
 	int pseudo;
 	int nocopy;
@@ -183,3 +183,4 @@ int	lookup_string(struct section *t, const char *s);
 void	resync_sections(struct elfcopy *ecp);
 void	set_shstrtab(struct elfcopy *ecp);
 void	setup_phdr(struct elfcopy *ecp);
+void	update_shdr(struct elfcopy *ecp);
