@@ -100,7 +100,8 @@ setup_phdr(struct elfcopy *ecp)
 {
 	struct segment *seg;
 	GElf_Phdr iphdr;
-	int iphnum, i;
+	size_t iphnum;
+	int i;
 
 	if (elf_getphnum(ecp->ein, &iphnum) == 0)
 		errx(EX_DATAERR, "elf_getphnum failed: %s",
@@ -110,7 +111,7 @@ setup_phdr(struct elfcopy *ecp)
 	if (iphnum == 0)
 		return;
 
-	for (i = 0; i < iphnum; i++) {
+	for (i = 0; (size_t)i < iphnum; i++) {
 		if (gelf_getphdr(ecp->ein, i, &iphdr) != &iphdr)
 			errx(EX_SOFTWARE, "gelf_getphdr failed: %s",
 			    elf_errmsg(-1));
