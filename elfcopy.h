@@ -77,6 +77,7 @@ struct section {
 	int ndx;		/* original index */
 	int loadable;		/* whether loadable */
 	int pseudo;
+	int nocopy;
 
 	TAILQ_ENTRY(section) sec_list;	/* list of all sections */
 	TAILQ_ENTRY(section) in_seg; /* list of sections in a segment */
@@ -166,7 +167,7 @@ void	add_to_keep_list(struct elfcopy *ecp, const char *name);
 void	add_to_strip_list(struct elfcopy *ecp, const char *name);
 int	add_to_inseg_list(struct elfcopy *ecp, struct section *sec);
 void	copy_content(struct elfcopy *ecp);
-void	copy_data(Elf_Scn *is, Elf_Scn *os);
+void	copy_data(struct section *s);
 void	copy_phdr(struct elfcopy *ecp);
 void	copy_shdr(struct elfcopy *ecp, Elf_Scn *is, Elf_Scn *os,
 	    const char *name);
@@ -177,6 +178,7 @@ struct section *insert_shtab(struct elfcopy *ecp);
 void	insert_to_strtab(struct section *t, const char *s);
 struct sec_action *lookup_sec_act(struct elfcopy *ecp,
 	    const char *name, int add);
+int	lookup_keep_symlist(struct elfcopy *ecp, const char *name);
 int	lookup_string(struct section *t, const char *s);
 void	resync_sections(struct elfcopy *ecp);
 void	set_shstrtab(struct elfcopy *ecp);

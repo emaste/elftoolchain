@@ -41,7 +41,6 @@ static int	is_needed_symbol(struct elfcopy *ecp, int i, GElf_Sym *s);
 static int	is_remove_symbol(struct elfcopy *ecp, size_t sc, int i,
 		    GElf_Sym *s, const char *name);
 static int	is_weak_symbol(GElf_Sym *s);
-static int	lookup_keep_symlist(struct elfcopy *ecp, const char *name);
 static int	lookup_strip_symlist(struct elfcopy *ecp, const char *name);
 static void	mark_symbols(struct elfcopy *ecp, size_t sc);
 
@@ -391,8 +390,8 @@ create_symtab(struct elfcopy *ecp)
 		    elf_errmsg(-1));
 
 	if (ecp->flags & SYMTAB_INTACT) {
-		copy_data(sy->is, sy->os);
-		copy_data(st->is, st->os);
+		copy_data(sy);
+		copy_data(st);
 		goto update_symtab;
 	}
 
@@ -482,7 +481,7 @@ add_to_strip_list(struct elfcopy *ecp, const char *name)
 	STAILQ_INSERT_TAIL(&ecp->v_sym_strip, s, sym_list);
 }
 
-static int
+int
 lookup_keep_symlist(struct elfcopy *ecp, const char *name)
 {
 	struct symlist *s;

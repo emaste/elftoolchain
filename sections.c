@@ -37,6 +37,7 @@ __FBSDID("$FreeBSD$");
 #include "elfcopy.h"
 
 static void	add_to_shstrtab(struct elfcopy *ecp, const char *name);
+static void	filter_reloc(struct elfcopy *ecp, struct section *s);
 static void	insert_to_sec_list(struct elfcopy *ecp, struct section *sec);
 static int	is_append_section(struct elfcopy *ecp, const char *name);
 static int	is_compress_section(struct elfcopy *ecp, const char *name);
@@ -311,16 +312,98 @@ copy_content(struct elfcopy *ecp)
 		if (strcmp(s->name, ".shstrtab") == 0)
 			continue;
 
+		/*
+		 * If strip action is STRIP_ALL, relocation info need
+		 * to be stripped too.
+		 */
+		if (ecp->strip == STRIP_ALL && s->type == SHT_REL)
+			filter_reloc(ecp, s);
+
 		/* Add check for whether change section name here */
 
 		if (is_modify_section(ecp, s->name))
 			modify_section(ecp, s);
-		else
-			copy_data(s->is, s->os);
+
+		copy_data(s);
 
 		if (is_print_section(ecp, s->name))
 			print_section(s);
 	}
+}
+
+#define	COPYREL(SZ) do {					\
+	if (nrels == 0) {					\
+		if ((rel##SZ = malloc(cap *			\
+		    sizeof(Elf##SZ##_Rel))) == NULL)		\
+			err(EX_SOFTWARE, "malloc failed");	\
+	}							\
+	if (nrels >= cap) {					\
+		cap *= 2;					\
+		if ((rel##SZ = realloc(rel##SZ, cap *		\
+		    sizeof(Elf##SZ##_Rel))) == NULL)		\
+			err(EX_SOFTWARE, "realloc failed");	\
+	}							\
+	rel##SZ[nrels].r_offset = rel.r_offset;			\
+	rel##SZ[nrels].r_info	= rel.r_info;			\
+} while (0)
+
+/*
+ * Filter relocation entry, only keep those entries whose symbol
+ * is in the keep list.
+ */
+static void
+filter_reloc(struct elfcopy *ecp, struct section *s)
+{
+	const char *name;
+	GElf_Rel rel;
+	Elf32_Rel *rel32;
+	Elf64_Rel *rel64;
+	Elf_Data *id;
+	int elferr, i, nrels, cap;
+
+	printf("entering filter_reloc\n");
+	/* No need to proceed if output obj don't have symbol table. */
+	if (ecp->symtab == NULL || ecp->strtab == NULL) {
+		s->sz = 0;
+		s->nocopy = 1;
+		return;
+	}
+
+	i = 0;
+	nrels = 0;
+	cap = 4;		/* keep list is usually small. */
+	rel32 = NULL;
+	rel64 = NULL;
+	id = NULL;
+	while ((id = elf_getdata(s->is, id)) != NULL) {
+		if (gelf_getrel(id, i, &rel) != &rel)
+			errx(EX_SOFTWARE, "gelf_getrel failed: %s",
+			    elf_errmsg(-1));
+		name = elf_strptr(ecp->ein, elf_ndxscn(ecp->strtab->is),
+		    GELF_R_SYM(rel.r_info));
+		if (name == NULL)
+			errx(EX_SOFTWARE, "elf_strptr failed: %s",
+			    elf_errmsg(-1));
+		if (lookup_keep_symlist(ecp, name) != 0) {
+			if (ecp->oec == ELFCLASS32)
+				COPYREL(32);
+			else
+				COPYREL(64);
+		}
+	}
+	elferr = elf_errno();
+	if (elferr != 0)
+		errx(EX_SOFTWARE, "elf_getdata() failed: %s",
+		    elf_errmsg(elferr));
+
+	if (ecp->oec == ELFCLASS32)
+		s->buf = rel32;
+	else
+		s->buf = rel64;
+
+	s->sz = gelf_fsize(ecp->eout, ELF_T_REL, nrels, EV_CURRENT);
+	s->nocopy = 1;
+	printf("exit filter_reloc\n");
 }
 
 void
@@ -371,7 +454,6 @@ static void
 modify_section(struct elfcopy *ecp, struct section *s)
 {
 	struct sec_action *sac;
-	Elf_Data *od;
 	size_t srcsz, dstsz, p, len;
 	char *b, *c, *d, *src, *end;
 	int dupe;
@@ -436,15 +518,8 @@ modify_section(struct elfcopy *ecp, struct section *s)
 		p += len + 1;
 	}
 
-	if ((od = elf_newdata(s->os)) == NULL)
-		errx(EX_SOFTWARE, "elf_newdata() failed: %s",
-		    elf_errmsg(-1));
-	//od->d_align	= id->d_align;
-	//od->d_off	= id->d_off;
-	od->d_buf	= b;
-	//od->d_type	= id->d_type;
-	od->d_size	= p;
-	//od->d_version	= id->d_version;
+	s->sz = p;
+	s->nocopy = 1;
 }
 
 static void
@@ -533,17 +608,29 @@ copy_shdr(struct elfcopy *ecp, Elf_Scn *is, Elf_Scn *os, const char *name)
 }
 
 void
-copy_data(Elf_Scn *is, Elf_Scn *os)
+copy_data(struct section *s)
 {
 	Elf_Data *id, *od;
 	int elferr;
 
+	if (s->nocopy && s->buf == NULL)
+		return;
+
 	id = NULL;
-	while ((id = elf_getdata(is, id)) != NULL) {
-		if ((od = elf_newdata(os)) == NULL)
+	while ((id = elf_getdata(s->is, id)) != NULL) {
+		if ((od = elf_newdata(s->os)) == NULL)
 			errx(EX_SOFTWARE, "elf_newdata() failed: %s",
 			    elf_errmsg(-1));
-
+		/* Use s->buf as content if s->nocopy is set. */
+		if (s->nocopy) {
+			od->d_align	= id->d_align;
+			od->d_off	= 0;
+			od->d_buf	= s->buf;
+			od->d_type	= id->d_type;
+			od->d_size	= s->sz;
+			od->d_version	= id->d_version;
+			return;
+		}
 		od->d_align	= id->d_align;
 		od->d_off	= id->d_off;
 		od->d_buf	= id->d_buf;
