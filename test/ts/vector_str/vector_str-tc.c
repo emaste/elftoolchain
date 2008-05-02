@@ -160,7 +160,7 @@ test_pop()
 	if (v.size == 0) {
 		tet_result(TET_FAIL);
 
-		retrun;
+		return;
 	}
 	
 	if (vector_str_pop(NULL) != false) {
