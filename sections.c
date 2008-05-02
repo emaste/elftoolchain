@@ -48,7 +48,6 @@ static void	modify_section(struct elfcopy *ecp, struct section *s);
 static void	print_data(const char *d, size_t sz);
 static void	print_section(struct section *s);
 static void	*read_section(struct section *s, size_t *size);
-static void	set_shname(struct elfcopy *ecp);
 
 static int
 is_remove_section(struct elfcopy *ecp, const char *name)
@@ -331,22 +330,6 @@ copy_content(struct elfcopy *ecp)
 	}
 }
 
-#define	COPYREL(SZ) do {					\
-	if (nrels == 0) {					\
-		if ((rel##SZ = malloc(cap *			\
-		    sizeof(Elf##SZ##_Rel))) == NULL)		\
-			err(EX_SOFTWARE, "malloc failed");	\
-	}							\
-	if (nrels >= cap) {					\
-		cap *= 2;					\
-		if ((rel##SZ = realloc(rel##SZ, cap *		\
-		    sizeof(Elf##SZ##_Rel))) == NULL)		\
-			err(EX_SOFTWARE, "realloc failed");	\
-	}							\
-	rel##SZ[nrels].r_offset = rel.r_offset;			\
-	rel##SZ[nrels].r_info	= rel.r_info;			\
-} while (0)
-
 /*
  * Filter relocation entry, only keep those entries whose symbol
  * is in the keep list.
@@ -368,6 +351,22 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 		s->nocopy = 1;
 		return;
 	}
+
+#define	COPYREL(SZ) do {					\
+	if (nrels == 0) {					\
+		if ((rel##SZ = malloc(cap *			\
+		    sizeof(Elf##SZ##_Rel))) == NULL)		\
+			err(EX_SOFTWARE, "malloc failed");	\
+	}							\
+	if (nrels >= cap) {					\
+		cap *= 2;					\
+		if ((rel##SZ = realloc(rel##SZ, cap *		\
+		    sizeof(Elf##SZ##_Rel))) == NULL)		\
+			err(EX_SOFTWARE, "realloc failed");	\
+	}							\
+	rel##SZ[nrels].r_offset = rel.r_offset;			\
+	rel##SZ[nrels].r_info	= rel.r_info;			\
+} while (0)
 
 	i = 0;
 	nrels = 0;
@@ -714,20 +713,41 @@ add_to_shstrtab(struct elfcopy *ecp, const char *name)
 	insert_to_strtab(s, name);
 }
 
-static void
-set_shname(struct elfcopy *ecp)
+void
+update_shdr(struct elfcopy *ecp)
 {
-	struct section *s;
+	struct section *s, *t;
 	GElf_Shdr osh;
-	int elferr;
+	int elferr, find;
 
 	TAILQ_FOREACH(s, &ecp->v_sec, sec_list) {
 		if (gelf_getshdr(s->os, &osh) == NULL)
 			errx(EX_SOFTWARE, "668 gelf_getshdr failed: %s",
 			    elf_errmsg(-1));
 
-		/* FIXME lookup_string may return -1 */
+		/* Find section name in string table and set sh_name. */
 		osh.sh_name = lookup_string(ecp->shstrtab, s->name);
+
+		/* 
+		 * sh_link needs to be updated, since the index of the
+		 * linked section might have changed.
+		 */
+		if (osh.sh_link != 0) {
+			find = 0;
+			TAILQ_FOREACH(t, &ecp->v_sec, sec_list) {
+				if (osh.sh_link == t->ndx) {
+					osh.sh_link = elf_ndxscn(t->os);
+					find = 1;
+					break;
+				}
+			}
+			/*
+			 * Set sh_link to 0 if the target section
+			 * no longer exist.
+			 */
+			if (!find)
+				osh.sh_link = 0;
+		}
 
 		if (!gelf_update_shdr(s->os, &osh))
 			errx(EX_SOFTWARE, "gelf_update_shdr() failed: %s",
@@ -786,11 +806,7 @@ set_shstrtab(struct elfcopy *ecp)
 	data->d_type	= ELF_T_BYTE;
 	data->d_version	= EV_CURRENT;
 
-	/* Set section name string table index */
 	if (!elf_setshstrndx(ecp->eout, elf_ndxscn(s->os)))
 		errx(EX_SOFTWARE, "elf_setshstrndx() failed: %s",
 		     elf_errmsg(-1));
-
-	/* Update sh_name field of each section. */
-	set_shname(ecp);
 }

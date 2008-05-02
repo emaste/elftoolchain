@@ -200,6 +200,9 @@ create_elf(struct elfcopy *ecp)
 	/* Put .shstrtab after sections added from file. */
 	set_shstrtab(ecp);
 
+	/* Update section headers. */
+	update_shdr(ecp);
+
 	/* Renew oeh to get the updated e_shstrndx */
 	if (gelf_getehdr(ecp->eout, &oeh) == NULL)
 		errx(EX_SOFTWARE, "gelf_getehdr() failed: %s",
