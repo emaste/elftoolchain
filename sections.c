@@ -344,7 +344,6 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 	Elf_Data *id;
 	int elferr, i, nrels, cap;
 
-	printf("entering filter_reloc\n");
 	/* No need to proceed if output obj don't have symbol table. */
 	if (ecp->symtab == NULL || ecp->strtab == NULL) {
 		s->sz = 0;
@@ -402,7 +401,6 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 
 	s->sz = gelf_fsize(ecp->eout, ELF_T_REL, nrels, EV_CURRENT);
 	s->nocopy = 1;
-	printf("exit filter_reloc\n");
 }
 
 void
