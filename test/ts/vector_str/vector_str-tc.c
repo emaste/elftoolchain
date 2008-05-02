@@ -156,6 +156,12 @@ test_pop()
 		
 		return;
 	}
+
+	if (v.size == 0) {
+		tet_result(TET_FAIL);
+
+		retrun;
+	}
 	
 	if (vector_str_pop(NULL) != false) {
 		tet_result(TET_FAIL);
@@ -170,7 +176,8 @@ test_pop()
 		return;
 	}
 
-	if (v.size != size + 1) {
+	if (v.size != size - 1) {
+		tet_infoline("Size mismatch.");
 		tet_result(TET_FAIL);
 
 		return;
