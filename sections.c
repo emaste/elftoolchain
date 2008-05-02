@@ -337,19 +337,38 @@ copy_content(struct elfcopy *ecp)
 static void
 filter_reloc(struct elfcopy *ecp, struct section *s)
 {
+	struct section *t;
 	const char *name;
+	GElf_Shdr ish;
 	GElf_Rel rel;
 	Elf32_Rel *rel32;
 	Elf64_Rel *rel64;
 	Elf_Data *id;
 	int elferr, i, nrels, cap;
 
-	/* No need to proceed if output obj don't have symbol table. */
-	if (ecp->symtab == NULL || ecp->strtab == NULL) {
-		s->sz = 0;
+	if (gelf_getshdr(s->is, &ish) == NULL)
+		errx(EX_SOFTWARE, "gelf_getehdr() failed: %s",
+		    elf_errmsg(-1));
+
+	/* We don't want to touch relocation info for dynamic symbols. */
+	if ((ecp->flags & SYMTAB_EXIST) == 0) {
+		TAILQ_FOREACH(t, &ecp->v_sec, sec_list) {
+			if (ish.sh_link == t->ndx)
+				return;
+		}
+		/*
+		 * We can know that symbol table was stripped and
+		 * this reloc section is indeed for the symbol table, if
+		 * code reaches here. So, delete all reloc entries.
+		 */
 		s->nocopy = 1;
+		s->sz = 0;
 		return;
+	} else {
+		if (ish.sh_link != ecp->symtab->ndx)
+			return;
 	}
+		
 
 #define	COPYREL(SZ) do {					\
 	if (nrels == 0) {					\
