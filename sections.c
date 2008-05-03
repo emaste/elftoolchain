@@ -126,9 +126,19 @@ is_debug_section(const char *name)
 	};
 	const char **p;
 
-	for(p = dbg_sec; *p; p++)
+	for(p = dbg_sec; *p; p++) {
 		if (strncmp(name, *p, strlen(*p)) == 0)
 			return (1);
+		/*
+		 * Treat reloc info for debugging section
+		 * as debugging section too.
+		 */
+		if (strlen(name) <= strlen(".rel") ||
+		    strncmp(name, ".rel", 4) != 0)
+			return (0);
+		if (strncmp(&name[4], *p, strlen(*p)) == 0)
+			return (1);
+	}
 
 	return (0);
 }
