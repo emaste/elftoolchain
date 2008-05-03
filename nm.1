@@ -22,12 +22,12 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.Dd March 29, 2007
-.Os [FreeBSD] [7.0]
+.Dd May 4, 2008
+.Os [FreeBSD] [8.0]
 .Dt nm 1
 .Sh NAME
 .Nm nm
-.Nd "Display symbolic information in file."
+.Nd "Display symbolic information in files."
 .Sh SYNOPSIS
 .Nm
 .Op Fl A | -print-file-name
@@ -59,32 +59,32 @@ If file arguments are empty, read a.out.
 Default output format is bsd format, decimal radix, alphabetically name sort,
 no-demangle.
 .Pp
-The symbol type list. If the symbol is lowercase, it is local. If the symbol
-is uppercase, it is global.
+The symbol type. If lowercase, the symbol is local and if uppercase, the symbol
+is global.
 .Bl -tag -width
 .It A
-absolute symbol.
+Absolute symbol.
 .It B
-bss symbol.
+Bss symbol.
 .It C
-common symbol.
+Common symbol.
 .It D
-data symbol.
+Data symbol.
 .It F
-filename in aout, external only.
+Filename in aout, external only.
 .It I
-alias definition in aout.
+Alias definition in aout.
 .It N
-debugging symbol.
+Debugging symbol.
 .It T
-text symbol.
+Text symbol.
 .It U
-undefined symbol.
+Undefined symbol.
 .It V
-weak object.
+Weak object.
 .It W
-weak symbol.
-warning refs in aout, internal only.
+Weak symbol.
+Warning refs in aout, internal only.
 .It ?
 None of the above.
 .El
@@ -92,58 +92,58 @@ None of the above.
 Options:
 .Bl -tag -width ".Fl d Ar argument"
 .It Fl A | -print-file-name
-Write the full pathname or library name of an object on each line
+Write the full pathname or library name of an object on each line.
 .It Fl a | -debug-syms
-Display all symbols include debugger-only symbols
+Display all symbols include debugger-only symbols.
 .It Fl B
-Display in bsd format style, same as --format=bsd
+Display in bsd format style, same as --format=bsd.
 .It Fl C | -demangle=style
-Decode low-level symbol names. Supported style are 'auto'(default), 'gnu-v3'
+Decode low-level symbol names. Supported style are 'auto' (default), 'gnu-v3'.
 .It Fl -no-demangle
-Don't demangle low-level symbol names(default)
+Don't demangle low-level symbol names (default).
 .It Fl D | -dynamic
-Display only dynamic symbols
+Display only dynamic symbols.
 .It Fl e
-Display only global and static symbol. Same as -g
+Display only global and static symbol (equivalent to -g).
 .It Fl f
-Produce full output. Same as default output
+Produce full output (default).
 .It Fl -format=format
-Display output in specific format. Supported format are 'bsd'(default), 'sysv', 'posix'
+Display output in specific format. Supported format are 'bsd' (default), 'sysv', 'posix'.
 .It Fl g
-Display only global symbol information
+Display only global symbol information.
 .It Fl h | -help
 Show help message.
 .It Fl l | -line-numbers
-Display filename and line number using debugging information
+Display filename and line number using debugging information.
 .It Fl n | v | -numeric-sort
-Sort symbols numerically by value
+Sort symbols numerically by value.
 .It Fl o
-Write numeric values in octal. Same as -t o
+Write numeric values in octal (equivalent to -t o).
 .It Fl p | -no-sort
 Don't sort symbols.
 .It Fl P
-Write information in a portable output format. Same as --format=posix
+Write information in a portable output format (equivalent to --format=posix).
 .It Fl r | -reverse-sort
-Reverse the order of the sort
+Reverse the order of the sort.
 .It Fl S | -print-size
-Print size instead value
+Print size instead value.
 .It Fl s | -print-armap
-Include the index of archive members
+Include the index of archive members.
 .It Fl -size-sort
-Sort symbols by size
+Sort symbols by size.
 .It Fl t Ar format
 Write each numric value in the specified format. 'd' for decimal, 'o' for
-octal, and 'x' for hexadecimal
+octal, and 'x' for hexadecimal.
 .It Fl -target=name
 Specify an object code format. Supported target 'elf', 'aout'.
 .It Fl u | -undefined-only
-Display only undefined symbols
+Display only undefined symbols.
 .It Fl -defined-only
-Display only defined symbols
+Display only defined symbols.
 .It Fl V | -version
-Show the version number
+Show the version number.
 .It Fl x
-Write numeric values in hexadecimal. Same as -t x
+Write numeric values in hexadecimal (equivalent to -t x).
 .El
 .Sh EXIT STATUS
 .Ex -std
