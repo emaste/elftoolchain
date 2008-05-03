@@ -41,6 +41,7 @@ static void	filter_reloc(struct elfcopy *ecp, struct section *s);
 static void	insert_to_sec_list(struct elfcopy *ecp, struct section *sec);
 static int	is_append_section(struct elfcopy *ecp, const char *name);
 static int	is_compress_section(struct elfcopy *ecp, const char *name);
+static int	is_debug_section(const char *name);
 static int	is_modify_section(struct elfcopy *ecp, const char *name);
 static int	is_print_section(struct elfcopy *ecp, const char *name);
 static int	is_remove_section(struct elfcopy *ecp, const char *name);
@@ -63,6 +64,10 @@ is_remove_section(struct elfcopy *ecp, const char *name)
 		else
 			return (0);
 	}
+
+	if (is_debug_section(name))
+		if (ecp->strip == STRIP_ALL || ecp->strip == STRIP_DEBUG)
+			return (1);
 
 	if (ecp->sections_to_remove != 0 ||
 	    ecp->sections_to_copy != 0) {
@@ -100,6 +105,30 @@ is_compress_section(struct elfcopy *ecp, const char *name)
 	sac = lookup_sec_act(ecp, name, 0);
 	if (sac != NULL && sac->compress != 0)
 		return (1);
+
+	return (0);
+}
+
+/*
+ * Determine whether the section are debugging section.
+ * According to libbfd, debugging sections are recognized
+ * only by name.
+ */
+static int
+is_debug_section(const char *name)
+{
+	const char *dbg_sec[] = {
+		".debug",
+		".gnu.linkonce.wi.",
+		".line",
+		".stab",
+		NULL
+	};
+	const char **p;
+
+	for(p = dbg_sec; *p; p++)
+		if (strncmp(name, *p, strlen(*p)) == 0)
+			return (1);
 
 	return (0);
 }
@@ -369,7 +398,6 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 			return;
 	}
 		
-
 #define	COPYREL(SZ) do {					\
 	if (nrels == 0) {					\
 		if ((rel##SZ = malloc(cap *			\
