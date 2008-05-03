@@ -141,7 +141,7 @@ struct LNP_header {
 #define	DW_LNE_lo_user			0x80
 #define	DW_LNE_hi_user			0xff
 
-#define VECTOR_LINE_INFO_DEF_CAPACITY	2048
+#define VECTOR_LINE_INFO_DEF_CAPACITY	464
 
 static int	ULEB128_len(unsigned char *);
 static int	decode_LEB128(unsigned char *, int64_t *);

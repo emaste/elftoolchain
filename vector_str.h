@@ -37,7 +37,7 @@
  * Resemble to std::vector<std::string> in C++.
  */
 
-#define VECTOR_DEF_CAPACITY	12
+#define VECTOR_DEF_CAPACITY	8
 #define BUFFER_GROWFACTOR	1.618
 
 /** @brief Dynamic vector data for string. */
