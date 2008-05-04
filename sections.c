@@ -44,6 +44,7 @@ static int	is_compress_section(struct elfcopy *ecp, const char *name);
 static int	is_debug_section(const char *name);
 static int	is_modify_section(struct elfcopy *ecp, const char *name);
 static int	is_print_section(struct elfcopy *ecp, const char *name);
+static int	is_remove_reloc_sec(struct elfcopy *ecp, uint32_t sh_info);
 static int	is_remove_section(struct elfcopy *ecp, const char *name);
 static void	modify_section(struct elfcopy *ecp, struct section *s);
 static void	print_data(const char *d, size_t sz);
@@ -83,6 +84,48 @@ is_remove_section(struct elfcopy *ecp, const char *name)
 	}
 
 	return (0);
+}
+
+/*
+ * Relocation section need to be remove if the section it applies will
+ * be removed.
+ */
+static int
+is_remove_reloc_sec(struct elfcopy *ecp, uint32_t sh_info)
+{
+	const char *name;
+	GElf_Shdr ish;
+	Elf_Scn *is;
+	size_t indx;
+	int elferr;
+
+	if (elf_getshstrndx(ecp->ein, &indx) == 0)
+		errx(EX_SOFTWARE, "elf_getshstrndx failed: %s",
+		    elf_errmsg(-1));
+
+	is = NULL;
+	while ((is = elf_nextscn(ecp->ein, is)) != NULL) {
+		if (sh_info == elf_ndxscn(is)) {
+			if (gelf_getshdr(is, &ish) == NULL)
+				errx(EX_SOFTWARE, "gelf_getshdr failed: %s",
+				    elf_errmsg(-1));
+			if ((name = elf_strptr(ecp->ein, indx, ish.sh_name)) ==
+			    NULL)
+				errx(EX_SOFTWARE, "elf_strptr failed: %s",
+				    elf_errmsg(-1));
+			if (is_remove_section(ecp, name))
+				return (1);
+			else
+				return (0);
+		}
+	}
+	elferr = elf_errno();
+	if (elferr != 0)
+		errx(EX_SOFTWARE, "elf_nextscn failed: %s",
+		    elf_errmsg(elferr));
+
+	/* Remove reloc section if we can't find the target section. */
+	return (1);
 }
 
 static int
@@ -128,15 +171,6 @@ is_debug_section(const char *name)
 
 	for(p = dbg_sec; *p; p++) {
 		if (strncmp(name, *p, strlen(*p)) == 0)
-			return (1);
-		/*
-		 * Treat reloc info for debugging section
-		 * as debugging section too.
-		 */
-		if (strlen(name) <= strlen(".rel") ||
-		    strncmp(name, ".rel", 4) != 0)
-			return (0);
-		if (strncmp(&name[4], *p, strlen(*p)) == 0)
 			return (1);
 	}
 
@@ -244,6 +278,15 @@ create_scn(struct elfcopy *ecp)
 		/* Skip sections to be removed. */
 		if (is_remove_section(ecp, name))
 			continue;
+
+		/*
+		 * Relocation section need to be remove if the section
+		 * it applies will be removed.
+		 */
+		if (ish.sh_type == SHT_REL || ish.sh_type == SHT_RELA)
+			if (ish.sh_info != 0 &&
+			    is_remove_reloc_sec(ecp, ish.sh_info))
+				continue;
 
 		/* Create internal section object. */
 		if (strcmp(name, ".shstrtab") != 0) {
