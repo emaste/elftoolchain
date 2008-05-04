@@ -77,6 +77,12 @@ is_remove_symbol(struct elfcopy *ecp, size_t sc, int i, GElf_Sym *s,
     const char *name)
 {
 
+	if (lookup_keep_symlist(ecp, name) != 0)
+		return (0);
+
+	if (lookup_strip_symlist(ecp, name) != 0)
+		return (1);
+
 	if (ecp->strip == STRIP_ALL)
 		return (1);
 
@@ -90,12 +96,6 @@ is_remove_symbol(struct elfcopy *ecp, size_t sc, int i, GElf_Sym *s,
 		return (1);
 
 	if (ecp->strip == STRIP_DEBUG && is_debug_symbol(s))
-		return (1);
-
-	if (lookup_keep_symlist(ecp, name) != 0)
-		return (0);
-
-	if (lookup_strip_symlist(ecp, name) != 0)
 		return (1);
 
 	return (0);
