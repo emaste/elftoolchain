@@ -204,11 +204,8 @@ is_needed_symbol(struct elfcopy *ecp, int i, GElf_Sym *s)
 	if ((dup_pos = find_duplicate(st_buf, name,		\
 	    st_sz)) > -1)					\
 		sy_buf##SZ[j].st_name = dup_pos;		\
-	else {							\
-		if (strlen(name) > 0)				\
-			st_sz++;				\
+	else							\
 		sy_buf##SZ[j].st_name = st_sz;			\
-	}							\
 	sy_buf##SZ[j].st_info = sym.st_info;			\
 	sy_buf##SZ[j].st_other = sym.st_other;			\
 	sy_buf##SZ[j].st_shndx = sym.st_shndx;			\
@@ -255,12 +252,11 @@ generate_symbols(struct elfcopy *ecp)
 		ALLOCSYM(32);
 	else
 		ALLOCSYM(64);
-	st_sz = 0;
 	st_cap = 512;
-	st_buf = malloc(st_cap);
-	if (st_buf == NULL)
+	if ((st_buf = malloc(st_cap)) == NULL)
 		err(EX_SOFTWARE, "malloc failed");
 	st_buf[0] = '\0';
+	st_sz = 1;
 
 	symndx = 0;
 	is = NULL;
@@ -347,7 +343,6 @@ generate_symbols(struct elfcopy *ecp)
 				if (st_buf == NULL)
 					err(EX_SOFTWARE, "realloc failed");
 			}
-
 			strncpy(&st_buf[st_sz], name, strlen(name));
 			st_buf[st_sz + strlen(name)] = '\0';
 			st_sz += strlen(name) + 1;
