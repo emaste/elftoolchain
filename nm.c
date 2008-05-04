@@ -110,6 +110,7 @@ p->t_table == NULL || p->s_table == NULL || p->filename == NULL)
 #define	FASTLOWER(t)		(t + 32)
 #define	STDLOWER(t)		(tolower(t))
 #define	TOLOWER(t)		(STDLOWER(t))
+#define	SLIST_HINIT_AFTER(l)	{l->slh_first = NULL;}
 #define	TAILQ_HINIT_AFTER(l)	{l.tqh_first = NULL; \
 l.tqh_last = &(l).tqh_first;}
 #define	UNUSED(p)		((void)p)
@@ -143,7 +144,7 @@ static void		print_version(void);
 static int		read_elf(const char *);
 static int		readfile(const char *, const char *);
 static unsigned char	*relocate_sec(Elf_Data *, Elf_Data *, int);
-static int		search_addr(struct vector_line_info *, GElf_Sym *);
+static struct line_info_entry	*search_addr(struct line_info_head *, GElf_Sym *);
 static void		set_g_value_print_fn(enum radix);
 static int		sym_elem_def(char, const GElf_Sym *, const char *);
 static int		sym_elem_global(char, const GElf_Sym *, const char *);
@@ -161,9 +162,9 @@ static void		sym_list_dest(struct sym_head *);
 static int		sym_list_insert(struct sym_head *, const char *,
 			    const GElf_Sym *);
 static void		sym_list_print(struct sym_print_data *,
-			    struct vector_line_info *);
+			    struct line_info_head *);
 static void		sym_list_print_each(struct sym_entry *,
-			    struct sym_print_data *, struct vector_line_info *);
+			    struct sym_print_data *, struct line_info_head *);
 static void		sym_list_sort(struct sym_head *, const char *, fn_sort);
 static int		sym_section_filter(const GElf_Shdr *);
 static void		sym_size_oct_print(const GElf_Sym *);
@@ -745,8 +746,8 @@ read_elf(const char *filename)
 	Elf_Data *dynstr_data, *strtab_data, *dbg_info, *dbg_rela_info;
 	Elf_Data *dbg_abbrev, *dbg_str, *dbg_line, *dbg_rela_line;
 	GElf_Shdr shdr;
-	struct vector_comp_dir *v_comp_dir;
-	struct vector_line_info *v_line_info;
+	struct comp_dir_head *comp_dir;
+	struct line_info_head *line_info;
 
 	assert(filename != NULL && "filename is null");
 
@@ -808,8 +809,8 @@ read_elf(const char *filename)
 		dbg_str = NULL;
 		dbg_line = NULL;
 		dbg_rela_line = NULL;
-		v_comp_dir = NULL;
-		v_line_info = NULL;
+		comp_dir = NULL;
+		line_info = NULL;
 
 		if (kind == ELF_K_AR) {
 			if ((arhdr = elf_getarhdr(elf)) == NULL)
@@ -1007,10 +1008,11 @@ read_elf(const char *filename)
 		if (g_debug_line == true && dbg_info != NULL &&
 		    dbg_abbrev != NULL && dbg_line != NULL) {
 
-			if ((v_comp_dir =
-				malloc(sizeof(struct vector_comp_dir)))
+			if ((comp_dir =
+				malloc(sizeof(struct comp_dir_head)))
 			    != NULL) {
-				vector_comp_dir_init(v_comp_dir);
+				SLIST_HINIT_AFTER(comp_dir);
+				SLIST_INIT(comp_dir);
 
 				if (dbg_rela_info == NULL) {
 					dbg_info_buf = dbg_info->d_buf;
@@ -1035,18 +1037,18 @@ read_elf(const char *filename)
 				    get_dwarf_info(dbg_info_buf, dbg_info_size,
 					dbg_abbrev->d_buf, dbg_abbrev->d_size,
 					dbg_str_buf, dbg_str_size,
-					v_comp_dir) == 0) {
-					vector_comp_dir_dest(v_comp_dir);
-					free(v_comp_dir);
-					v_comp_dir = NULL;
+					comp_dir) == 0) {
+					comp_dir_dest(comp_dir);
+					free(comp_dir);
+					comp_dir = NULL;
 				}
 			}
 
-			if ((v_line_info =
-				malloc(sizeof(struct vector_line_info)))
+			if ((line_info =
+				malloc(sizeof(struct line_info_head)))
 			    != NULL) {
-
-				vector_line_info_init(v_line_info);
+				SLIST_HINIT_AFTER(line_info);
+				SLIST_INIT(line_info);
 
 				if (dbg_rela_line == NULL) {
 					dbg_line_buf = dbg_line->d_buf;
@@ -1060,12 +1062,12 @@ read_elf(const char *filename)
 				if (dbg_line_buf == NULL ||
 				    get_dwarf_line_info(dbg_line_buf,
 					dbg_line_size,
-					v_comp_dir,
-					v_line_info) == 0) {
+					comp_dir,
+					line_info) == 0) {
 
-					vector_line_info_dest(v_line_info);
-					free(v_line_info);
-					v_line_info = NULL;
+					line_info_dest(line_info);
+					free(line_info);
+					line_info = NULL;
 				}
 			}
 		}
@@ -1081,19 +1083,19 @@ read_elf(const char *filename)
 		p_data.filename = filename;
 		p_data.objname = objname;
 
-		sym_list_print(&p_data, v_line_info);
+		sym_list_print(&p_data, line_info);
 next_cmd:
 		if (g_debug_line == true) {
-			if (v_comp_dir != NULL) {
-				vector_comp_dir_dest(v_comp_dir);
-				free(v_comp_dir);
-				v_comp_dir = NULL;
+			if (comp_dir != NULL) {
+				comp_dir_dest(comp_dir);
+				free(comp_dir);
+				comp_dir = NULL;
 			}
 
-			if (v_line_info != NULL) {
-				vector_line_info_dest(v_line_info);
-				free(v_line_info);
-				v_line_info = NULL;
+			if (line_info != NULL) {
+				line_info_dest(line_info);
+				free(line_info);
+				line_info = NULL;
 			}
 
 			if (dbg_rela_line != NULL)
@@ -1205,27 +1207,20 @@ relocate_sec(Elf_Data *org, Elf_Data *rela, int class)
 	return (rtn);
 }
 
-static int
-search_addr(struct vector_line_info *v, GElf_Sym *g)
+static struct line_info_entry *
+search_addr(struct line_info_head *l, GElf_Sym *g)
 {
-	int i, j, k;
+	struct line_info_entry *ep;
 
-	if (v == NULL || g == NULL)
-		return (-1);
+	if (l == NULL || g == NULL)
+		return (NULL);
 
-	i = 0;
-	j = v->size;
-
-	while (i < j) {
-		k = (i + j) / 2;
-		if (v->info[k].addr < g->st_value)
-			i = k + 1;
-		else
-			j = k;
+	SLIST_FOREACH(ep, l, entries) {
+		if (ep->addr == g->st_value)
+			return (ep);
 	}
 
-	return (((size_t)i < v->size) &&
-	    (v->info[i].addr == g->st_value) ? i : -1);
+	return (NULL);
 }
 
 static void
@@ -1576,7 +1571,7 @@ sym_list_insert(struct sym_head *headp, const char *name, const GElf_Sym *sym)
 
 /* If file has not .debug_info, line_info will be NULL */
 static void
-sym_list_print(struct sym_print_data *p, struct vector_line_info *line_info)
+sym_list_print(struct sym_print_data *p, struct line_info_head *line_info)
 {
 	struct sym_entry *ep;
 
@@ -1594,9 +1589,8 @@ sym_list_print(struct sym_print_data *p, struct vector_line_info *line_info)
 /* If file has not .debug_info, line_info will be NULL */
 static void
 sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
-    struct vector_line_info *line_info)
+    struct line_info_head *line_info)
 {
-	int i;
 	struct filter_entry *fep;
 	const char *sec;
 	char type;
@@ -1671,10 +1665,10 @@ sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
 
 	if (g_debug_line == true && line_info != NULL &&
 	    !IS_UNDEF_SYM_TYPE(type)) {
-		if ((i = search_addr(line_info, ep->sym)) != -1) {
-			printf("\t%s:%" PRIu64, line_info->info[i].file,
-			    line_info->info[i].line);
-		}
+		struct line_info_entry *lep;
+
+		if ((lep = search_addr(line_info, ep->sym)) != NULL)
+			printf("\t%s:%" PRIu64, lep->file, lep->line);
 	}
 
 	printf("\n");
@@ -1826,12 +1820,6 @@ usage(int exitcode)
 	
 	exit(exitcode);
 }
-
-/*
- * Todo
- *
- * 1. test
- */
 
 /*
  * Display symbolic information in file.
