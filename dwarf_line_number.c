@@ -141,24 +141,18 @@ struct LNP_header {
 #define	DW_LNE_lo_user			0x80
 #define	DW_LNE_hi_user			0xff
 
-#define VECTOR_LINE_INFO_DEF_CAPACITY	464
-
 static int	ULEB128_len(unsigned char *);
 static int	decode_LEB128(unsigned char *, int64_t *);
 static int	decode_ULEB128(unsigned char *, uint64_t *);
-static int	vector_line_info_grow(struct vector_line_info *);
-static int	vector_line_info_push(struct state_register *,
-		    struct vector_str *, struct vector_line_info *);
-static int	vector_comp_dir_grow(struct vector_comp_dir *);
-static int	vector_comp_dir_push(struct vector_comp_dir *, const char *,
+static int	line_info_insert(struct state_register *,
+		    struct vector_str *, struct line_info_head *);
+static int	comp_dir_insert(struct comp_dir_head *, const char *,
 		    const char *);
 static void	vector_str_reset(struct vector_str *);
-static int	find_current_path(struct vector_comp_dir *, const char *,
-		    size_t);
 static int	get_LNP_header(unsigned char *, uint64_t, struct LNP_header *);
-static int	get_current_path(struct vector_comp_dir *, const char *,
+static int	get_current_path(struct comp_dir_head *, const char *,
 		    size_t *, char **);
-static int	get_file_names(char *, struct vector_comp_dir *,
+static int	get_file_names(char *, struct comp_dir_head *,
 		    struct vector_str *, struct vector_str *);
 static int	get_header(unsigned char *, struct header_32 *,
 		    struct header_64 *, bool *);
@@ -168,14 +162,14 @@ static int	read_abbrev_table(unsigned char *, unsigned char *, char *,
 		    size_t, bool, char **, char **);
 static void	state_register_init(struct state_register *);
 static int	state_op_ext(unsigned char *, struct state_register *,
-		    struct vector_comp_dir *, struct vector_str *,
-		    struct vector_str *, struct vector_line_info *);
+		    struct comp_dir_head *, struct vector_str *,
+		    struct vector_str *, struct line_info_head *);
 static int	state_op_sp(unsigned char, struct state_register *,
 		    struct LNP_header *, struct vector_str *,
-		    struct vector_line_info *);
+		    struct line_info_head *);
 static int	state_op_std(unsigned char, unsigned char *,
 		    struct state_register *, struct LNP_header *,
-		    struct vector_str *, struct vector_line_info *);
+		    struct vector_str *, struct line_info_head *);
 
 /*
  * Get length of ULEB128.
@@ -283,182 +277,107 @@ decode_ULEB128(unsigned char *in, uint64_t *out)
 }
 
 void
-vector_line_info_dest(struct vector_line_info *vec)
+line_info_dest(struct line_info_head *l)
 {
+	struct line_info_entry *ep;
 
-	if (vec == NULL)
+	if (l == NULL)
 		return;
 
-	for (size_t i = 0; i < vec->size; ++i)
-		free(vec->info[i].file);
-
-	free(vec->info);
-}
-
-int
-vector_line_info_init(struct vector_line_info *vec)
-{
-
-	if (vec == NULL)
-		return (0);
-
-	vec->size = 0;
-	vec->capacity = VECTOR_LINE_INFO_DEF_CAPACITY;
-
-	if ((vec->info = malloc(sizeof(struct line_info) * vec->capacity))
-	    == NULL)
-		return (0);
-
-	return (1);
-}
-
-static int
-vector_line_info_grow(struct vector_line_info *v)
-{
-	size_t cap;
-	struct line_info *info;
-
-	if (v == NULL)
-		return (0);
-
-	cap = v->capacity * BUFFER_GROWFACTOR;
-
-	if ((info = malloc(sizeof(struct line_info) * cap)) == NULL)
-		return (0);
-
-	for (size_t i = 0; i < v->size; ++i)
-		info[i] = v->info[i];
-
-	free(v->info);
-
-	v->capacity = cap;
-	v->info = info;
-
-	return (1);
+	while (!SLIST_EMPTY(l)) {
+		ep = SLIST_FIRST(l);
+		SLIST_REMOVE_HEAD(l, entries);
+		free(ep->file);
+		free(ep);
+	}
 }
 
 /*
- * Push back data to 'vec'.
+ * Insert data to list.
  *
  * Return 0 at fail or 1.
  */
 static int
-vector_line_info_push(struct state_register *regi, struct vector_str *v_file,
-    struct vector_line_info *v)
+line_info_insert(struct state_register *regi, struct vector_str *v_file,
+    struct line_info_head *l)
 {
 	const char *filename;
 	size_t len;
+	struct line_info_entry *e;
 
-	if (regi == NULL || v_file == NULL || v == NULL)
+	if (regi == NULL || v_file == NULL || l == NULL)
 		return (0);
 
 	if (regi->file - 1 > v_file->size)
 		return (0);
 	
-	if (v->size == v->capacity && vector_line_info_grow(v) == 0)
+	if ((e = malloc(sizeof(struct line_info_entry))) == NULL)
 		return (0);
 
 	filename = v_file->container[regi->file - 1];
 	len = strlen(filename);
 
-	if ((v->info[v->size].file =
-		malloc(sizeof(char) * (len + 1))) == NULL)
+	if ((e->file = malloc(sizeof(char) * (len + 1))) == NULL)
 		return (0);
 
-	snprintf(v->info[v->size].file, len + 1, "%s", filename);
+	snprintf(e->file, len + 1, "%s", filename);
 
-	v->info[v->size].addr = regi->addr;
-	v->info[v->size].line = regi->line;
+	e->addr = regi->addr;
+	e->line = regi->line;
 
-	++v->size;
-
-	return (1);
-}
-
-int
-vector_comp_dir_init(struct vector_comp_dir *v)
-{
-
-	if (v == NULL)
-		return (0);
-
-	v->size = 0;
-	v->capacity = VECTOR_DEF_CAPACITY;
-
-	if ((v->info = malloc(sizeof(struct comp_dir) * v->capacity))
-	    == NULL)
-		return (0);
+	SLIST_INSERT_HEAD(l, e, entries);
 
 	return (1);
 }
 
 void
-vector_comp_dir_dest(struct vector_comp_dir *v)
+comp_dir_dest(struct comp_dir_head *l)
 {
+	struct comp_dir_entry *ep;
 
-	if (v == NULL)
+	if (l == NULL)
 		return;
 
-	for (size_t i = 0; i < v->size; ++i) {
-		free(v->info[i].dir);
-		free(v->info[i].src);
+	while (!SLIST_EMPTY(l)) {
+		ep = SLIST_FIRST(l);
+		SLIST_REMOVE_HEAD(l, entries);
+		free(ep->dir);
+		free(ep->src);
+		free(ep);
 	}
-
-	free(v->info);
 }
 
 static int
-vector_comp_dir_grow(struct vector_comp_dir *v)
-{
-	size_t cap;
-	struct comp_dir *comp_dir;
-
-	if (v == NULL)
-		return (0);
-
-	cap = v->capacity * BUFFER_GROWFACTOR;
-
-	if ((comp_dir = malloc(sizeof(struct comp_dir) * cap)) == NULL)
-		return (0);
-
-	for (size_t i = 0; i < v->size; ++i)
-		comp_dir[i] = v->info[i];
-
-	free(v->info);
-
-	v->capacity = cap;
-	v->info = comp_dir;
-
-	return (0);
-}
-
-static int
-vector_comp_dir_push(struct vector_comp_dir *v, const char *s, const char *d)
+comp_dir_insert(struct comp_dir_head *l, const char *s, const char *d)
 {
 	size_t s_len, d_len;
+	struct comp_dir_entry *e;
 
-	if (v == NULL || s == NULL || d == NULL)
+	if (l == NULL || s == NULL || d == NULL)
 		return (0);
 
-	if (v->size == v->capacity && vector_comp_dir_grow(v) == 0)
+	if ((e = malloc(sizeof(struct comp_dir_entry))) == NULL)
 		return (0);
 
 	s_len = strlen(s);
-	if ((v->info[v->size].src = malloc(sizeof(char) * (s_len + 1))) == NULL)
-		return (0);
-
-	d_len = strlen(d);
-	if ((v->info[v->size].dir =
-		malloc(sizeof(char) * (d_len + 1))) == NULL) {
-		free(v->info[v->size].src);
+	if ((e->src = malloc(sizeof(char) * (s_len + 1))) == NULL) {
+		free(e);
 
 		return (0);
 	}
 
-	snprintf(v->info[v->size].src, s_len + 1, "%s", s);
-	snprintf(v->info[v->size].dir, d_len + 1, "%s", d);
+	d_len = strlen(d);
+	if ((e->dir = malloc(sizeof(char) * (d_len + 1))) == NULL) {
+		free(e->src);
+		free(e);
 
-	++v->size;
+		return (0);
+	}
+
+	snprintf(e->src, s_len + 1, "%s", s);
+	snprintf(e->dir, d_len + 1, "%s", d);
+
+	SLIST_INSERT_HEAD(l, e, entries);
 
 	return (1);
 }
@@ -474,25 +393,6 @@ vector_str_reset(struct vector_str *v)
 	v->container = NULL;
 	v->capacity = 0;
 	v->size = 0;
-}
-
-/*
- * Find current path index from 'v'.
- *
- * Return -1 at failed, index at success.
- */ 
-static int
-find_current_path(struct vector_comp_dir *v, const char *cur, size_t len)
-{
-
-	if (v == NULL || cur == NULL || len == 0)
-		return (-1);
-
-	for (size_t i = 0; i < v->size; ++i)
-		if (strncmp(v->info[i].src, cur, len) == 0)
-			return (i);
-
-	return (-1);
 }
 
 static int
@@ -532,35 +432,38 @@ get_LNP_header(unsigned char *p, uint64_t size, struct LNP_header *h)
 }
 
 /*
- * Get current path from 'v'.
+ * Get current path from 'l'.
  *
- * Find correspoding dir in 'v' and assign new allocated dir/cur string
+ * Find correspoding dir in 'l' and assign new allocated dir/cur string
  * to 'out'.
  *
  * Return 0 at failed or 1 at success.
  * Return 'out' length in 'len' variable.
  */
 static int
-get_current_path(struct vector_comp_dir *v, const char *cur, size_t *len,
+get_current_path(struct comp_dir_head *l, const char *cur, size_t *len,
     char **out)
 {
 
 	if (len == NULL || out == NULL)
 		return (0);
 
-	if (v != NULL && v->size > 0) {
-		const int idx = find_current_path(v, cur, *len);
+	if (l != NULL) {
+		struct comp_dir_entry *ep;
 
-		if (idx >= 0) {
-			*len = *len + strlen(v->info[idx].dir) + 1;
+		SLIST_FOREACH(ep, l, entries) {
+			if (strncmp(ep->src, cur, *len) == 0) {
+				*len = *len + strlen(ep->dir) + 1;
 				
-			if ((*out = malloc(sizeof(char) * (*len + 1))) == NULL)
-				return (0);
+				if ((*out = malloc(sizeof(char) * (*len + 1)))
+				    == NULL)
+					return (0);
 					
-			snprintf(*out, *len + 1, "%s/%s", v->info[idx].dir,
-			    cur);
+				snprintf(*out, *len + 1, "%s/%s", ep->dir, cur);
 
-			return (1);
+				return (1);
+
+			}
 		}
 	}
 
@@ -573,7 +476,7 @@ get_current_path(struct vector_comp_dir *v, const char *cur, size_t *len,
 }
 
 static int
-get_file_names(char *p, struct vector_comp_dir *c_dir, struct vector_str *dir,
+get_file_names(char *p, struct comp_dir_head *c_dir, struct vector_str *dir,
     struct vector_str *f)
 {
 	char *cur_file_name, *full_file_name;
@@ -955,8 +858,8 @@ state_register_init(struct state_register *r)
 /* Return 0 at failed, -1 at end seq, advanced ptr at success */
 static int
 state_op_ext(unsigned char *p, struct state_register *regi,
-    struct vector_comp_dir *comp_dir, struct vector_str *dir,
-    struct vector_str *file, struct vector_line_info *out)
+    struct comp_dir_head *comp_dir, struct vector_str *dir,
+    struct vector_str *file, struct line_info_head *out)
 {
 	unsigned char opcode;
 	int i, rtn = 0;
@@ -977,7 +880,7 @@ state_op_ext(unsigned char *p, struct state_register *regi,
 	++rtn;
 
 	if (opcode == DW_LNE_end_sequence) {
-		if (vector_line_info_push(regi, file, out) == 0)
+		if (line_info_insert(regi, file, out) == 0)
 			return (0);
 
 		return (-1);
@@ -996,7 +899,7 @@ state_op_ext(unsigned char *p, struct state_register *regi,
 
 static int
 state_op_sp(unsigned char op, struct state_register *regi, struct LNP_header *h,
-    struct vector_str *file, struct vector_line_info *out)
+    struct vector_str *file, struct line_info_head *out)
 {
 	unsigned char adj_opcode;
 
@@ -1007,7 +910,7 @@ state_op_sp(unsigned char op, struct state_register *regi, struct LNP_header *h,
 	regi->addr += (adj_opcode / h->line_range) * h->min_inst_len;
 	regi->line += h->line_base + (adj_opcode % h->line_range);
 
-	if (vector_line_info_push(regi, file, out) == 0)
+	if (line_info_insert(regi, file, out) == 0)
 		return (0);
 
 	return (1);
@@ -1016,7 +919,7 @@ state_op_sp(unsigned char op, struct state_register *regi, struct LNP_header *h,
 /* Return -1 at failed */
 static int
 state_op_std(unsigned char op, unsigned char *p, struct state_register *regi,
-    struct LNP_header *h, struct vector_str *file, struct vector_line_info *out)
+    struct LNP_header *h, struct vector_str *file, struct line_info_head *out)
 {
 	unsigned char adj;
 	uint16_t oper_16;
@@ -1030,7 +933,7 @@ state_op_std(unsigned char op, unsigned char *p, struct state_register *regi,
 
 	switch (op) {
 	case DW_LNS_copy:
-		if (vector_line_info_push(regi, file, out) == 0)
+		if (line_info_insert(regi, file, out) == 0)
 			return (-1);
 
 		return (0);
@@ -1085,8 +988,8 @@ state_op_std(unsigned char op, unsigned char *p, struct state_register *regi,
 }
 
 int
-get_dwarf_line_info(void *buf, uint64_t size, struct vector_comp_dir *comp_dir,
-    struct vector_line_info *out)
+get_dwarf_line_info(void *buf, uint64_t size, struct comp_dir_head *comp_dir,
+    struct line_info_head *out)
 {
 	unsigned char *ptr, *this_cu;
 	unsigned char opcode;
@@ -1227,7 +1130,7 @@ clean:
 
 int
 get_dwarf_info(void *info, size_t info_len, void *abbrev, size_t abbrev_len,
-    void *str, size_t str_len, struct vector_comp_dir *v)
+    void *str, size_t str_len, struct comp_dir_head *l)
 {
 	char *src, *dir;
 	unsigned char *i_ptr, *a_ptr, *this_cu;
@@ -1239,7 +1142,7 @@ get_dwarf_info(void *info, size_t info_len, void *abbrev, size_t abbrev_len,
 
 	/* .debug_str not always exist */
 	if (info == NULL || info_len == 0 || abbrev == NULL ||
-	    abbrev_len == 0 || v == NULL)
+	    abbrev_len == 0 || l == NULL)
 		return (0);
 
 	src = dir = NULL;
@@ -1308,7 +1211,7 @@ start:
 	}
 
 	if (src != NULL && dir != NULL)
-		if (vector_comp_dir_push(v, src, dir) == 0)
+		if (comp_dir_insert(l, src, dir) == 0)
 			goto clean;
 
 	/* skip to next cu, because need only comp_dir */

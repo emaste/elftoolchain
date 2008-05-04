@@ -27,6 +27,7 @@
 #ifndef	GUARD_DWARF_LINE_NUMBER_H
 #define	GUARD_DWARF_LINE_NUMBER_H
 
+#include <sys/queue.h>
 #include <sys/types.h>
 
 /**
@@ -36,70 +37,46 @@
  * DWARF debug information from http://dwarfstd.org/Dwarf3.pdf
  */
 
-/** @brief Structure for line number information. */
-struct line_info {
+SLIST_HEAD(line_info_head, line_info_entry);
+
+/** @brief List for line number information. */
+struct line_info_entry {
 	/** address */
 	uint64_t	addr;
 	/** line number */
 	uint64_t	line;
 	/** file name with path */
 	char		*file;
+	SLIST_ENTRY(line_info_entry) entries;
 };
 
-/** @brief Dynamic vector data for line_info. */
-struct vector_line_info {
-	/** current size */
-	size_t		size;
-	/** total capacity */
-	size_t		capacity;
-	/** line_info array */
-	struct line_info *info;
-};
+SLIST_HEAD(comp_dir_head, comp_dir_entry);
 
-/** @brief Structure for compilation directory information. */
-struct comp_dir {
+/** @brief List for compilation directory information. */
+struct comp_dir_entry {
 	/** file name */
 	char		*src;
 	/** directory */
 	char		*dir;
+	SLIST_ENTRY(comp_dir_entry) entries;
 };
 
-/** @brief Dynamic vector data for comp_dir. */
-struct vector_comp_dir {
-	/** current size */
-	size_t		size;
-	/** total capacity */
-	size_t		capacity;
-	/** comp_dir array */
-	struct comp_dir	*info;
-};
+/** @brief Deallocate resource in line_info list. */
+void	line_info_dest(struct line_info_head *l);
 
-/**
- * @brief Initialize vector_line_info.
- * @return 0 at failed, 1 at success.
- */
-int	vector_line_info_init(struct vector_line_info *v);
-/** @brief Deallocate resource in vector_line_info. */
-void	vector_line_info_dest(struct vector_line_info *v);
-
-/**
- * @brief Initialize vector_comp_dir.
- * @return 0 at failed, 1 at success.
- */
-int	vector_comp_dir_init(struct vector_comp_dir *v);
-/** @brief Deallocate resource in vector_comp_dir. */
-void	vector_comp_dir_dest(struct vector_comp_dir *v);
+/** @brief Deallocate resource in comp_dir list. */
+void	comp_dir_dest(struct comp_dir_head *l);
 
 /**
  * @brief Get line information.
  * @param buf .debug_line section
  * @param size size of buf
  * @param comp_dir Compilation directory information. NULL for ignore.
- * @param out Vector to contain results. Not gaurantee rollback 'out' if failed.
+ * @param out List to contain results. Not gaurantee rollback 'out' if failed.
  * @return 0 at failed, 1 at success.
  */
 int	get_dwarf_line_info(void *buf, uint64_t size,
-	    struct vector_comp_dir *comp_dir, struct vector_line_info *out);
+	    struct comp_dir_head *comp_dir, struct line_info_head *out);
 /**
  * @brief Get compilation directory information.
  * @param info .debug_info section
@@ -108,11 +85,11 @@ int	get_dwarf_line_info(void *buf, uint64_t size,
  * @param abbrev_len length of abbrev
  * @param str .debug_str section. NULL for ignore
  * @param str_len length of str
- * @param v Vector to contain results. Not gaurantee rollback 'v' if failed.
+ * @param l List to contain results. Not gaurantee rollback 'l' if failed.
  * @return 0 at failed, 1 at success.
  */
 int	get_dwarf_info(void *info, size_t info_len, void *abbrev,
 	    size_t abbrev_len, void *str, size_t str_len,
-	    struct vector_comp_dir *v);
+	    struct comp_dir_head *l);
 
 #endif /* !GUARD_DWARF_LINE_NUMBER_H */
