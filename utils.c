@@ -102,23 +102,3 @@ lookup_string(struct section *t, const char *s)
 
 	return (-1);
 }
-
-int
-find_duplicate(const char *tab, const char *s, int sz)
-{
-        const char *c, *r;
-        size_t len, slen;
-
-        slen = strlen(s);
-        for (c = tab; c < tab + sz;) {
-                len = strlen(c);
-                if (len >= slen) {
-                        r = c + (len - slen);
-                        if (strcmp(r, s) == 0)
-                                return (r - tab);
-                }
-                c += len + 1;
-        }
-
-        return (-1);
-}
