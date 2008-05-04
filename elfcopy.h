@@ -173,7 +173,6 @@ void	copy_shdr(struct elfcopy *ecp, Elf_Scn *is, Elf_Scn *os,
 	    const char *name);
 void	create_scn(struct elfcopy *ecp);
 void	create_symtab(struct elfcopy *ecp);
-int	find_duplicate(const char *tab, const char *s, int sz);
 struct section *insert_shtab(struct elfcopy *ecp);
 void	insert_to_strtab(struct section *t, const char *s);
 struct sec_action *lookup_sec_act(struct elfcopy *ecp,

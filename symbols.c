@@ -202,16 +202,15 @@ is_needed_symbol(struct elfcopy *ecp, int i, GElf_Sym *s)
 } while (0)
 
 #define	COPYSYM(SZ) do {					\
-	if ((dup_pos = find_duplicate(st_buf, name,		\
-	    st_sz)) > -1)					\
-		sy_buf##SZ[j].st_name = dup_pos;		\
+	if (*name == '\0')					\
+		sy_buf##SZ[j].st_name = 0;			\
 	else							\
 		sy_buf##SZ[j].st_name = st_sz;			\
-	sy_buf##SZ[j].st_info = sym.st_info;			\
-	sy_buf##SZ[j].st_other = sym.st_other;			\
-	sy_buf##SZ[j].st_shndx = sym.st_shndx;			\
-	sy_buf##SZ[j].st_value = sym.st_value;			\
-	sy_buf##SZ[j].st_size = sym.st_size;			\
+	sy_buf##SZ[j].st_info	= sym.st_info;			\
+	sy_buf##SZ[j].st_other	= sym.st_other;			\
+	sy_buf##SZ[j].st_shndx	= sym.st_shndx;			\
+	sy_buf##SZ[j].st_value	= sym.st_value;			\
+	sy_buf##SZ[j].st_size	= sym.st_size;			\
 } while (0)
 
 static int
@@ -235,7 +234,7 @@ generate_symbols(struct elfcopy *ecp)
 	Elf64_Sym *sy_buf64;
 	size_t ishstrndx, n, nsyms, sc, symndx, sy_cap, st_sz, st_cap;
 	char *name, *st_buf;
-	int ec, elferr, i, j, dup_pos;
+	int ec, elferr, i, j;
 
 	if (elf_getshstrndx(ecp->ein, &ishstrndx) == 0)
 		errx(EX_SOFTWARE, "elf_getshstrndx failed: %s",
@@ -335,7 +334,7 @@ generate_symbols(struct elfcopy *ecp)
 
 			nsyms++;
 
-			if (dup_pos > -1)
+			if (*name == '\0')
 				continue;
 
 			while (st_sz + strlen(name) >= st_cap - 1) {
