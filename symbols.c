@@ -186,33 +186,6 @@ is_needed_symbol(struct elfcopy *ecp, int i, GElf_Sym *s)
 	return (0);
 }
 
-#define	ALLOCSYM(SZ) do {					\
-	if (sy_buf##SZ == NULL) {				\
-		sy_buf##SZ = malloc(sy_cap *			\
-		    sizeof(Elf##SZ##_Sym));			\
-		if (sy_buf##SZ == NULL)				\
-			err(EX_SOFTWARE, "malloc failed");	\
-	} else {						\
-		sy_cap *= 2;					\
-		sy_buf##SZ = realloc(sy_buf##SZ,		\
-		    sy_cap * sizeof(Elf##SZ##_Sym));		\
-		if (sy_buf##SZ == NULL)				\
-			err(EX_SOFTWARE, "realloc failed");	\
-	}							\
-} while (0)
-
-#define	COPYSYM(SZ) do {					\
-	if (*name == '\0')					\
-		sy_buf##SZ[j].st_name = 0;			\
-	else							\
-		sy_buf##SZ[j].st_name = st_sz;			\
-	sy_buf##SZ[j].st_info	= sym.st_info;			\
-	sy_buf##SZ[j].st_other	= sym.st_other;			\
-	sy_buf##SZ[j].st_shndx	= sym.st_shndx;			\
-	sy_buf##SZ[j].st_value	= sym.st_value;			\
-	sy_buf##SZ[j].st_size	= sym.st_size;			\
-} while (0)
-
 static int
 is_weak_symbol(GElf_Sym *s)
 {
@@ -234,7 +207,7 @@ generate_symbols(struct elfcopy *ecp)
 	Elf64_Sym *sy_buf64;
 	size_t ishstrndx, n, nsyms, sc, symndx, sy_cap, st_sz, st_cap;
 	char *name, *st_buf;
-	int ec, elferr, i, j;
+	int ec, elferr, i;
 
 	if (elf_getshstrndx(ecp->ein, &ishstrndx) == 0)
 		errx(EX_SOFTWARE, "elf_getshstrndx failed: %s",
@@ -248,10 +221,6 @@ generate_symbols(struct elfcopy *ecp)
 	sy_cap = 64;
 	sy_buf32 = NULL;
 	sy_buf64 = NULL;
-	if (ec == ELFCLASS32)
-		ALLOCSYM(32);
-	else
-		ALLOCSYM(64);
 	st_cap = 512;
 	if ((st_buf = malloc(st_cap)) == NULL)
 		err(EX_SOFTWARE, "malloc failed");
@@ -299,6 +268,30 @@ generate_symbols(struct elfcopy *ecp)
 	if (is == NULL)
 		errx(EX_DATAERR, "can't find .strtab section");
 
+#define	COPYSYM(SZ) do {					\
+	if (sy_buf##SZ == NULL) {				\
+		sy_buf##SZ = malloc(sy_cap *			\
+		    sizeof(Elf##SZ##_Sym));			\
+		if (sy_buf##SZ == NULL)				\
+			err(EX_SOFTWARE, "malloc failed");	\
+	} else if (nsyms >= sy_cap) {				\
+		sy_cap *= 2;					\
+		sy_buf##SZ = realloc(sy_buf##SZ,		\
+		    sy_cap * sizeof(Elf##SZ##_Sym));		\
+		if (sy_buf##SZ == NULL)				\
+			err(EX_SOFTWARE, "realloc failed");	\
+	}							\
+	if (*name == '\0')					\
+		sy_buf##SZ[nsyms].st_name = 0;			\
+	else							\
+		sy_buf##SZ[nsyms].st_name = st_sz;		\
+	sy_buf##SZ[nsyms].st_info	= sym.st_info;		\
+	sy_buf##SZ[nsyms].st_other	= sym.st_other;		\
+	sy_buf##SZ[nsyms].st_shndx	= sym.st_shndx;		\
+	sy_buf##SZ[nsyms].st_value	= sym.st_value;		\
+	sy_buf##SZ[nsyms].st_size	= sym.st_size;		\
+} while (0)
+
 	id = NULL;
 	n = 0;
 	while (n < ish.sh_size && (id = elf_getdata(is, id)) != NULL) {
@@ -316,27 +309,15 @@ generate_symbols(struct elfcopy *ecp)
 			if (is_remove_symbol(ecp, sc, i, &sym, name) != 0)
 				continue;
 
-			/* increase storage if need */
-			if (nsyms >= sy_cap) {
-				if (ec == ELFCLASS32)
-					ALLOCSYM(32);
-				else
-					ALLOCSYM(64);
-			}
-
-			j = nsyms;
-
 			/* FIXME: st_shndx may change. */
 			if (ec == ELFCLASS32)
 				COPYSYM(32);
 			else
 				COPYSYM(64);
-
 			nsyms++;
 
 			if (*name == '\0')
 				continue;
-
 			while (st_sz + strlen(name) >= st_cap - 1) {
 				st_cap *= 2;
 				st_buf = realloc(st_buf, st_cap);
