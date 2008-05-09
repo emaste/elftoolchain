@@ -28,29 +28,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sysexits.h>
 
 #include <tet_api.h>
 
+static int	exec_cmd(const char *, const char *);
 static void	startup();
+static void	test_bsd();
 static void	test_dynamic();
 static void	test_external();
-static void	test_num_sort();
+static void	test_hexa();
+static bool	test_nm_out(const char *, const char *);
 static void	test_no_sort();
+static void	test_num_sort();
+static void	test_octal();
 static void	test_posix();
+static void	test_print_filename();
 static void	test_print_size();
-static void	test_undef();
+static void	test_reverse_sort();
 static void	test_size_sort();
 static void	test_sysv();
-static void	test_bsd();
-static void	test_print_filename();
-static void	test_octal();
-static void	test_hexa();
-static void	test_reverse_sort();
-static bool	test_nm_out(const char *, const char *);
-static int	exec_cmd(const char *, const char *);
-
-void (*tet_startup)() = startup;
-void (*tet_cleanup)() = NULL;
+static void	test_undef();
 
 struct tet_testlist tet_testlist[] = {
 	{ test_dynamic, 1},
@@ -73,6 +71,36 @@ struct tet_testlist tet_testlist[] = {
 #define	NM_CMD		NM " %s " TESTFILE " > test.out"
 #define DIFF_CMD	"diff test.out " TC_DIR "/" TESTFILE "%s.txt > /dev/null"
 
+void (*tet_startup)() = startup;
+void (*tet_cleanup)() = NULL;
+
+static int
+exec_cmd(const char *cmd, const char *op)
+{
+	char *this_cmd;
+	int rtn;
+	size_t cmd_len;
+
+	if (cmd == NULL || op == NULL)
+		return (-1);
+
+	cmd_len = strlen(cmd) + strlen(op);
+
+	if ((this_cmd = malloc(sizeof(char) * cmd_len)) == NULL) {
+		tet_infoline("cannot allocate memory");
+
+		return (-1);
+	}
+
+	snprintf(this_cmd, cmd_len, cmd, op);
+
+	rtn = system(this_cmd);
+
+	free(this_cmd);
+
+	return (rtn);
+}
+
 static void
 startup()
 {
@@ -80,8 +108,21 @@ startup()
 	if (system("cp " TC_DIR "/" TESTFILE " .") < 0) {
 		tet_infoline("cannot cp object");
 		
-		exit(1);
+		exit(EX_SOFTWARE);
 	}
+}
+
+static void
+test_bsd()
+{
+	bool rtn = true;
+
+	tet_infoline("OPTION -B, --format=bsd");
+
+	rtn |= test_nm_out("-B", "-B");
+	rtn |= test_nm_out("--format=bsd", "-B");
+
+	tet_result(rtn == true ? TET_PASS : TET_FAIL);
 }
 
 static void
@@ -110,6 +151,78 @@ test_external()
 }
 
 static void
+test_hexa()
+{
+	bool rtn = true;
+
+	tet_infoline("OPTION -x, -t x");
+
+	rtn |= test_nm_out("-x", "-x");
+	rtn |= test_nm_out("-t x", "-x");
+	rtn |= test_nm_out("--radix=x", "-x");
+
+	tet_result(rtn == true ? TET_PASS : TET_FAIL);
+}
+
+static bool
+test_nm_out(const char *op, const char *d_op)
+{
+	int rtn;
+
+	if (op == NULL) {
+		tet_result(TET_FAIL);
+
+		return (false);
+	}
+
+	if ((rtn = exec_cmd(NM_CMD, op)) < 0) {
+		tet_infoline("system function failed");
+
+		return (false);
+	} else if (rtn == 127) {
+		tet_infoline("execution shell failed");
+
+		return (false);
+	}
+
+	if ((rtn = exec_cmd(DIFF_CMD, d_op)) < 0)
+		tet_infoline("system function failed");
+	else {
+		switch (rtn) {
+		case 127:
+			tet_infoline("execution shell failed");
+
+			break;
+		case 2:
+			tet_infoline("diff has trouble");
+
+			break;
+		case 1:
+			tet_infoline("output is different");
+
+			break;
+		case 0:
+			return (true);
+		}
+	}
+
+	return (false);
+}
+
+static void
+test_no_sort()
+{
+	bool rtn = true;
+
+	tet_infoline("OPTION -p");
+
+	rtn |= test_nm_out("-p", "-p");
+	rtn |= test_nm_out("--no-sort", "-p");
+
+	tet_result(rtn == true ? TET_PASS : TET_FAIL);
+}
+
+static void
 test_num_sort()
 {
 	bool rtn = true;
@@ -123,14 +236,15 @@ test_num_sort()
 }
 
 static void
-test_no_sort()
+test_octal()
 {
 	bool rtn = true;
 
-	tet_infoline("OPTION -p");
+	tet_infoline("OPTION -o, -t o");
 
-	rtn |= test_nm_out("-p", "-p");
-	rtn |= test_nm_out("--no-sort", "-p");
+	rtn |= test_nm_out("-o", "-o");
+	rtn |= test_nm_out("-t o", "-o");
+	rtn |= test_nm_out("--radix=o", "-o");
 
 	tet_result(rtn == true ? TET_PASS : TET_FAIL);
 }
@@ -149,6 +263,19 @@ test_posix()
 }
 
 static void
+test_print_filename()
+{
+	bool rtn = true;
+
+	tet_infoline("OPTION -A, --print-file-name");
+
+	rtn |= test_nm_out("-A", "-A");
+	rtn |= test_nm_out("--print-file-name", "-A");
+
+	tet_result(rtn == true ? TET_PASS : TET_FAIL);
+}
+
+static void
 test_print_size()
 {
 	bool rtn = true;
@@ -162,14 +289,18 @@ test_print_size()
 }
 
 static void
-test_undef()
+test_reverse_sort()
 {
 	bool rtn = true;
 
-	tet_infoline("OPTION -u, --undefined-only");
+	tet_infoline("OPTION -r, --reverse-sort");
 
-	rtn |= test_nm_out("-u", "-u");
-	rtn |= test_nm_out("--undefined-only", "-u");
+	rtn |= test_nm_out("-r", "-r");
+	rtn |= test_nm_out("--reverse-sort", "-r");
+
+	rtn |= test_nm_out("-r -n", "-r-n");
+	rtn |= test_nm_out("-r -p", "-r-p");
+	rtn |= test_nm_out("-r --size-sort", "-r-size-sort");
 
 	tet_result(rtn == true ? TET_PASS : TET_FAIL);
 }
@@ -199,144 +330,14 @@ test_sysv()
 }
 
 static void
-test_bsd()
+test_undef()
 {
 	bool rtn = true;
 
-	tet_infoline("OPTION -B, --format=bsd");
+	tet_infoline("OPTION -u, --undefined-only");
 
-	rtn |= test_nm_out("-B", "-B");
-	rtn |= test_nm_out("--format=bsd", "-B");
-
-	tet_result(rtn == true ? TET_PASS : TET_FAIL);
-}
-
-static void
-test_print_filename()
-{
-	bool rtn = true;
-
-	tet_infoline("OPTION -A, --print-file-name");
-
-	rtn |= test_nm_out("-A", "-A");
-	rtn |= test_nm_out("--print-file-name", "-A");
+	rtn |= test_nm_out("-u", "-u");
+	rtn |= test_nm_out("--undefined-only", "-u");
 
 	tet_result(rtn == true ? TET_PASS : TET_FAIL);
-}
-
-static void
-test_octal()
-{
-	bool rtn = true;
-
-	tet_infoline("OPTION -o, -t o");
-
-	rtn |= test_nm_out("-o", "-o");
-	rtn |= test_nm_out("-t o", "-o");
-	rtn |= test_nm_out("--radix=o", "-o");
-
-	tet_result(rtn == true ? TET_PASS : TET_FAIL);
-}
-
-static void
-test_hexa()
-{
-	bool rtn = true;
-
-	tet_infoline("OPTION -x, -t x");
-
-	rtn |= test_nm_out("-x", "-x");
-	rtn |= test_nm_out("-t x", "-x");
-	rtn |= test_nm_out("--radix=x", "-x");
-
-	tet_result(rtn == true ? TET_PASS : TET_FAIL);
-}
-
-static void
-test_reverse_sort()
-{
-	bool rtn = true;
-
-	tet_infoline("OPTION -r, --reverse-sort");
-
-	rtn |= test_nm_out("-r", "-r");
-	rtn |= test_nm_out("--reverse-sort", "-r");
-
-	rtn |= test_nm_out("-r -n", "-r-n");
-	rtn |= test_nm_out("-r -p", "-r-p");
-	rtn |= test_nm_out("-r --size-sort", "-r-size-sort");
-
-	tet_result(rtn == true ? TET_PASS : TET_FAIL);
-}
-
-static bool
-test_nm_out(const char *op, const char *d_op)
-{
-	int rtn;
-
-	if (op == NULL) {
-		tet_result(TET_FAIL);
-
-		return (false);
-	}
-
-	if ((rtn = exec_cmd(NM_CMD, op)) < 0) {
-		tet_infoline("system function failed");
-
-		return (false);
-	} else if (rtn == 127) {
-		tet_infoline("execution shell failed");
-
-		return (false);
-	}
-
-	if ((rtn = exec_cmd(DIFF_CMD, d_op)) < 0){
-		tet_infoline("system function failed");
-	} else {
-		switch (rtn) {
-		case 127:
-			tet_infoline("execution shell failed");
-
-			break;
-		case 2:
-			tet_infoline("diff has trouble");
-
-			break;
-		case 1:
-			tet_infoline("output is different");
-
-			break;
-		case 0:
-			return (true);
-		}
-	}
-
-	return (false);
-}
-
-static int
-exec_cmd(const char *cmd, const char *op)
-{
-	char *this_cmd;
-	int rtn;
-	size_t cmd_len;
-
-	if (cmd == NULL || op == NULL)
-		return (-1);
-
-	cmd_len = strlen(cmd) + strlen(op);
-
-	if ((this_cmd = malloc(sizeof(char) * cmd_len)) == NULL) {
-		tet_infoline("cannot allocate memory");
-
-		return (-1);
-	}
-
-	snprintf(this_cmd, cmd_len, cmd, op);
-
-	rtn = system(this_cmd);
-
-	free(this_cmd);
-
-	return (rtn);
 }
