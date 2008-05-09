@@ -37,7 +37,14 @@
  * DWARF debug information from http://dwarfstd.org/Dwarf3.pdf
  */
 
-SLIST_HEAD(line_info_head, line_info_entry);
+/** @brief List for compilation directory information. */
+struct comp_dir_entry {
+	/** file name */
+	char		*src;
+	/** directory */
+	char		*dir;
+	SLIST_ENTRY(comp_dir_entry) entries;
+};
 
 /** @brief List for line number information. */
 struct line_info_entry {
@@ -51,32 +58,14 @@ struct line_info_entry {
 };
 
 SLIST_HEAD(comp_dir_head, comp_dir_entry);
-
-/** @brief List for compilation directory information. */
-struct comp_dir_entry {
-	/** file name */
-	char		*src;
-	/** directory */
-	char		*dir;
-	SLIST_ENTRY(comp_dir_entry) entries;
-};
-
-/** @brief Deallocate resource in line_info list. */
-void	line_info_dest(struct line_info_head *l);
+SLIST_HEAD(line_info_head, line_info_entry);
 
 /** @brief Deallocate resource in comp_dir list. */
 void	comp_dir_dest(struct comp_dir_head *l);
 
-/**
- * @brief Get line information.
- * @param buf .debug_line section
- * @param size size of buf
- * @param comp_dir Compilation directory information. NULL for ignore.
- * @param out List to contain results. Not gaurantee rollback 'out' if failed.
- * @return 0 at failed, 1 at success.
- */
-int	get_dwarf_line_info(void *buf, uint64_t size,
-	    struct comp_dir_head *comp_dir, struct line_info_head *out);
+/** @brief Deallocate resource in line_info list. */
+void	line_info_dest(struct line_info_head *l);
+
 /**
  * @brief Get compilation directory information.
  * @param info .debug_info section
@@ -91,5 +80,16 @@ int	get_dwarf_line_info(void *buf, uint64_t size,
 int	get_dwarf_info(void *info, size_t info_len, void *abbrev,
 	    size_t abbrev_len, void *str, size_t str_len,
 	    struct comp_dir_head *l);
+
+/**
+ * @brief Get line information.
+ * @param buf .debug_line section
+ * @param size size of buf
+ * @param comp_dir Compilation directory information. NULL for ignore.
+ * @param out List to contain results. Not gaurantee rollback 'out' if failed.
+ * @return 0 at failed, 1 at success.
+ */
+int	get_dwarf_line_info(void *buf, uint64_t size,
+	    struct comp_dir_head *comp_dir, struct line_info_head *out);
 
 #endif /* !GUARD_DWARF_LINE_NUMBER_H */

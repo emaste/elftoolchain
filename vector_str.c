@@ -174,37 +174,6 @@ vector_str_pop(struct vector_str *v)
 	return (true);
 }
 
-char *
-vector_str_substr(struct vector_str *v, size_t begin, size_t end,
-    size_t *r_len)
-{
-	size_t cur, len;
-	char *rtn;
-
-	if (v == NULL || begin > end)
-		return (NULL);
-
-	len = 0;
-	for (size_t i = begin; i < end + 1; ++i)
-		len += strlen(v->container[i]);
-
-	if ((rtn = malloc(sizeof(char) * (len + 1))) == NULL)
-		return (NULL);
-
-	if (r_len != NULL)
-		*r_len = len;
-
-	cur = 0;
-	for (size_t i = begin; i < end + 1; ++i) {
-		len = strlen(v->container[i]);
-		memcpy(rtn + cur, v->container[i], len);
-		cur += len;
-	}
-	rtn[cur] = '\0';
-
-	return (rtn);
-}
-
 bool
 vector_str_push(struct vector_str *v, const char *str, size_t len)
 {
@@ -259,4 +228,35 @@ vector_str_push_vector_head(struct vector_str *dst, struct vector_str *org)
 	dst->size += org->size;
 
 	return (true);
+}
+
+char *
+vector_str_substr(struct vector_str *v, size_t begin, size_t end,
+    size_t *r_len)
+{
+	size_t cur, len;
+	char *rtn;
+
+	if (v == NULL || begin > end)
+		return (NULL);
+
+	len = 0;
+	for (size_t i = begin; i < end + 1; ++i)
+		len += strlen(v->container[i]);
+
+	if ((rtn = malloc(sizeof(char) * (len + 1))) == NULL)
+		return (NULL);
+
+	if (r_len != NULL)
+		*r_len = len;
+
+	cur = 0;
+	for (size_t i = begin; i < end + 1; ++i) {
+		len = strlen(v->container[i]);
+		memcpy(rtn + cur, v->container[i], len);
+		cur += len;
+	}
+	rtn[cur] = '\0';
+
+	return (rtn);
 }

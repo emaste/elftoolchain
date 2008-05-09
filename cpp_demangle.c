@@ -69,11 +69,6 @@ struct vector_read_cmd {
 	enum read_cmd	*r_container;
 };
 
-#define	CPP_DEMANGLE_TRY_LIMIT	128
-#define	FLOAT_SPRINTF_TRY_LIMIT	5
-#define	FLOAT_QUADRUPLE_BYTES	16
-#define	FLOAT_EXTENED_BYTES	10
-
 /*
  * output - output string vector.
  * subst - substitution string vector.
@@ -94,6 +89,11 @@ struct cpp_demangle_data {
 	int		func_type;
 	const char	*cur, *last_sname;
 };
+
+#define	CPP_DEMANGLE_TRY_LIMIT	128
+#define	FLOAT_SPRINTF_TRY_LIMIT	5
+#define	FLOAT_QUADRUPLE_BYTES	16
+#define	FLOAT_EXTENED_BYTES	10
 
 #define SIMPLE_HASH(x,y)	(64 * x + y)
 
@@ -159,7 +159,7 @@ static int	vector_type_qualifier_init(struct vector_type_qualifier *);
 static int	vector_type_qualifier_push(struct vector_type_qualifier *,
 		    enum type_qualifier);
 
-int		g_vector_str_push_head;
+int g_vector_str_push_head;
 
 char *
 cpp_demangle_ia64(const char *org)
@@ -420,8 +420,8 @@ cpp_demangle_push_type_qualifier(struct cpp_demangle_data *ddata,
 				if (vector_str_push(&subst_v, "*", 1) == false)
 					goto clean;
 
-				if (cpp_demangle_push_subst_v(ddata, &subst_v)
-				    == 0)
+				if (cpp_demangle_push_subst_v(ddata,
+					&subst_v) == 0)
 					goto clean;
 			}
 
@@ -434,20 +434,19 @@ cpp_demangle_push_type_qualifier(struct cpp_demangle_data *ddata,
 				if (vector_str_push(&subst_v, "&", 1) == false)
 					goto clean;
 
-				if (cpp_demangle_push_subst_v(ddata, &subst_v)
-				    == 0)
+				if (cpp_demangle_push_subst_v(ddata,
+					&subst_v) == 0)
 					goto clean;
 			}
 
 			break;
 		case TYPE_CMX:
-			if (cpp_demangle_push_str(ddata, " complex", 8)
-			    == 0)
+			if (cpp_demangle_push_str(ddata, " complex", 8) == 0)
 				goto clean;
 
 			if (type_str != NULL) {
-				if (vector_str_push(&subst_v, " complex", 8)
-				    == false)
+				if (vector_str_push(&subst_v, " complex", 8) ==
+				    false)
 					goto clean;
 
 				if (cpp_demangle_push_subst_v(ddata, &subst_v)
@@ -462,12 +461,12 @@ cpp_demangle_push_type_qualifier(struct cpp_demangle_data *ddata,
 				goto clean;
 
 			if (type_str != NULL) {
-				if (vector_str_push(&subst_v, " imaginary", 10)
-				    == false)
+				if (vector_str_push(&subst_v, " imaginary",
+					10) == false)
 					goto clean;
 
-				if (cpp_demangle_push_subst_v(ddata, &subst_v)
-				    == 0)
+				if (cpp_demangle_push_subst_v(ddata,
+					&subst_v) == 0)
 					goto clean;
 			}
 

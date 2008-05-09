@@ -463,9 +463,9 @@ get_sym_type(const GElf_Sym *sym, const char *type_table)
 static enum target
 get_target(const char *filename)
 {
-	int fd;
-	Elf_Cmd cmd;
 	Elf* elf;
+	Elf_Cmd cmd;
+	int fd;
 
 	if (filename == NULL)
 		return (TARGET_UNKNOWN);
@@ -730,24 +730,24 @@ sym_section_filter(const GElf_Shdr *shdr)
 static int
 read_elf(const char *filename)
 {
+	Elf_Data *dbg_abbrev, *dbg_info, *dbg_line, *dbg_rela_info;
+	Elf_Data *dbg_rela_line, *dbg_str, *dynstr_data, *strtab_data;
+	GElf_Shdr shdr;
+	Elf_Arhdr *arhdr;
+	struct sym_print_data p_data;
+	struct sym_head list_head;
+	size_t strndx, shnum, dbg_info_size, dbg_str_size, dbg_line_size;
+	struct comp_dir_head *comp_dir;
+	struct line_info_head *line_info;
+	Elf *arf, *elf;
+	Elf_Scn *scn;
+	Elf_Cmd elf_cmd;
+	Elf_Kind kind;
 	int fd, rtn, e_err;
 	GElf_Half i;
 	const char *shname, *objname;
 	char *type_table, **sec_table;
 	void *dbg_info_buf, *dbg_str_buf, *dbg_line_buf;
-	size_t strndx, shnum, dbg_info_size, dbg_str_size, dbg_line_size;
-	struct sym_head list_head;
-	Elf_Cmd elf_cmd;
-	Elf *arf, *elf;
-	Elf_Kind kind;
-	struct sym_print_data p_data;
-	Elf_Arhdr *arhdr;
-	Elf_Scn *scn;
-	Elf_Data *dynstr_data, *strtab_data, *dbg_info, *dbg_rela_info;
-	Elf_Data *dbg_abbrev, *dbg_str, *dbg_line, *dbg_rela_line;
-	GElf_Shdr shdr;
-	struct comp_dir_head *comp_dir;
-	struct line_info_head *line_info;
 
 	assert(filename != NULL && "filename is null");
 
@@ -796,21 +796,21 @@ read_elf(const char *filename)
 	TAILQ_HINIT_AFTER(list_head);
 
 	while ((elf = elf_begin(fd, elf_cmd, arf)) != NULL) {
+		dbg_abbrev = NULL;
+		dbg_info = NULL;
+		dbg_line = NULL;
+		dbg_rela_info = NULL;
+		dbg_rela_line = NULL;
+		dbg_str = NULL;
+		dynstr_data = NULL;
+		strtab_data = NULL;
+		comp_dir = NULL;
+		line_info = NULL;
 		type_table = NULL;
 		sec_table = NULL;
 		dbg_info_buf = NULL;
 		dbg_str_buf = NULL;
 		dbg_line_buf = NULL;
-		dynstr_data = NULL;
-		strtab_data = NULL;
-		dbg_info = NULL;
-		dbg_rela_info = NULL;
-		dbg_abbrev = NULL;
-		dbg_str = NULL;
-		dbg_line = NULL;
-		dbg_rela_line = NULL;
-		comp_dir = NULL;
-		line_info = NULL;
 
 		if (kind == ELF_K_AR) {
 			if ((arhdr = elf_getarhdr(elf)) == NULL)
@@ -1086,11 +1086,11 @@ read_elf(const char *filename)
 		sym_list_print(&p_data, line_info);
 next_cmd:
 		if (g_debug_line == true) {
-			if (comp_dir != NULL) {
-				comp_dir_dest(comp_dir);
-				free(comp_dir);
-				comp_dir = NULL;
-			}
+			if (dbg_rela_line != NULL)
+				free(dbg_line_buf);
+
+			if (dbg_rela_info != NULL)
+				free(dbg_info_buf);
 
 			if (line_info != NULL) {
 				line_info_dest(line_info);
@@ -1098,11 +1098,11 @@ next_cmd:
 				line_info = NULL;
 			}
 
-			if (dbg_rela_line != NULL)
-				free(dbg_line_buf);
-
-			if (dbg_rela_info != NULL)
-				free(dbg_info_buf);
+			if (comp_dir != NULL) {
+				comp_dir_dest(comp_dir);
+				free(comp_dir);
+				comp_dir = NULL;
+			}
 		}
 
 		sym_list_dest(&list_head);
@@ -1172,11 +1172,11 @@ readfile(const char *filename, const char *topt)
 static unsigned char *
 relocate_sec(Elf_Data *org, Elf_Data *rela, int class)
 {
-	unsigned char *rtn;
-	int i;
-	Elf32_Sword add32;
-	Elf64_Sword add64;
 	GElf_Rela ra;
+	Elf64_Sword add64;
+	Elf32_Sword add32;
+	int i;
+	unsigned char *rtn;
 
 	if (org == NULL || rela == NULL || class == ELFCLASSNONE)
 		return (NULL);

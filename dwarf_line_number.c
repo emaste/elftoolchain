@@ -142,13 +142,11 @@ struct LNP_header {
 #define	DW_LNE_hi_user			0xff
 
 static int	ULEB128_len(unsigned char *);
-static int	decode_LEB128(unsigned char *, int64_t *);
-static int	decode_ULEB128(unsigned char *, uint64_t *);
-static int	line_info_insert(struct state_register *,
-		    struct vector_str *, struct line_info_head *);
 static int	comp_dir_insert(struct comp_dir_head *, const char *,
 		    const char *);
-static void	vector_str_reset(struct vector_str *);
+static int	decode_LEB128(unsigned char *, int64_t *);
+static int	decode_ULEB128(unsigned char *, uint64_t *);
+static int	duplicate_str(const char *, char **);
 static int	get_LNP_header(unsigned char *, uint64_t, struct LNP_header *);
 static int	get_current_path(struct comp_dir_head *, const char *,
 		    size_t *, char **);
@@ -157,10 +155,10 @@ static int	get_file_names(char *, struct comp_dir_head *,
 static int	get_header(unsigned char *, struct header_32 *,
 		    struct header_64 *, bool *);
 static int	get_include_dir(char *, struct vector_str *);
-static int	duplicate_str(const char *, char **);
+static int	line_info_insert(struct state_register *,
+		    struct vector_str *, struct line_info_head *);
 static int	read_abbrev_table(unsigned char *, unsigned char *, char *,
 		    size_t, bool, char **, char **);
-static void	state_register_init(struct state_register *);
 static int	state_op_ext(unsigned char *, struct state_register *,
 		    struct comp_dir_head *, struct vector_str *,
 		    struct vector_str *, struct line_info_head *);
@@ -170,6 +168,8 @@ static int	state_op_sp(unsigned char, struct state_register *,
 static int	state_op_std(unsigned char, unsigned char *,
 		    struct state_register *, struct LNP_header *,
 		    struct vector_str *, struct line_info_head *);
+static void	state_register_init(struct state_register *);
+static void	vector_str_reset(struct vector_str *);
 
 /*
  * Get length of ULEB128.
@@ -195,6 +195,58 @@ ULEB128_len(unsigned char *in)
 	}
 
 	return (i);
+}
+
+void
+comp_dir_dest(struct comp_dir_head *l)
+{
+	struct comp_dir_entry *ep;
+
+	if (l == NULL)
+		return;
+
+	while (!SLIST_EMPTY(l)) {
+		ep = SLIST_FIRST(l);
+		SLIST_REMOVE_HEAD(l, entries);
+		free(ep->dir);
+		free(ep->src);
+		free(ep);
+	}
+}
+
+static int
+comp_dir_insert(struct comp_dir_head *l, const char *s, const char *d)
+{
+	struct comp_dir_entry *e;
+	size_t s_len, d_len;
+
+	if (l == NULL || s == NULL || d == NULL)
+		return (0);
+
+	if ((e = malloc(sizeof(struct comp_dir_entry))) == NULL)
+		return (0);
+
+	s_len = strlen(s);
+	if ((e->src = malloc(sizeof(char) * (s_len + 1))) == NULL) {
+		free(e);
+
+		return (0);
+	}
+
+	d_len = strlen(d);
+	if ((e->dir = malloc(sizeof(char) * (d_len + 1))) == NULL) {
+		free(e->src);
+		free(e);
+
+		return (0);
+	}
+
+	snprintf(e->src, s_len + 1, "%s", s);
+	snprintf(e->dir, d_len + 1, "%s", d);
+
+	SLIST_INSERT_HEAD(l, e, entries);
+
+	return (1);
 }
 
 /*
@@ -276,123 +328,30 @@ decode_ULEB128(unsigned char *in, uint64_t *out)
 	return (i);
 }
 
-void
-line_info_dest(struct line_info_head *l)
-{
-	struct line_info_entry *ep;
-
-	if (l == NULL)
-		return;
-
-	while (!SLIST_EMPTY(l)) {
-		ep = SLIST_FIRST(l);
-		SLIST_REMOVE_HEAD(l, entries);
-		free(ep->file);
-		free(ep);
-	}
-}
-
 /*
- * Insert data to list.
+ * Duplicate string orig to dest.
  *
- * Return 0 at fail or 1.
+ * Return 0 at fail or length of string.
  */
 static int
-line_info_insert(struct state_register *regi, struct vector_str *v_file,
-    struct line_info_head *l)
+duplicate_str(const char *orig, char **dest)
 {
-	const char *filename;
 	size_t len;
-	struct line_info_entry *e;
 
-	if (regi == NULL || v_file == NULL || l == NULL)
+	if (orig == NULL || dest == NULL)
 		return (0);
 
-	if (regi->file - 1 > v_file->size)
-		return (0);
-	
-	if ((e = malloc(sizeof(struct line_info_entry))) == NULL)
-		return (0);
+	len = strlen(orig);
 
-	filename = v_file->container[regi->file - 1];
-	len = strlen(filename);
+	if (*dest != NULL)
+		free(*dest);
 
-	if ((e->file = malloc(sizeof(char) * (len + 1))) == NULL)
+	if ((*dest = malloc(sizeof(char) * (len + 1))) == NULL)
 		return (0);
 
-	snprintf(e->file, len + 1, "%s", filename);
+	snprintf(*dest, len + 1, "%s", orig);
 
-	e->addr = regi->addr;
-	e->line = regi->line;
-
-	SLIST_INSERT_HEAD(l, e, entries);
-
-	return (1);
-}
-
-void
-comp_dir_dest(struct comp_dir_head *l)
-{
-	struct comp_dir_entry *ep;
-
-	if (l == NULL)
-		return;
-
-	while (!SLIST_EMPTY(l)) {
-		ep = SLIST_FIRST(l);
-		SLIST_REMOVE_HEAD(l, entries);
-		free(ep->dir);
-		free(ep->src);
-		free(ep);
-	}
-}
-
-static int
-comp_dir_insert(struct comp_dir_head *l, const char *s, const char *d)
-{
-	size_t s_len, d_len;
-	struct comp_dir_entry *e;
-
-	if (l == NULL || s == NULL || d == NULL)
-		return (0);
-
-	if ((e = malloc(sizeof(struct comp_dir_entry))) == NULL)
-		return (0);
-
-	s_len = strlen(s);
-	if ((e->src = malloc(sizeof(char) * (s_len + 1))) == NULL) {
-		free(e);
-
-		return (0);
-	}
-
-	d_len = strlen(d);
-	if ((e->dir = malloc(sizeof(char) * (d_len + 1))) == NULL) {
-		free(e->src);
-		free(e);
-
-		return (0);
-	}
-
-	snprintf(e->src, s_len + 1, "%s", s);
-	snprintf(e->dir, d_len + 1, "%s", d);
-
-	SLIST_INSERT_HEAD(l, e, entries);
-
-	return (1);
-}
-
-static void
-vector_str_reset(struct vector_str *v)
-{
-
-	if (v == NULL)
-		return;
-
-	vector_str_dest(v);
-	v->container = NULL;
-	v->capacity = 0;
-	v->size = 0;
+	return (len);
 }
 
 static int
@@ -475,15 +434,258 @@ get_current_path(struct comp_dir_head *l, const char *cur, size_t *len,
 	return (1);
 }
 
+int
+get_dwarf_info(void *info, size_t info_len, void *abbrev, size_t abbrev_len,
+    void *str, size_t str_len, struct comp_dir_head *l)
+{
+	struct header_64 h64;
+	struct header_32 h32;
+	uint64_t a_idx, i_idx, tmp_64;
+	int i, rtn;
+	bool is_64;
+	unsigned char *a_ptr, *i_ptr, *this_cu;
+	char *dir, *src;
+
+	/* .debug_str not always exist */
+	if (info == NULL || info_len == 0 || abbrev == NULL ||
+	    abbrev_len == 0 || l == NULL)
+		return (0);
+
+	rtn = 1;
+
+	dir = src = NULL;
+
+	a_ptr = NULL;
+	i_ptr = info;
+	this_cu = info;
+start:
+	if ((unsigned char *)info - i_ptr + info_len < 11)
+		return (0);
+
+	if (get_header(i_ptr, &h32, &h64, &is_64) == 0)
+		return (0);
+
+	if (is_64 == false) {
+		if (h32.ver != 2 && h32.ver != 3)
+			return (0);
+
+		i_ptr += 11;
+
+		a_ptr = (unsigned char *)abbrev + h32.len;
+	} else {
+		if (h64.ver != 2 && h64.ver != 3)
+			return (0);
+
+		i_ptr += 23;
+
+		a_ptr = (unsigned char *)abbrev + h64.len;
+	}
+
+	/* index */
+	if ((i = decode_ULEB128(i_ptr, &i_idx)) == 0) {
+		rtn = 0;
+
+		goto clean;
+	}
+	i_ptr += i;
+
+	if ((i = decode_ULEB128(a_ptr, &a_idx)) == 0) {
+		rtn = 0;
+
+		goto clean;
+	}
+	a_ptr += i;
+
+	assert(i_idx == a_idx && "index mismatch");
+
+	/* TAG */
+	if ((i = decode_ULEB128(a_ptr, &tmp_64)) == 0) {
+		rtn = 0;
+
+		goto clean;
+	}
+	a_ptr += i;
+
+	/* child */
+	++a_ptr;
+
+	if (read_abbrev_table(i_ptr, a_ptr, str, str_len, is_64, &src, &dir)
+	    == 0) {
+		rtn = 0;
+
+		goto clean;
+	}
+
+	if (src != NULL && dir != NULL)
+		if (comp_dir_insert(l, src, dir) == 0)
+			goto clean;
+
+	/* skip to next cu, because need only comp_dir */
+	this_cu = i_ptr = this_cu +
+	    (is_64 == false ? h32.unit_len + 4 : h64.unit_len + 12);
+
+	if ((uint64_t)(i_ptr - (unsigned char *)info) < info_len) {
+		free(dir);
+		free(src);
+		src = dir = NULL;
+
+		goto start;
+	}
+clean:
+	free(dir);
+	free(src);
+
+	return (rtn);
+}
+
+int
+get_dwarf_line_info(void *buf, uint64_t size, struct comp_dir_head *comp_dir,
+    struct line_info_head *out)
+{
+	struct state_register regi;
+	struct header_64 h64;
+	struct header_32 h32;
+	struct vector_str dir_names, file_names;
+	struct LNP_header lnp_header;
+	int i, rtn;
+	bool is_64;
+	unsigned char opcode, *ptr, *this_cu;
+
+	/* comp_dir not always exist */
+	if (buf == NULL || size == 0 || out == NULL)
+		return (0);
+
+	dir_names.container = NULL;
+	file_names.container = NULL;
+
+	lnp_header.min_inst_len = 1;
+	memset(lnp_header.std_opcode_length, 0, 255);
+
+	rtn = 1;
+	ptr = this_cu = (unsigned char *)buf;
+start:
+	/* min is 11 for 32DWARF */
+	if ((unsigned char *)buf - ptr + size < 11)
+		return (0);
+
+	if (get_header(ptr, &h32, &h64, &is_64) == 0)
+		return (0);
+
+	if (is_64 == false) {
+		if (h32.ver != 2 && h32.ver != 3)
+			return (0);
+
+		lnp_header.min_inst_len = h32.addr_size;
+
+		ptr += 11;
+	} else {
+		if (h64.ver != 2 && h64.ver != 3)
+			return (0);
+
+		lnp_header.min_inst_len = h64.addr_size;
+
+		ptr += 23;
+	}
+
+	if ((i = get_LNP_header(ptr, (unsigned char *)buf - ptr + size,
+		    &lnp_header)) == 0)
+		return (0);
+	
+	ptr += i;
+
+	/* include_directory */
+	if (vector_str_init(&dir_names) == false)
+		return (0);
+
+	if ((i = get_include_dir((char *)ptr, &dir_names)) == 0) {
+		rtn = 0;
+
+		goto clean;
+	}
+
+	ptr += i;
+
+	/* file_names */
+	if (vector_str_init(&file_names) == false) {
+		rtn = 0;
+
+		goto clean;
+	}
+
+	if ((i = get_file_names((char *)ptr, comp_dir, &dir_names,
+		    &file_names)) == 0) {
+		rtn = 0;
+
+		goto clean;
+	}
+
+	ptr += i;
+
+	state_register_init(&regi);
+
+	for (;;) {
+		memcpy(&opcode, ptr, 1);
+		ptr += 1;
+
+		if (opcode == 0) {
+			i = state_op_ext(ptr, &regi, comp_dir, &dir_names,
+			    &file_names, out);
+			if (i == -1)
+				break;
+			else if (i == 0) {
+				rtn = 0;
+
+				goto clean;
+			} else
+				ptr += i;
+		} else if (opcode <= lnp_header.opcode_base) {
+			i = state_op_std(opcode, ptr, &regi, &lnp_header,
+			    &file_names, out);
+			if (i < 0) {
+				rtn = 0;
+
+				goto clean;
+			}
+
+			ptr += i;
+		} else {
+			if (state_op_sp(opcode, &regi, &lnp_header, &file_names,
+				out) == 0) {
+				rtn = 0;
+
+				goto clean;
+			}
+		}
+	}
+
+	vector_str_reset(&file_names);
+	vector_str_reset(&dir_names);
+
+	/* skip to match unit length */
+	this_cu = ptr = this_cu +
+	    (is_64 == false ? h32.unit_len + 4 : h64.unit_len + 12);
+
+	if ((uint64_t)(ptr - (unsigned char *)buf) < size)
+		goto start;
+clean:
+	if (dir_names.container != NULL)
+		vector_str_dest(&dir_names);
+
+	if (file_names.container != NULL)
+		vector_str_dest(&file_names);
+
+	return (rtn);
+}
+
 static int
 get_file_names(char *p, struct comp_dir_head *c_dir, struct vector_str *dir,
     struct vector_str *f)
 {
-	char *cur_file_name, *full_file_name;
+	uint64_t dir_idx;
 	size_t len;
 	size_t rtn = 0;
 	int i;
-	uint64_t dir_idx;
+	char *cur_file_name, *full_file_name;
 
 	if (p == NULL || dir == NULL || f == NULL)
 		return (0);
@@ -600,13 +802,13 @@ get_header(unsigned char *p, struct header_32 *h32, struct header_64 *h64,
 static int
 get_include_dir(char *p, struct vector_str *v)
 {
-	size_t rtn = 0;
+	size_t len, rtn = 0;
 
 	if (p == NULL || v == NULL)
 		return (0);
 
 	for (;;) {
-		const size_t len = strlen(p);
+		len = strlen(p);
 		if (vector_str_push(v, p, len) == false)
 			return (0);
 
@@ -623,16 +825,70 @@ get_include_dir(char *p, struct vector_str *v)
 	return (rtn);
 }
 
+void
+line_info_dest(struct line_info_head *l)
+{
+	struct line_info_entry *ep;
+
+	if (l == NULL)
+		return;
+
+	while (!SLIST_EMPTY(l)) {
+		ep = SLIST_FIRST(l);
+		SLIST_REMOVE_HEAD(l, entries);
+		free(ep->file);
+		free(ep);
+	}
+}
+
+/*
+ * Insert data to list.
+ *
+ * Return 0 at fail or 1.
+ */
+static int
+line_info_insert(struct state_register *regi, struct vector_str *v_file,
+    struct line_info_head *l)
+{
+	struct line_info_entry *e;
+	size_t len;
+	const char *filename;
+
+	if (regi == NULL || v_file == NULL || l == NULL)
+		return (0);
+
+	if (regi->file - 1 > v_file->size)
+		return (0);
+	
+	if ((e = malloc(sizeof(struct line_info_entry))) == NULL)
+		return (0);
+
+	filename = v_file->container[regi->file - 1];
+	len = strlen(filename);
+
+	if ((e->file = malloc(sizeof(char) * (len + 1))) == NULL)
+		return (0);
+
+	snprintf(e->file, len + 1, "%s", filename);
+
+	e->addr = regi->addr;
+	e->line = regi->line;
+
+	SLIST_INSERT_HEAD(l, e, entries);
+
+	return (1);
+}
+
 /* Read first abbrev table and find src, dir */
 static int
 read_abbrev_table(unsigned char *i_ptr, unsigned char *a_ptr, char *str,
     size_t str_len, bool is_64, char **src, char **dir)
 {
-	int i;
-	size_t len;
-	uint32_t str_offset_32;
 	int64_t stmp_64;
 	uint64_t attr, form, str_offset_64, tmp_64;
+	uint32_t str_offset_32;
+	size_t len;
+	int i;
 
 	if (i_ptr == NULL || a_ptr == NULL || str == NULL || src == NULL ||
 	    dir == NULL)
@@ -816,54 +1072,15 @@ read_abbrev_table(unsigned char *i_ptr, unsigned char *a_ptr, char *str,
 	return (1);
 }
 
-/*
- * Duplicate string orig to dest.
- *
- * Return 0 at fail or length of string.
- */
-static int
-duplicate_str(const char *orig, char **dest)
-{
-	size_t len;
-
-	if (orig == NULL || dest == NULL)
-		return (0);
-
-	len = strlen(orig);
-
-	if (*dest != NULL)
-		free(*dest);
-
-	if ((*dest = malloc(sizeof(char) * (len + 1))) == NULL)
-		return (0);
-
-	snprintf(*dest, len + 1, "%s", orig);
-
-	return (len);
-}
-
-static void
-state_register_init(struct state_register *r)
-{
-
-	if (r == NULL)
-		return;
-
-	r->addr = 0;
-	r->file = 1;
-	r->line = 1;
-	r->col = 0;
-}
-
 /* Return 0 at failed, -1 at end seq, advanced ptr at success */
 static int
 state_op_ext(unsigned char *p, struct state_register *regi,
     struct comp_dir_head *comp_dir, struct vector_str *dir,
     struct vector_str *file, struct line_info_head *out)
 {
-	unsigned char opcode;
-	int i, rtn = 0;
 	uint64_t op_len;
+	int i, rtn = 0;
+	unsigned char opcode;
 
 	if (p == NULL || regi == NULL || comp_dir == NULL || dir == NULL ||
 	    file == NULL || out == NULL)
@@ -921,11 +1138,11 @@ static int
 state_op_std(unsigned char op, unsigned char *p, struct state_register *regi,
     struct LNP_header *h, struct vector_str *file, struct line_info_head *out)
 {
-	unsigned char adj;
-	uint16_t oper_16;
-	int i;
 	int64_t s_oper;
 	uint64_t oper;
+	int i;
+	uint16_t oper_16;
+	unsigned char adj;
 
 	if (p == NULL || regi == NULL || h == NULL || file == NULL ||
 	    out == NULL)
@@ -987,247 +1204,28 @@ state_op_std(unsigned char op, unsigned char *p, struct state_register *regi,
 	return (0);
 }
 
-int
-get_dwarf_line_info(void *buf, uint64_t size, struct comp_dir_head *comp_dir,
-    struct line_info_head *out)
+static void
+state_register_init(struct state_register *r)
 {
-	unsigned char *ptr, *this_cu;
-	unsigned char opcode;
-	int i, rtn;
-	bool is_64;
-	struct vector_str file_names, dir_names;
-	struct header_32 h32;
-	struct header_64 h64;
-	struct LNP_header lnp_header;
-	struct state_register regi;
 
-	/* comp_dir not always exist */
-	if (buf == NULL || size == 0 || out == NULL)
-		return (0);
+	if (r == NULL)
+		return;
 
-	ptr = (unsigned char *)buf;
-	this_cu = (unsigned char *)buf;
-	rtn = 1;
-
-	file_names.container = NULL;
-	dir_names.container = NULL;
-
-	lnp_header.min_inst_len = 1;
-	memset(lnp_header.std_opcode_length, 0, 255);
-start:
-	/* min is 11 for 32DWARF */
-	if ((unsigned char *)buf - ptr + size < 11)
-		return (0);
-
-	if (get_header(ptr, &h32, &h64, &is_64) == 0)
-		return (0);
-
-	if (is_64 == false) {
-		if (h32.ver != 2 && h32.ver != 3)
-			return (0);
-
-		lnp_header.min_inst_len = h32.addr_size;
-
-		ptr += 11;
-	} else {
-		if (h64.ver != 2 && h64.ver != 3)
-			return (0);
-
-		lnp_header.min_inst_len = h64.addr_size;
-
-		ptr += 23;
-	}
-
-	if ((i = get_LNP_header(ptr, (unsigned char *)buf - ptr + size,
-		    &lnp_header)) == 0)
-		return (0);
-	
-	ptr += i;
-
-	/* include_directory */
-	if (vector_str_init(&dir_names) == false)
-		return (0);
-
-	if ((i = get_include_dir((char *)ptr, &dir_names)) == 0) {
-		rtn = 0;
-
-		goto clean;
-	}
-
-	ptr += i;
-
-	/* file_names */
-	if (vector_str_init(&file_names) == false) {
-		rtn = 0;
-
-		goto clean;
-	}
-
-	if ((i = get_file_names((char *)ptr, comp_dir, &dir_names,
-		    &file_names)) == 0) {
-		rtn = 0;
-
-		goto clean;
-	}
-
-	ptr += i;
-
-	state_register_init(&regi);
-
-	for (;;) {
-		memcpy(&opcode, ptr, 1);
-		ptr += 1;
-
-		if (opcode == 0) {
-			i = state_op_ext(ptr, &regi, comp_dir, &dir_names,
-			    &file_names, out);
-			if (i == -1)
-				break;
-			else if (i == 0) {
-				rtn = 0;
-
-				goto clean;
-			} else
-				ptr += i;
-		} else if (opcode <= lnp_header.opcode_base) {
-			i = state_op_std(opcode, ptr, &regi, &lnp_header,
-			    &file_names, out);
-			if (i < 0) {
-				rtn = 0;
-
-				goto clean;
-			}
-
-			ptr += i;
-		} else {
-			if (state_op_sp(opcode, &regi, &lnp_header, &file_names,
-				out) == 0) {
-				rtn = 0;
-
-				goto clean;
-			}
-		}
-	}
-
-	vector_str_reset(&file_names);
-	vector_str_reset(&dir_names);
-
-	/* skip to match unit length */
-	this_cu = ptr = this_cu +
-	    (is_64 == false ? h32.unit_len + 4 : h64.unit_len + 12);
-
-	if ((uint64_t)(ptr - (unsigned char *)buf) < size)
-		goto start;
-clean:
-	if (dir_names.container != NULL)
-		vector_str_dest(&dir_names);
-
-	if (file_names.container != NULL)
-		vector_str_dest(&file_names);
-
-	return (rtn);
+	r->addr = 0;
+	r->file = 1;
+	r->line = 1;
+	r->col = 0;
 }
 
-int
-get_dwarf_info(void *info, size_t info_len, void *abbrev, size_t abbrev_len,
-    void *str, size_t str_len, struct comp_dir_head *l)
+static void
+vector_str_reset(struct vector_str *v)
 {
-	char *src, *dir;
-	unsigned char *i_ptr, *a_ptr, *this_cu;
-	int rtn, i;
-	bool is_64;
-	uint64_t tmp_64, i_idx, a_idx;
-	struct header_32 h32;
-	struct header_64 h64;
 
-	/* .debug_str not always exist */
-	if (info == NULL || info_len == 0 || abbrev == NULL ||
-	    abbrev_len == 0 || l == NULL)
-		return (0);
+	if (v == NULL)
+		return;
 
-	src = dir = NULL;
-
-	i_ptr = info;
-	a_ptr = NULL;
-	this_cu = info;
-
-	rtn = 1;
-start:
-	if ((unsigned char *)info - i_ptr + info_len < 11)
-		return (0);
-
-	if (get_header(i_ptr, &h32, &h64, &is_64) == 0)
-		return (0);
-
-	if (is_64 == false) {
-		if (h32.ver != 2 && h32.ver != 3)
-			return (0);
-
-		i_ptr += 11;
-
-		a_ptr = (unsigned char *)abbrev + h32.len;
-	} else {
-		if (h64.ver != 2 && h64.ver != 3)
-			return (0);
-
-		i_ptr += 23;
-
-		a_ptr = (unsigned char *)abbrev + h64.len;
-	}
-
-	/* index */
-	if ((i = decode_ULEB128(i_ptr, &i_idx)) == 0) {
-		rtn = 0;
-
-		goto clean;
-	}
-	i_ptr += i;
-
-	if ((i = decode_ULEB128(a_ptr, &a_idx)) == 0) {
-		rtn = 0;
-
-		goto clean;
-	}
-	a_ptr += i;
-
-	assert(i_idx == a_idx && "index mismatch");
-
-	/* TAG */
-	if ((i = decode_ULEB128(a_ptr, &tmp_64)) == 0) {
-		rtn = 0;
-
-		goto clean;
-	}
-	a_ptr += i;
-
-	/* child */
-	++a_ptr;
-
-	if (read_abbrev_table(i_ptr, a_ptr, str, str_len, is_64, &src, &dir)
-	    == 0) {
-		rtn = 0;
-
-		goto clean;
-	}
-
-	if (src != NULL && dir != NULL)
-		if (comp_dir_insert(l, src, dir) == 0)
-			goto clean;
-
-	/* skip to next cu, because need only comp_dir */
-	this_cu = i_ptr = this_cu +
-	    (is_64 == false ? h32.unit_len + 4 : h64.unit_len + 12);
-
-	if ((uint64_t)(i_ptr - (unsigned char *)info) < info_len) {
-		free(dir);
-		free(src);
-		src = dir = NULL;
-
-		goto start;
-	}
-clean:
-	free(dir);
-	free(src);
-
-	return (rtn);
+	vector_str_dest(v);
+	v->container = NULL;
+	v->capacity = 0;
+	v->size = 0;
 }

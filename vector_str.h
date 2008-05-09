@@ -37,9 +37,6 @@
  * Resemble to std::vector<std::string> in C++.
  */
 
-#define VECTOR_DEF_CAPACITY	8
-#define BUFFER_GROWFACTOR	1.618
-
 /** @brief Dynamic vector data for string. */
 struct vector_str {
 	/** Current size */
@@ -49,6 +46,9 @@ struct vector_str {
 	/** String array */
 	char		**container;
 };
+
+#define BUFFER_GROWFACTOR	1.618
+#define VECTOR_DEF_CAPACITY	8
 
 /** @brief Deallocate resource in vector_str. */
 void	vector_str_dest(struct vector_str *);
@@ -85,15 +85,6 @@ bool	vector_str_init(struct vector_str *);
 bool	vector_str_pop(struct vector_str *);
 
 /**
- * @brief Get new allocated flat string from vector between begin and end.
- *
- * If r_len is not NULL, string length will be returned.
- * @return NULL at failed or NUL terminated new allocated string.
- */
-char	*vector_str_substr(struct vector_str *v, size_t begin, size_t end,
-	    size_t *r_len);
-
-/**
  * @brief Push back string to vector.
  * @return false at failed, true at success.
  */
@@ -105,5 +96,14 @@ bool	vector_str_push(struct vector_str *, const char *, size_t);
  */
 bool	vector_str_push_vector_head(struct vector_str *dst,
 	    struct vector_str *org);
+
+/**
+ * @brief Get new allocated flat string from vector between begin and end.
+ *
+ * If r_len is not NULL, string length will be returned.
+ * @return NULL at failed or NUL terminated new allocated string.
+ */
+char	*vector_str_substr(struct vector_str *v, size_t begin, size_t end,
+	    size_t *r_len);
 
 #endif /* !GUARD_VECTOR_STR_H */
