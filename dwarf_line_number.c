@@ -408,8 +408,9 @@ get_current_path(struct comp_dir_head *l, const char *cur, size_t *len,
 		return (0);
 
 	if (l != NULL) {
-		struct comp_dir_entry *ep;
+		struct comp_dir_entry *ep, *p_ep;
 
+		p_ep = NULL;
 		SLIST_FOREACH(ep, l, entries) {
 			if (strncmp(ep->src, cur, *len) == 0) {
 				*len = *len + strlen(ep->dir) + 1;
@@ -420,9 +421,18 @@ get_current_path(struct comp_dir_head *l, const char *cur, size_t *len,
 					
 				snprintf(*out, *len + 1, "%s/%s", ep->dir, cur);
 
-				return (1);
+				/* move to head */
+				if (p_ep != NULL) {
+					p_ep->entries.sle_next =
+					    ep->entries.sle_next;
+					ep->entries.sle_next = l->slh_first;
+					l->slh_first = ep;
+				}
 
+				return (1);
 			}
+
+			p_ep = ep;
 		}
 	}
 
