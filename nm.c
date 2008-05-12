@@ -49,15 +49,15 @@
 #include "nm_aout.h"
 
 /* symbol information list */
-TAILQ_HEAD(sym_head, sym_entry);
+STAILQ_HEAD(sym_head, sym_entry);
 
 struct sym_entry {
 	char		*name;
 	GElf_Sym	*sym;
-	TAILQ_ENTRY(sym_entry) sym_entries;
+	STAILQ_ENTRY(sym_entry) sym_entries;
 };
 
-typedef int (*fn_sort)(const struct sym_entry *, const struct sym_entry *, const char *);
+typedef int (*fn_sort)(void *, const void *, const void *);
 typedef void (*fn_elem_print)(char, const char *, const GElf_Sym *, const char *);
 typedef void (*fn_sym_print)(const GElf_Sym *);
 typedef int (*fn_filter)(char, const GElf_Sym *, const char *);
@@ -73,7 +73,7 @@ struct filter_entry {
 
 struct sym_print_data {
 	struct sym_head	*headp;
-	size_t		sh_num;
+	size_t		sh_num, list_num;
 	const char	*t_table, **s_table, *filename, *objname;
 };
 
@@ -111,24 +111,20 @@ p->t_table == NULL || p->s_table == NULL || p->filename == NULL)
 #define	STDLOWER(t)		(tolower(t))
 #define	TOLOWER(t)		(STDLOWER(t))
 #define	SLIST_HINIT_AFTER(l)	{l->slh_first = NULL;}
-#define	TAILQ_HINIT_AFTER(l)	{l.tqh_first = NULL; \
-l.tqh_last = &(l).tqh_first;}
+#define	STAILQ_HINIT_AFTER(l)	{l.stqh_first = NULL; \
+l.stqh_last = &(l).stqh_first;}
 #define	UNUSED(p)		((void)p)
 
-static int		cmp_name(const struct sym_entry *,
-			    const struct sym_entry *, const char *);
-static int		cmp_none(const struct sym_entry *,
-			    const struct sym_entry *, const char *);
-static int		cmp_size(const struct sym_entry *,
-			    const struct sym_entry *, const char *);
-static int		cmp_value(const struct sym_entry *,
-			    const struct sym_entry *, const char *);
+static int		cmp_name(void *, const void *, const void *);
+static int		cmp_none(void *, const void *, const void *);
+static int		cmp_size(void *, const void *, const void *);
+static int		cmp_value(void *, const void *, const void *);
 static void		filter_dest(void);
 static int		filter_insert(fn_filter);
 static enum demangle	get_demangle_type(const char *);
 static enum demangle	get_demangle_option(const char *);
 static int		get_sym(Elf *, struct sym_head *, int,
-			    const Elf_Data *, const Elf_Data *);
+			    const Elf_Data *, const Elf_Data *, const char *);
 static char		get_sym_type(const GElf_Sym *, const char *);
 static enum target	get_target(const char *);
 static enum target	get_target_option(const char *);
@@ -165,7 +161,6 @@ static void		sym_list_print(struct sym_print_data *,
 			    struct line_info_head *);
 static void		sym_list_print_each(struct sym_entry *,
 			    struct sym_print_data *, struct line_info_head *);
-static void		sym_list_sort(struct sym_head *, const char *, fn_sort);
 static int		sym_section_filter(const GElf_Shdr *);
 static void		sym_size_oct_print(const GElf_Sym *);
 static void		sym_size_hex_print(const GElf_Sym *);
@@ -232,37 +227,39 @@ static const struct option nm_longopts[] = {
 };
 
 static int
-cmp_name(const struct sym_entry *l, const struct sym_entry *r,
-    const char *ttable)
+cmp_name(void *p, const void *l, const void *r)
 {
 
 	assert(l != NULL);
 	assert(r != NULL);
-	assert(l->name != NULL);
-	assert(r->name != NULL);
+	assert(((const struct sym_entry *)l)->name != NULL);
+	assert(((const struct sym_entry *)r)->name != NULL);
 	
-	UNUSED(ttable);
+	UNUSED(p);
 
-	return (strcmp(l->name, r->name));
+	return (strcmp(((const struct sym_entry *)l)->name,
+		((const struct sym_entry *)r)->name));
 }
 
 static int
-cmp_none(const struct sym_entry *l, const struct sym_entry *r,
-    const char *ttable)
+cmp_none(void *p, const void *l, const void *r)
 {
 
 	UNUSED(l);
 	UNUSED(r);
-	UNUSED(ttable);
+	UNUSED(p);
 
 	return (0);
 }
 
 /* Size comparison. If l and r have same size, compare their name. */
 static int
-cmp_size(const struct sym_entry *l, const struct sym_entry *r,
-    const char *ttable)
+cmp_size(void *p, const void *lp, const void *rp)
 {
+	const struct sym_entry *l, *r;
+
+	l = lp;
+	r = rp;
 
 	assert(l != NULL);
 	assert(l->name != NULL);
@@ -271,20 +268,27 @@ cmp_size(const struct sym_entry *l, const struct sym_entry *r,
 	assert(r->name != NULL);
 	assert(r->sym != NULL);
 
-	UNUSED(ttable);
+	UNUSED(p);
 
 	if (l->sym->st_size == r->sym->st_size)
 		return (strcmp(l->name, r->name));
 
-	return (l->sym->st_size > r->sym->st_size);
+	return (l->sym->st_size - r->sym->st_size);
 }
 
 /* Value comparison. Undefined symbols come first. */
 static int
-cmp_value(const struct sym_entry *l, const struct sym_entry *r,
-    const char *ttable)
+cmp_value(void *p, const void *lp, const void *rp)
 {
+	const struct sym_entry *l, *r;
 	int l_is_undef, r_is_undef;
+	const char *ttable;
+
+	l = lp;
+	r = rp;
+
+	assert(p != NULL);
+	ttable = ((struct sym_print_data *)p)->t_table;
 
 	assert(l != NULL);
 	assert(l->name != NULL);
@@ -306,17 +310,17 @@ cmp_value(const struct sym_entry *l, const struct sym_entry *r,
 		if (l->sym->st_value == r->sym->st_value)
 			return (strcmp(l->name, r->name));
 
-		return (l->sym->st_value > r->sym->st_value);
+		return (l->sym->st_value - r->sym->st_value);
 	case 1:
 		/* One undefined */
-		return (l_is_undef == 0);
+		return (l_is_undef == 0 ? 1 : -1);
 	case 2:
 		/* Both undefined */
 		return (strcmp(l->name, r->name));
 	}
 	/* NOTREACHED */
 
-	return (l->sym->st_value > r->sym->st_value);
+	return (l->sym->st_value - r->sym->st_value);
 }
 
 static void
@@ -383,18 +387,24 @@ get_demangle_option(const char *opt)
  */
 static int
 get_sym(Elf *elf, struct sym_head *headp, int shnum,
-    const Elf_Data *dynstr_data, const Elf_Data *strtab_data)
+    const Elf_Data *dynstr_data, const Elf_Data *strtab_data,
+    const char *type_table)
 {
 	Elf_Scn *scn;
 	Elf_Data *data;
 	const Elf_Data *table;
 	GElf_Shdr shdr;
 	GElf_Sym sym;
+	struct filter_entry *fep;
+	int rtn;
 	const char *sym_name;
+	char type;
+	bool filter;
 
 	assert(elf != NULL);
 	assert(headp != NULL);
 
+	rtn = 0;
 	for (int i = 1; i < shnum; ++i) {
 		if ((scn = elf_getscn(elf, i)) == NULL)
 			return (0);
@@ -420,13 +430,27 @@ get_sym(Elf *elf, struct sym_head *headp, int shnum,
 				    (char *)((char *)(table->d_buf) +
 					sym.st_name);
 
-				if (sym_list_insert(headp, sym_name, &sym) == 0)
-					return (0);
+				filter = false;
+				type = get_sym_type(&sym, type_table);
+				SLIST_FOREACH(fep, &g_filter, filter_entries)
+				    if (fep->fn(type, &sym, sym_name) == 0) {
+					    filter = true;
+
+					    break;
+				    }
+				
+				if (filter == false) {
+					if (sym_list_insert(headp, sym_name,
+						&sym) == 0)
+						return (0);
+
+					++rtn;
+				}
 			}
 		}
 	}
 
-	return (1);
+	return (rtn);
 }
 
 static char
@@ -793,7 +817,7 @@ read_elf(const char *filename)
 	objname = NULL;
 
 	/* Instead of TAILQ_HEAD_INITIALIZER to avoid warning */
-	TAILQ_HINIT_AFTER(list_head);
+	STAILQ_HINIT_AFTER(list_head);
 
 	while ((elf = elf_begin(fd, elf_cmd, arf)) != NULL) {
 		dbg_abbrev = NULL;
@@ -1003,7 +1027,7 @@ read_elf(const char *filename)
 			goto next_cmd;
 		}
 
-		TAILQ_INIT(&list_head);
+		STAILQ_INIT(&list_head);
 
 		if (g_debug_line == true && dbg_info != NULL &&
 		    dbg_abbrev != NULL && dbg_line != NULL) {
@@ -1072,9 +1096,11 @@ read_elf(const char *filename)
 			}
 		}
 
-		get_sym(elf, &list_head, shnum, dynstr_data, strtab_data);
+		p_data.list_num = get_sym(elf, &list_head, shnum, dynstr_data,
+		    strtab_data, type_table);
 
-		sym_list_sort(&list_head, type_table, g_sort_fn);
+		if (p_data.list_num == 0)
+			goto next_cmd;
 
 		p_data.headp = &list_head;
 		p_data.sh_num = shnum;
@@ -1522,9 +1548,9 @@ sym_list_dest(struct sym_head *headp)
 	if (headp == NULL)
 		return;
 
-	ep = TAILQ_FIRST(headp);
+	ep = STAILQ_FIRST(headp);
 	while (ep != NULL) {
-		ep_n = TAILQ_NEXT(ep, sym_entries);
+		ep_n = STAILQ_NEXT(ep, sym_entries);
 
 		free(ep->sym);
 		free(ep->name);
@@ -1564,7 +1590,7 @@ sym_list_insert(struct sym_head *headp, const char *name, const GElf_Sym *sym)
 	if (IS_COM_SYM(sym))
 		e->sym->st_value = sym->st_size;
 
-	TAILQ_INSERT_TAIL(headp, e, sym_entries);
+	STAILQ_INSERT_TAIL(headp, e, sym_entries);
 
 	return (1);
 }
@@ -1573,17 +1599,39 @@ sym_list_insert(struct sym_head *headp, const char *name, const GElf_Sym *sym)
 static void
 sym_list_print(struct sym_print_data *p, struct line_info_head *line_info)
 {
-	struct sym_entry *ep;
+	struct sym_entry *ep, *e_v;
+	int idx;
 
 	if (p == NULL || CHECK_SYM_PRINT_DATA(p))
 		return;
 
+	if ((e_v = malloc(sizeof(struct sym_entry) * p->list_num)) == NULL)
+		return;
+
+	idx = 0;
+	STAILQ_FOREACH(ep, p->headp, sym_entries) {
+		if (ep->name != NULL && ep->sym != NULL) {
+			e_v[idx].name = ep->name;
+			e_v[idx].sym = ep->sym;
+
+			++idx;
+		}
+	}
+
+	assert((size_t)idx == p->list_num);
+
+	if (g_sort_fn != &cmp_none)
+		qsort_r(e_v, p->list_num, sizeof(struct sym_entry), p,
+		    g_sort_fn);
+
 	if (g_sort_reverse == false)
-		TAILQ_FOREACH(ep, p->headp, sym_entries)
-		    sym_list_print_each(ep, p, line_info);
+		for (size_t i = 0; i != p->list_num; ++i)
+			sym_list_print_each(&e_v[i], p, line_info);
 	else
-		TAILQ_FOREACH_REVERSE(ep, p->headp, sym_head, sym_entries)
-		    sym_list_print_each(ep, p, line_info);
+		for (int i = p->list_num - 1; i != -1; --i)
+			sym_list_print_each(&e_v[i], p, line_info);
+
+	free(e_v);
 }
 
 /* If file has not .debug_info, line_info will be NULL */
@@ -1591,7 +1639,6 @@ static void
 sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
     struct line_info_head *line_info)
 {
-	struct filter_entry *fep;
 	const char *sec;
 	char type;
 
@@ -1602,10 +1649,6 @@ sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
 	assert(ep->sym != NULL);
 
 	type = get_sym_type(ep->sym, p->t_table);
-
-	SLIST_FOREACH(fep, &g_filter, filter_entries)
-	    if (fep->fn(type, ep->sym, ep->name) == 0)
-		    return;
 
 	if (g_print_name == PRINT_NAME_FULL) {
 		printf("%s", p->filename);
@@ -1672,43 +1715,6 @@ sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
 	}
 
 	printf("\n");
-}
-
-static void
-sym_list_sort(struct sym_head *headp, const char *type_table, fn_sort fn)
-{
-	struct sym_head sorted;
-	struct sym_entry *e_min;
-
-	assert(headp != NULL && type_table != NULL);
-
-	if (TAILQ_EMPTY(headp) != 0)
-		return;
-
-	if (TAILQ_NEXT(TAILQ_FIRST(headp), sym_entries) == NULL)
-		return;
-
-	/* Instead of TAILQ_HEAD_INITIALIZER to avoid warning */
-	TAILQ_HINIT_AFTER(sorted);
-	
-	TAILQ_INIT(&sorted);
-
-	while ((e_min = TAILQ_FIRST(headp)) != NULL) {
-		struct sym_entry *ep;
-
-		TAILQ_FOREACH(ep, headp, sym_entries) {
-			if (fn(e_min, ep, type_table) > 0)
-				e_min = ep;
-
-			if (TAILQ_NEXT(ep, sym_entries) == NULL) {
-				TAILQ_REMOVE(headp, e_min, sym_entries);
-
-				TAILQ_INSERT_TAIL(&sorted, e_min, sym_entries);
-			}
-		}
-	}
-
-	*headp = sorted;
 }
 
 static void
