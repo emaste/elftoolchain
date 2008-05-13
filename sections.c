@@ -470,7 +470,7 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 	}							\
 	REL##SZ[nrels].r_offset = REL.r_offset;			\
 	REL##SZ[nrels].r_info	= REL.r_info;			\
-	if (s->type == SHT_REL)					\
+	if (s->type == SHT_RELA)				\
 		rela##SZ[nrels].r_addend = rela.r_addend;	\
 } while (0)
 
@@ -516,12 +516,19 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 		errx(EX_SOFTWARE, "elf_getdata() failed: %s",
 		    elf_errmsg(elferr));
 
-	if (ecp->oec == ELFCLASS32)
-		s->buf = rel32;
-	else
-		s->buf = rel64;
-
-	s->sz = gelf_fsize(ecp->eout, ELF_T_REL, nrels, EV_CURRENT);
+	if (ecp->oec == ELFCLASS32) {
+		if (s->type == SHT_REL)
+			s->buf = rel32;
+		else
+			s->buf = rela32;
+	} else {
+		if (s->type == SHT_REL)
+			s->buf = rel64;
+		else
+			s->buf = rela64;
+	}
+	s->sz = gelf_fsize(ecp->eout, (s->type == SHT_REL ? ELF_T_REL :
+	    ELF_T_RELA), nrels, EV_CURRENT);
 	s->nocopy = 1;
 }
 
