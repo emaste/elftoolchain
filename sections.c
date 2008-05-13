@@ -397,7 +397,8 @@ copy_content(struct elfcopy *ecp)
 		 * If strip action is STRIP_ALL, relocation info need
 		 * to be stripped too.
 		 */
-		if (ecp->strip == STRIP_ALL && s->type == SHT_REL)
+		if (ecp->strip == STRIP_ALL &&
+		    (s->type == SHT_REL || s->type == SHT_RELA))
 			filter_reloc(ecp, s);
 
 		/* Add check for whether change section name here */
@@ -423,8 +424,11 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 	const char *name;
 	GElf_Shdr ish;
 	GElf_Rel rel;
+	GElf_Rela rela;
 	Elf32_Rel *rel32;
 	Elf64_Rel *rel64;
+	Elf32_Rela *rela32;
+	Elf64_Rela *rela64;
 	Elf_Data *id;
 	int elferr, i, nrels, cap;
 
@@ -451,20 +455,22 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 			return;
 	}
 		
-#define	COPYREL(SZ) do {					\
+#define	COPYREL(REL, SZ) do {					\
 	if (nrels == 0) {					\
-		if ((rel##SZ = malloc(cap *			\
+		if ((REL##SZ = malloc(cap *			\
 		    sizeof(Elf##SZ##_Rel))) == NULL)		\
 			err(EX_SOFTWARE, "malloc failed");	\
 	}							\
 	if (nrels >= cap) {					\
 		cap *= 2;					\
-		if ((rel##SZ = realloc(rel##SZ, cap *		\
+		if ((REL##SZ = realloc(REL##SZ, cap *		\
 		    sizeof(Elf##SZ##_Rel))) == NULL)		\
 			err(EX_SOFTWARE, "realloc failed");	\
 	}							\
-	rel##SZ[nrels].r_offset = rel.r_offset;			\
-	rel##SZ[nrels].r_info	= rel.r_info;			\
+	REL##SZ[nrels].r_offset = REL.r_offset;			\
+	REL##SZ[nrels].r_info	= REL.r_info;			\
+	if (s->type == SHT_REL)					\
+		rela##SZ[nrels].r_addend = rela.r_addend;	\
 } while (0)
 
 	i = 0;
@@ -472,21 +478,36 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 	cap = 4;		/* keep list is usually small. */
 	rel32 = NULL;
 	rel64 = NULL;
+	rela32 = NULL;
+	rela64 = NULL;
 	id = NULL;
 	while ((id = elf_getdata(s->is, id)) != NULL) {
-		if (gelf_getrel(id, i, &rel) != &rel)
-			errx(EX_SOFTWARE, "gelf_getrel failed: %s",
-			    elf_errmsg(-1));
+		if (s->type == SHT_REL) {
+			if (gelf_getrel(id, i, &rel) != &rel)
+				errx(EX_SOFTWARE, "gelf_getrel failed: %s",
+				    elf_errmsg(-1));
+		} else {
+			if (gelf_getrela(id, i, &rela) != &rela)
+				errx(EX_SOFTWARE, "gelf_getrel failed: %s",
+				    elf_errmsg(-1));
+		}
 		name = elf_strptr(ecp->ein, elf_ndxscn(ecp->strtab->is),
 		    GELF_R_SYM(rel.r_info));
 		if (name == NULL)
 			errx(EX_SOFTWARE, "elf_strptr failed: %s",
 			    elf_errmsg(-1));
 		if (lookup_keep_symlist(ecp, name) != 0) {
-			if (ecp->oec == ELFCLASS32)
-				COPYREL(32);
-			else
-				COPYREL(64);
+			if (ecp->oec == ELFCLASS32) {
+				if (s->type == SHT_REL)
+					COPYREL(rel, 32);
+				else
+					COPYREL(rela, 32);
+			} else {
+				if (s->type == SHT_REL)
+					COPYREL(rel, 64);
+				else
+					COPYREL(rela, 64);
+			}
 		}
 	}
 	elferr = elf_errno();
