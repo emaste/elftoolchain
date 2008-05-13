@@ -47,6 +47,7 @@ static int	is_print_section(struct elfcopy *ecp, const char *name);
 static int	is_remove_reloc_sec(struct elfcopy *ecp, uint32_t sh_info);
 static int	is_remove_section(struct elfcopy *ecp, const char *name);
 static void	modify_section(struct elfcopy *ecp, struct section *s);
+static size_t	new_index(struct elfcopy *ecp, size_t ndx);
 static void	print_data(const char *d, size_t sz);
 static void	print_section(struct section *s);
 static void	*read_section(struct section *s, size_t *size);
@@ -832,12 +833,29 @@ add_to_shstrtab(struct elfcopy *ecp, const char *name)
 	insert_to_strtab(s, name);
 }
 
+static size_t
+new_index(struct elfcopy *ecp, size_t ndx)
+{
+	struct section *s;
+
+	TAILQ_FOREACH(s, &ecp->v_sec, sec_list) {
+		if (ndx == s->ndx)
+			return elf_ndxscn(s->os);
+	}
+
+	/*
+	 * Use 0 as the new link value, if the target section
+	 * no longer exists.
+	 */
+	return (0);
+}
+
 void
 update_shdr(struct elfcopy *ecp)
 {
-	struct section *s, *t;
+	struct section *s;
 	GElf_Shdr osh;
-	int elferr, find;
+	int elferr;
 
 	TAILQ_FOREACH(s, &ecp->v_sec, sec_list) {
 		if (gelf_getshdr(s->os, &osh) == NULL)
@@ -851,22 +869,16 @@ update_shdr(struct elfcopy *ecp)
 		 * sh_link needs to be updated, since the index of the
 		 * linked section might have changed.
 		 */
-		if (osh.sh_link != 0) {
-			find = 0;
-			TAILQ_FOREACH(t, &ecp->v_sec, sec_list) {
-				if (osh.sh_link == t->ndx) {
-					osh.sh_link = elf_ndxscn(t->os);
-					find = 1;
-					break;
-				}
-			}
-			/*
-			 * Set sh_link to 0 if the target section
-			 * no longer exist.
-			 */
-			if (!find)
-				osh.sh_link = 0;
-		}
+		if (osh.sh_link != 0)
+			osh.sh_link = new_index(ecp, osh.sh_link);
+
+		/*
+		 * sh_info of relocation section links to the section to which
+		 * its relocation info applies. So it may need update as well.
+		 */
+		if ((s->type == SHT_REL || s->type == SHT_RELA) &&
+		    osh.sh_info != 0)
+			osh.sh_info = new_index(ecp, osh.sh_info);
 
 		if (!gelf_update_shdr(s->os, &osh))
 			errx(EX_SOFTWARE, "gelf_update_shdr() failed: %s",
