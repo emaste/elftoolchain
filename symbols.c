@@ -368,7 +368,7 @@ create_symtab(struct elfcopy *ecp)
 	if (ecp->flags & SYMTAB_INTACT) {
 		copy_data(sy);
 		copy_data(st);
-		goto update_symtab;
+		return;
 	}
 
 	generate_symbols(ecp);
@@ -412,11 +412,6 @@ create_symtab(struct elfcopy *ecp)
 	sht.sh_info		= 0;
 	sht.sh_link		= 0;
 
-update_symtab:
-
-	/* Link .symtab and .strtab */
-	shy.sh_link = elf_ndxscn(st->os);
-
 	if (!gelf_update_shdr(sy->os, &shy))
 		errx(EX_SOFTWARE, "gelf_update_shdr() failed: %s",
 		    elf_errmsg(-1));
@@ -429,9 +424,7 @@ update_symtab:
 	 * the symbol table index of the last local symbol(binding
 	 * STB_LOCAL).
 	 */
-	if ((ecp->flags & SYMTAB_INTACT) == 0)
-		set_shinfo(sy);
-
+	set_shinfo(sy);
 }
 
 static uint32_t
