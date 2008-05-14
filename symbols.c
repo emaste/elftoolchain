@@ -83,6 +83,11 @@ is_remove_symbol(struct elfcopy *ecp, size_t sc, int i, GElf_Sym *s,
 	if (lookup_strip_symlist(ecp, name) != 0)
 		return (1);
 
+	/* Remove the symbol if the section it refers to was removed. */
+	if (s->st_shndx != SHN_UNDEF && s->st_shndx < SHN_LORESERVE &&
+	    ecp->ndxtab[s->st_shndx] == 0)
+		return (1);
+
 	if (ecp->strip == STRIP_ALL)
 		return (1);
 
