@@ -46,7 +46,6 @@
 
 #include "cpp_demangle.h"
 #include "dwarf_line_number.h"
-#include "nm_aout.h"
 
 /* symbol information list */
 STAILQ_HEAD(sym_head, sym_entry);
@@ -77,6 +76,12 @@ struct sym_print_data {
 	const char	*t_table, **s_table, *filename, *objname;
 };
 
+struct nm_prog_info {
+	const char	*name;
+	const char	*version;
+	const char	*def_filename;
+};
+
 /* output numric type */
 enum radix {
 	RADIX_DEFAULT, RADIX_OCT, RADIX_HEX, RADIX_DEC
@@ -96,16 +101,42 @@ enum demangle {
 	DEMANGLE_NONE, DEMANGLE_AUTO, DEMANGLE_GV3
 };
 
-/* input taget type */
-enum target {
-	TARGET_ERROR, TARGET_UNKNOWN, TARGET_DEFAULT, TARGET_ELF, TARGET_AOUT
+struct nm_prog_options {
+	enum print_symbol	print_symbol;
+	enum print_name		print_name;
+	enum demangle		demangle_type;
+	bool			print_debug;
+	bool			print_armap;
+	int			print_size;
+	bool			debug_line;
+	int			def_only;
+	bool			undef_only;
+	int			sort_size;
+	bool			sort_reverse;
+	int			no_demangle;
+
+	/*
+	 * function pointer to sort symbol list.
+	 * possible function - cmp_name, cmp_none, cmp_size, cmp_value
+	 */
+	fn_sort			sort_fn;
+
+	/*
+	 * function pointer to print symbol elem.
+	 * possible function - sym_elem_print_all
+	 *		       sym_elem_print_all_portable
+	 *		       sym_elem_print_all_sysv
+	 */
+	fn_elem_print		elem_print_fn;
+
+	fn_sym_print		value_print_fn;
+	fn_sym_print		size_print_fn;
 };
 
 #define CHECK_SYM_PRINT_DATA(p)	(p->headp == NULL || p->sh_num == 0 ||	      \
 p->t_table == NULL || p->s_table == NULL || p->filename == NULL)
 #define IS_SYM_TYPE(t)		(t == '?' || isalpha(t) != 0)
-#define	IS_UNDEF_SYM_TYPE(t)	(t == 'U' || t == 'u' || t == 'v' || t == 'w')
-#define	IS_COM_SYM_TYPE(t)	(t == 'c' || t == 'C')
+#define	IS_UNDEF_SYM_TYPE(t)	(t == 'U' || t == 'v' || t == 'w')
 #define	IS_COM_SYM(s)		(s->st_shndx == SHN_COMMON)
 #define	FASTLOWER(t)		(t + 32)
 #define	STDLOWER(t)		(tolower(t))
@@ -126,8 +157,6 @@ static enum demangle	get_demangle_option(const char *);
 static int		get_sym(Elf *, struct sym_head *, int,
 			    const Elf_Data *, const Elf_Data *, const char *);
 static char		get_sym_type(const GElf_Sym *, const char *);
-static enum target	get_target(const char *);
-static enum target	get_target_option(const char *);
 static void		global_init(void);
 static bool		is_sec_bss(GElf_Shdr *);
 static bool		is_sec_data(GElf_Shdr *);
@@ -138,7 +167,6 @@ static void		print_ar_index(int fd, Elf *);
 static void		print_header(const char *, const char *);
 static void		print_version(void);
 static int		read_elf(const char *);
-static int		readfile(const char *, const char *);
 static unsigned char	*relocate_sec(Elf_Data *, Elf_Data *, int);
 static struct line_info_entry	*search_addr(struct line_info_head *, GElf_Sym *);
 static void		set_g_value_print_fn(enum radix);
@@ -170,48 +198,19 @@ static void		sym_value_hex_print(const GElf_Sym *);
 static void		sym_value_dec_print(const GElf_Sym *);
 static void		usage(int);
 
-const char		*g_program_name;
-const char		*g_program_version;
-const char		*g_default_filename;
-enum print_symbol	g_print_symbol;
-enum print_name		g_print_name;
-enum demangle		g_demangle_type;
-bool			g_print_debug;
-bool			g_print_armap;
-int			g_print_size;
-bool			g_debug_line;
-int			g_def_only;
-bool			g_undef_only;
-int			g_sort_size;
-bool			g_sort_reverse;
-int			g_no_demangle;
-int			g_target;
-
-/*
- * function pointer to sort symbol list.
- * possible function - cmp_name, cmp_none, cmp_size, cmp_value
- */
-fn_sort			g_sort_fn;
-
-/*
- * function pointer to print symbol elem.
- * possible function - sym_elem_print_all
- *		       sym_elem_print_all_portable
- *		       sym_elem_print_all_sysv
- */
-fn_elem_print		g_elem_print_fn;
-
-fn_sym_print		g_value_print_fn;
-fn_sym_print		g_size_print_fn;
+struct nm_prog_info	nm_info;
+struct nm_prog_options	nm_opts;
 
 static const struct option nm_longopts[] = {
 	{ "debug-syms",		no_argument,		NULL,		'a'},
-	{ "defined-only",	no_argument,		&g_def_only,	1   },
+	{ "defined-only",	no_argument,		&nm_opts.def_only, 1 },
 	{ "demangle",		optional_argument,	NULL,		'C' },
 	{ "dynamic",		no_argument,		NULL,		'D' },
 	{ "format",		required_argument,	NULL,		'F' },
+	{ "help",		no_argument,		NULL,		'h' },
 	{ "line-numbers",	no_argument,		NULL,		'l' },
-	{ "no-demangle",	no_argument,		&g_no_demangle,	1   },
+	{ "no-demangle",	no_argument,		&nm_opts.no_demangle,
+	  1 },
 	{ "no-sort",		no_argument,		NULL,		'p' },
 	{ "numeric-sort",	no_argument,		NULL,		'v' },
 	{ "print-armap",	no_argument,		NULL,		's' },
@@ -219,8 +218,7 @@ static const struct option nm_longopts[] = {
 	{ "print-size",		no_argument,		NULL,		'S' },
 	{ "radix",		required_argument,	NULL,		't' },
 	{ "reverse-sort",	no_argument,		NULL,		'r' },
-	{ "size-sort",		no_argument,		&g_sort_size,	1   },
-	{ "target",		required_argument,	&g_target,	1   },
+	{ "size-sort",		no_argument,		&nm_opts.sort_size, 1 },
 	{ "undefined-only",	no_argument,		NULL,		'u' },
 	{ "version",		no_argument,		NULL,		'V' },
 	{ NULL,			0,			NULL,		0   }
@@ -467,7 +465,7 @@ get_sym_type(const GElf_Sym *sym, const char *type_table)
 		return (is_local ? 'a' : 'A');
 
 	if (sym->st_shndx == SHN_COMMON) /* common */
-		return (is_local ? 'c' : 'C');
+		return ('C');
 
 	if ((sym->st_info) >> 4 == STB_WEAK) { /* weak */
 		if ((sym->st_info & 0xf) == STT_OBJECT)
@@ -477,67 +475,11 @@ get_sym_type(const GElf_Sym *sym, const char *type_table)
 	}
 
 	if (sym->st_shndx == SHN_UNDEF) /* undefined */
-		return (is_local ? 'u' : 'U');
+		return ('U');
 
 	return (is_local == true ?
 	    TOLOWER(type_table[sym->st_shndx]) :
 	    type_table[sym->st_shndx]);
-}
-
-static enum target
-get_target(const char *filename)
-{
-	Elf* elf;
-	Elf_Cmd cmd;
-	int fd;
-
-	if (filename == NULL)
-		return (TARGET_UNKNOWN);
-
-	if ((fd = open(filename, O_RDONLY)) == -1) {
-		warn("'%s'", filename);
-
-		return (TARGET_ERROR);
-	}
-
-	/* try elf */
-	cmd = ELF_C_READ;
-	if ((elf = elf_begin(fd, cmd, (Elf *) NULL)) != NULL &&
-	    elf_kind(elf) != ELF_K_NONE) {
-		elf_end(elf);
-		close(fd);
-
-		return (TARGET_ELF);
-	}
-
-	if (lseek(fd, 0, SEEK_SET) != 0)
-		return (TARGET_ERROR);
-
-	/* try a.out */
-	if (is_aout_file(fd)) {
-		close(fd);
-
-		return (TARGET_AOUT);
-	}
-
-	close(fd);
-
-	return (TARGET_UNKNOWN);
-}
-
-static enum target
-get_target_option(const char *t)
-{
-
-	if (t == NULL)
-		return (TARGET_DEFAULT);
-
-	if (strncasecmp(t, "elf", 3) == 0)
-		return (TARGET_ELF);
-	else if (strncasecmp(t, "aout", 4) == 0)
-		return (TARGET_AOUT);
-
-	return (TARGET_UNKNOWN);
 }
 
 static void
@@ -547,31 +489,30 @@ global_init(void)
 	if (elf_version(EV_CURRENT) == EV_NONE)
 		errx(1, "elf_version error");
 
-	g_program_name = "nm";
-	g_program_version = "1.0";
-	g_default_filename = "a.out";
+	nm_info.name = "nm";
+	nm_info.version = "1.0";
+	nm_info.def_filename = "a.out";
 
-	g_print_symbol = PRINT_SYM_SYM;
-	g_print_name = PRINT_NAME_NONE;
-	g_demangle_type = DEMANGLE_NONE;
-	g_print_debug = false;
-	g_print_armap = false;
-	g_print_size = 0;
+	nm_opts.print_symbol = PRINT_SYM_SYM;
+	nm_opts.print_name = PRINT_NAME_NONE;
+	nm_opts.demangle_type = DEMANGLE_NONE;
+	nm_opts.print_debug = false;
+	nm_opts.print_armap = false;
+	nm_opts.print_size = 0;
 
-	g_debug_line = false;
+	nm_opts.debug_line = false;
 
-	g_def_only = 0;
-	g_undef_only = false;
+	nm_opts.def_only = 0;
+	nm_opts.undef_only = false;
 
-	g_sort_size = 0;
-	g_sort_reverse = false;
-	g_no_demangle = 0;
-	g_target = 0;
+	nm_opts.sort_size = 0;
+	nm_opts.sort_reverse = false;
+	nm_opts.no_demangle = 0;
 
-	g_sort_fn = &cmp_name;
-	g_elem_print_fn = &sym_elem_print_all;
-	g_value_print_fn = &sym_value_dec_print;
-	g_size_print_fn = &sym_size_dec_print;
+	nm_opts.sort_fn = &cmp_name;
+	nm_opts.elem_print_fn = &sym_elem_print_all;
+	nm_opts.value_print_fn = &sym_value_dec_print;
+	nm_opts.size_print_fn = &sym_size_dec_print;
 
 	SLIST_INIT(&g_filter);
 }
@@ -682,10 +623,10 @@ print_header(const char *file, const char *obj)
 	if (file == NULL)
 		return;
 
-	if (g_elem_print_fn == &sym_elem_print_all_sysv) {
+	if (nm_opts.elem_print_fn == &sym_elem_print_all_sysv) {
 		printf("\n\n%s from %s",
-		    g_undef_only == false ? "Symbols" : "Undefined symbols",
-		    file);
+		    nm_opts.undef_only == false ? "Symbols" :
+		    "Undefined symbols", file);
 
 		if (obj != NULL)
 			printf("[%s]", obj);
@@ -696,14 +637,15 @@ print_header(const char *file, const char *obj)
 Name                  Value           Class        Type         Size             Line  Section\n\n");
 	} else {
 		/* archive file without -A option and POSIX */
-		if (g_print_name != PRINT_NAME_FULL && obj != NULL) {
-			if (g_elem_print_fn == sym_elem_print_all_portable)
+		if (nm_opts.print_name != PRINT_NAME_FULL && obj != NULL) {
+			if (nm_opts.elem_print_fn ==
+			    sym_elem_print_all_portable)
 				printf("%s[%s]:\n", file, obj);
-			else if (g_elem_print_fn == sym_elem_print_all)
+			else if (nm_opts.elem_print_fn == sym_elem_print_all)
 				printf("\n%s:\n", obj);
 			/* multiple files(not archive) without -A option */
-		} else if (g_print_name == PRINT_NAME_MULTI) {
-			if (g_elem_print_fn == sym_elem_print_all)
+		} else if (nm_opts.print_name == PRINT_NAME_MULTI) {
+			if (nm_opts.elem_print_fn == sym_elem_print_all)
 				printf("\n");
 
 			printf("%s:\n", file);
@@ -715,7 +657,7 @@ static void
 print_version(void)
 {
 
-	printf("%s %s\n", g_program_name, g_program_version);
+	printf("%s %s\n", nm_info.name, nm_info.version);
 
 	exit(EX_OK);
 }
@@ -730,16 +672,16 @@ sym_section_filter(const GElf_Shdr *shdr)
 	if (shdr == NULL)
 		return (-1);
 
-	if (g_print_debug == false &&
+	if (nm_opts.print_debug == false &&
 	    shdr->sh_type == SHT_PROGBITS &&
 	    shdr->sh_flags == 0)
 		return (1);
 
-	if (g_print_symbol == PRINT_SYM_SYM &&
+	if (nm_opts.print_symbol == PRINT_SYM_SYM &&
 	    shdr->sh_type == SHT_SYMTAB)
 		return (1);
 
-	if (g_print_symbol == PRINT_SYM_DYN &&
+	if (nm_opts.print_symbol == PRINT_SYM_DYN &&
 	    shdr->sh_type == SHT_DYNSYM)
 		return (1);
 
@@ -806,11 +748,11 @@ read_elf(const char *filename)
 	}
 
 	if (kind == ELF_K_AR) {
-		if (g_print_name == PRINT_NAME_MULTI &&
-		    g_elem_print_fn == sym_elem_print_all)
+		if (nm_opts.print_name == PRINT_NAME_MULTI &&
+		    nm_opts.elem_print_fn == sym_elem_print_all)
 			printf("\n%s:\n", filename);
 
-		if (g_print_armap == true)
+		if (nm_opts.print_armap == true)
 			print_ar_index(fd, arf);
 	}
 
@@ -951,7 +893,7 @@ read_elf(const char *filename)
 				/* not in SysV special sections,
 				 * but has .debug_ stuff in DWARF.
 				 */
-				if (g_debug_line == true) {
+				if (nm_opts.debug_line == true) {
 					if (strncmp(shname, ".debug_info",
 						11) == 0) {
 						if ((dbg_info =
@@ -1017,8 +959,10 @@ read_elf(const char *filename)
 
 		print_header(filename, objname);
 
-		if ((dynstr_data == NULL && g_print_symbol == PRINT_SYM_DYN) ||
-		    (strtab_data == NULL && g_print_symbol == PRINT_SYM_SYM)) {
+		if ((dynstr_data == NULL &&
+			nm_opts.print_symbol == PRINT_SYM_DYN) ||
+		    (strtab_data == NULL &&
+			nm_opts.print_symbol == PRINT_SYM_SYM)) {
 			warnx("%s: No symbols", objname == NULL ?
 			    filename : objname);
 
@@ -1029,7 +973,7 @@ read_elf(const char *filename)
 
 		STAILQ_INIT(&list_head);
 
-		if (g_debug_line == true && dbg_info != NULL &&
+		if (nm_opts.debug_line == true && dbg_info != NULL &&
 		    dbg_abbrev != NULL && dbg_line != NULL) {
 
 			if ((comp_dir =
@@ -1111,7 +1055,7 @@ read_elf(const char *filename)
 
 		sym_list_print(&p_data, line_info);
 next_cmd:
-		if (g_debug_line == true) {
+		if (nm_opts.debug_line == true) {
 			if (dbg_rela_line != NULL)
 				free(dbg_line_buf);
 
@@ -1157,42 +1101,6 @@ end_read_elf:
 	}
 
 	return (rtn);
-}
-
-/*
- * Read file for specific target.
- * Return 1 at failed, 0 at success.
- */
-static int
-readfile(const char *filename, const char *topt)
-{
-	enum target t;
-
-	if ((t = get_target_option(topt)) == TARGET_DEFAULT)
-		t = get_target(filename);
-
-	switch (t) {
-	case TARGET_ELF:
-		return (read_elf(filename));
-
-	case TARGET_ERROR:
-		break;
-
-	case TARGET_AOUT:
-		return (process_aout_file(filename));
-
-	case TARGET_UNKNOWN:
-		warnx("%s: File format not recognized", filename);
-
-		break;
-	case TARGET_DEFAULT:
-		/* NOTREACHED */
-		break;
-	default:
-		warnx("%s: Invalid target", filename);
-	};
-
-	return (1);
 }
 
 static unsigned char *
@@ -1255,32 +1163,33 @@ set_g_value_print_fn(enum radix t)
 
 	switch (t) {
 	case RADIX_OCT :
-		g_value_print_fn = &sym_value_oct_print;
-		g_size_print_fn = &sym_size_oct_print;
+		nm_opts.value_print_fn = &sym_value_oct_print;
+		nm_opts.size_print_fn = &sym_size_oct_print;
 
 		break;
 	case RADIX_HEX :
-		g_value_print_fn = &sym_value_hex_print;
-		g_size_print_fn = &sym_size_hex_print;
+		nm_opts.value_print_fn = &sym_value_hex_print;
+		nm_opts.size_print_fn = &sym_size_hex_print;
 
 		break;
 	case RADIX_DEC :
-		g_value_print_fn = &sym_value_dec_print;
-		g_size_print_fn = &sym_size_dec_print;
+		nm_opts.value_print_fn = &sym_value_dec_print;
+		nm_opts.size_print_fn = &sym_size_dec_print;
 
 		break;
 	case RADIX_DEFAULT :
 	default :
-		if (g_elem_print_fn == &sym_elem_print_all_portable) {
-			g_value_print_fn = &sym_value_hex_print;
-			g_size_print_fn = &sym_size_hex_print;
+		if (nm_opts.elem_print_fn == &sym_elem_print_all_portable) {
+			nm_opts.value_print_fn = &sym_value_hex_print;
+			nm_opts.size_print_fn = &sym_size_hex_print;
 		} else {
-			g_value_print_fn = &sym_value_dec_print;
-			g_size_print_fn = &sym_size_dec_print;
+			nm_opts.value_print_fn = &sym_value_dec_print;
+			nm_opts.size_print_fn = &sym_size_dec_print;
 		}
 	}
 
-	assert(g_value_print_fn != NULL && "g_value_print_fn is null");
+	assert(nm_opts.value_print_fn != NULL &&
+	    "nm_opts.value_print_fn is null");
 }
 
 static void
@@ -1290,47 +1199,48 @@ sym_elem_print_all(char type, const char *sec, const GElf_Sym *sym,
 	enum demangle d;
 
 	if (sec == NULL || sym == NULL || name == NULL ||
-	    g_value_print_fn == NULL)
+	    nm_opts.value_print_fn == NULL)
 		return;
 
 	if (IS_UNDEF_SYM_TYPE(type))
 		printf("                ");
 	else {
-		switch ((g_sort_fn == & cmp_size ? 2 : 0) + g_print_size) {
+		switch ((nm_opts.sort_fn == & cmp_size ? 2 : 0) +
+		    nm_opts.print_size) {
 		case 3:
 			if (sym->st_size != 0) {
-				g_value_print_fn(sym);
+				nm_opts.value_print_fn(sym);
 
 				printf(" ");
 
-				g_size_print_fn(sym);
+				nm_opts.size_print_fn(sym);
 			}
 
 			break;
 		case 2:
 			if (sym->st_size != 0)
-				g_size_print_fn(sym);
+				nm_opts.size_print_fn(sym);
 
 			break;
 		case 1:
-			g_value_print_fn(sym);
+			nm_opts.value_print_fn(sym);
 			if (sym->st_size != 0) {
 				printf(" ");
 
-				g_size_print_fn(sym);
+				nm_opts.size_print_fn(sym);
 			}
 
 			break;
 		case 0:
 		default:
-			g_value_print_fn(sym);
+			nm_opts.value_print_fn(sym);
 		}
 	}
 
 	printf(" %c ", type);
 
-	d = g_demangle_type == DEMANGLE_AUTO ?
-	    get_demangle_type(name) : g_demangle_type;
+	d = nm_opts.demangle_type == DEMANGLE_AUTO ?
+	    get_demangle_type(name) : nm_opts.demangle_type;
 
 	switch (d) {
 	case DEMANGLE_GV3:
@@ -1358,11 +1268,11 @@ sym_elem_print_all_portable(char type, const char *sec, const GElf_Sym *sym,
 	enum demangle d;
 
 	if (sec == NULL || sym == NULL || name == NULL ||
-	    g_value_print_fn == NULL)
+	    nm_opts.value_print_fn == NULL)
 		return;
 
-	d = g_demangle_type == DEMANGLE_AUTO ?
-	    get_demangle_type(name) : g_demangle_type;
+	d = nm_opts.demangle_type == DEMANGLE_AUTO ?
+	    get_demangle_type(name) : nm_opts.demangle_type;
 
 	switch (d) {
 	case DEMANGLE_GV3:
@@ -1386,12 +1296,12 @@ sym_elem_print_all_portable(char type, const char *sec, const GElf_Sym *sym,
 	printf(" %c ", type);
 
 	if (!IS_UNDEF_SYM_TYPE(type)) {
-		g_value_print_fn(sym);
+		nm_opts.value_print_fn(sym);
 
 		printf(" ");
 
 		if (sym->st_size != 0)
-			g_size_print_fn(sym);
+			nm_opts.size_print_fn(sym);
 	} else
 		printf("        ");
 }
@@ -1403,11 +1313,11 @@ sym_elem_print_all_sysv(char type, const char *sec, const GElf_Sym *sym,
 	enum demangle d;
 
 	if (sec == NULL || sym == NULL || name == NULL ||
-	    g_value_print_fn == NULL)
+	    nm_opts.value_print_fn == NULL)
 		return;
 
-	d = g_demangle_type == DEMANGLE_AUTO ?
-	    get_demangle_type(name) : g_demangle_type;
+	d = nm_opts.demangle_type == DEMANGLE_AUTO ?
+	    get_demangle_type(name) : nm_opts.demangle_type;
 
 	switch (d) {
 	case DEMANGLE_GV3:
@@ -1431,7 +1341,7 @@ sym_elem_print_all_sysv(char type, const char *sec, const GElf_Sym *sym,
 	if (IS_UNDEF_SYM_TYPE(type))
 		printf("                ");
 	else
-		g_value_print_fn(sym);
+		nm_opts.value_print_fn(sym);
 
 	printf("|   %c  |", type);
 
@@ -1466,7 +1376,7 @@ sym_elem_print_all_sysv(char type, const char *sec, const GElf_Sym *sym,
 	};
 
 	if (sym->st_size != 0)
-		g_size_print_fn(sym);
+		nm_opts.size_print_fn(sym);
 	else
 		printf("                ");
 
@@ -1620,11 +1530,11 @@ sym_list_print(struct sym_print_data *p, struct line_info_head *line_info)
 
 	assert((size_t)idx == p->list_num);
 
-	if (g_sort_fn != &cmp_none)
+	if (nm_opts.sort_fn != &cmp_none)
 		qsort_r(e_v, p->list_num, sizeof(struct sym_entry), p,
-		    g_sort_fn);
+		    nm_opts.sort_fn);
 
-	if (g_sort_reverse == false)
+	if (nm_opts.sort_reverse == false)
 		for (size_t i = 0; i != p->list_num; ++i)
 			sym_list_print_each(&e_v[i], p, line_info);
 	else
@@ -1650,10 +1560,10 @@ sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
 
 	type = get_sym_type(ep->sym, p->t_table);
 
-	if (g_print_name == PRINT_NAME_FULL) {
+	if (nm_opts.print_name == PRINT_NAME_FULL) {
 		printf("%s", p->filename);
 
-		if (g_elem_print_fn == &sym_elem_print_all_portable) {
+		if (nm_opts.elem_print_fn == &sym_elem_print_all_portable) {
 			if (p->objname != NULL)
 				printf("[%s]", p->objname);
 
@@ -1704,9 +1614,9 @@ sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
 		sec = p->s_table[ep->sym->st_shndx];
 	};
 	
-	g_elem_print_fn(type, sec, ep->sym, ep->name);
+	nm_opts.elem_print_fn(type, sec, ep->sym, ep->name);
 
-	if (g_debug_line == true && line_info != NULL &&
+	if (nm_opts.debug_line == true && line_info != NULL &&
 	    !IS_UNDEF_SYM_TYPE(type)) {
 		struct line_info_entry *lep;
 
@@ -1783,7 +1693,7 @@ usage(int exitcode)
 \n    -A, --print-file-name     Write the full pathname or library name of an\
 \n                               object on each line\
 \n    -a, --debug-syms          Display all symbols include debugger-only\
-\n                               symbols", g_program_name);
+\n                               symbols", nm_info.name);
 	printf("\
 \n    -B                        Same as --format=bsd\
 \n    -C, --demangle[=style]    Decode low-level symbol names\
@@ -1814,8 +1724,7 @@ usage(int exitcode)
 \n                               format\
 \n                                 d   In decimal\
 \n                                 o   In octal\
-\n                                 x   In hexadecimal\
-\n        --target=name         Specify an object code format");
+\n                                 x   In hexadecimal");
 	printf("\
 \n    -u, --undefined-only      Display only undefined symbols\
 \n        --defined-only        Display only defined symbols\
@@ -1830,40 +1739,30 @@ usage(int exitcode)
 /*
  * Display symbolic information in file.
  * Return 0 at success, >0 at failed.
- *
- * NOTES.
- *  1. I do not have any test case, test file for a.out, it just come from on
- *    CVS attic only. So a.out may do not works correctly. If you have any
- *    sample a.out file, send me please.
  */
 int
 main(int argc, char *argv[])
 {
 	int ch, rtn;
 	enum radix t;
-	const char *target;
 
 	global_init();
 
 	t = RADIX_DEFAULT;
-	target = NULL;
 
 	while ((ch = getopt_long(argc, argv, "ABCDSVPaefghlnoprst:uvx",
 		    nm_longopts, NULL)) != -1) {
 		switch (ch) {
 		case 'A':
-			g_print_name = PRINT_NAME_FULL;
-			aout_set_print_file(1);
+			nm_opts.print_name = PRINT_NAME_FULL;
 
 			break;
 		case 'B':
-			g_elem_print_fn = &sym_elem_print_all;
+			nm_opts.elem_print_fn = &sym_elem_print_all;
 
 			break;
 		case 'C':
-			g_demangle_type = get_demangle_option(optarg);
-			if (optarg == NULL)
-				g_demangle_type = DEMANGLE_AUTO;
+			nm_opts.demangle_type = get_demangle_option(optarg);
 
 			break;
 		case 'F':
@@ -1871,17 +1770,19 @@ main(int argc, char *argv[])
 			switch (optarg[0]) {
 			case 'B':
 			case 'b':
-				g_elem_print_fn = &sym_elem_print_all;
+				nm_opts.elem_print_fn = &sym_elem_print_all;
 
 				break;
 			case 'P':
 			case 'p':
-				g_elem_print_fn = &sym_elem_print_all_portable;
+				nm_opts.elem_print_fn =
+				    &sym_elem_print_all_portable;
 
 				break;
 			case 'S':
 			case 's':
-				g_elem_print_fn = &sym_elem_print_all_sysv;
+				nm_opts.elem_print_fn =
+				    &sym_elem_print_all_sysv;
 				break;
 
 			default:
@@ -1894,11 +1795,11 @@ main(int argc, char *argv[])
 
 			break;
 		case 'D':
-			g_print_symbol = PRINT_SYM_DYN;
+			nm_opts.print_symbol = PRINT_SYM_DYN;
 
 			break;
 		case 'S':
-			g_print_size = 1;
+			nm_opts.print_size = 1;
 
 			break;
 		case 'V':
@@ -1907,12 +1808,11 @@ main(int argc, char *argv[])
 			/* NOTREACHED */
 			break;
 		case 'P':
-			g_elem_print_fn = &sym_elem_print_all_portable;
+			nm_opts.elem_print_fn = &sym_elem_print_all_portable;
 
 			break;
 		case 'a':
-			g_print_debug = true;
-			aout_set_print_all(1);
+			nm_opts.print_debug = true;
 
 			break;
 		case 'f':
@@ -1921,7 +1821,6 @@ main(int argc, char *argv[])
 			/* FALLTHROUGH */
 		case 'g':
 			filter_insert(sym_elem_global);
-			aout_set_print_ext(1);
 
 			break;
 		case 'o':
@@ -1929,15 +1828,15 @@ main(int argc, char *argv[])
 
 			break;
 		case 'p':
-			g_sort_fn = &cmp_none;
+			nm_opts.sort_fn = &cmp_none;
 
 			break;
 		case 'r':
-			g_sort_reverse = true;
+			nm_opts.sort_reverse = true;
 
 			break;
 		case 's':
-			g_print_armap = true;
+			nm_opts.print_armap = true;
 
 			break;
 		case 't':
@@ -1966,19 +1865,17 @@ main(int argc, char *argv[])
 			break;
 		case 'u':
 			filter_insert(sym_elem_undef);
-			g_undef_only = true;
-			aout_set_print_und(1);
+			nm_opts.undef_only = true;
 
 			break;
 		case 'l':
-			g_debug_line = true;
+			nm_opts.debug_line = true;
 
 			break;
 		case 'n':
 			/* FALLTHROUGH */
 		case 'v':
-			g_sort_fn = &cmp_value;
-			aout_set_sort_value();
+			nm_opts.sort_fn = &cmp_value;
 
 			break;
 		case 'x':
@@ -1986,21 +1883,18 @@ main(int argc, char *argv[])
 
 			break;
 		case 0:
-			if (g_sort_size != 0) {
-				g_sort_fn = &cmp_size;
+			if (nm_opts.sort_size != 0) {
+				nm_opts.sort_fn = &cmp_size;
 
 				filter_insert(sym_elem_def);
 				filter_insert(sym_elem_nonzero_size);
 			}
 
-			if (g_def_only != 0)
+			if (nm_opts.def_only != 0)
 				filter_insert(sym_elem_def);
 
-			if (g_no_demangle != 0)
-				g_demangle_type = DEMANGLE_NONE;
-
-			if (g_target != 0)
-				target = optarg;
+			if (nm_opts.no_demangle != 0)
+				nm_opts.demangle_type = DEMANGLE_NONE;
 
 			break;
 		case 'h':
@@ -2017,42 +1911,40 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	assert(g_program_name != NULL && "g_program_name is null");
-	assert(g_default_filename != NULL && "g_default_filename is null");
-	assert(g_sort_fn != NULL && "g_sort_fn is null");
-	assert(g_elem_print_fn != NULL && "g_elem_print_fn is null");
-	assert(g_value_print_fn != NULL && "g_value_print_fn is null");
+	assert(nm_info.name != NULL && "nm_info.name is null");
+	assert(nm_info.def_filename != NULL && "nm_info.def_filename is null");
+	assert(nm_opts.sort_fn != NULL && "nm_opts.sort_fn is null");
+	assert(nm_opts.elem_print_fn != NULL &&
+	    "nm_opts.elem_print_fn is null");
+	assert(nm_opts.value_print_fn != NULL &&
+	    "nm_opts.value_print_fn is null");
 
 	set_g_value_print_fn(t);
 
-	if (g_undef_only == true) {
-		if (g_sort_fn == &cmp_size)
+	if (nm_opts.undef_only == true) {
+		if (nm_opts.sort_fn == &cmp_size)
 			errx(EX_USAGE, "--size-sort with -u is meaningless");
 
-		if (g_def_only != 0)
+		if (nm_opts.def_only != 0)
 			errx(EX_USAGE,
 			    "-u with --defined-only is meaningless");
 	}
 
-	if (g_print_debug == false)
+	if (nm_opts.print_debug == false)
 		filter_insert(sym_elem_nondebug);
 
-	if (g_sort_reverse == true) {
-		if (g_sort_fn == cmp_none)
-			g_sort_reverse = false;
-		else
-			aout_set_sort_rname();
-	}
+	if (nm_opts.sort_reverse == true && nm_opts.sort_fn == cmp_none)
+		nm_opts.sort_reverse = false;
 
 	rtn = 0;
 	if (argc == 0)
-		rtn |= readfile(g_default_filename, target);
+		rtn |= read_elf(nm_info.def_filename);
 	else {
-		if (g_print_name == PRINT_NAME_NONE && argc > 1)
-			g_print_name = PRINT_NAME_MULTI;
+		if (nm_opts.print_name == PRINT_NAME_NONE && argc > 1)
+			nm_opts.print_name = PRINT_NAME_MULTI;
 
 		while (argc > 0) {
-			rtn |= readfile(*argv, target);
+			rtn |= read_elf(*argv);
 
 			--argc;
 			++argv;
