@@ -380,8 +380,7 @@ create_symtab(struct elfcopy *ecp)
 		errx(EX_SOFTWARE, "elf_newdata() failed: %s.",
 		    elf_errmsg(-1));
 
-	/* FIXME support format conversion. */
-	sydata->d_align		= 4;
+	sydata->d_align		= (ecp->oec == ELFCLASS32 ? 4 : 8);
 	sydata->d_off		= 0;
 	sydata->d_buf		= sy->buf;
 	sydata->d_size		= sy->sz;
@@ -396,7 +395,7 @@ create_symtab(struct elfcopy *ecp)
 	stdata->d_version	= EV_CURRENT;
 
 	shy.sh_addr		= 0;
-	shy.sh_addralign	= 4; /* FIXME */
+	shy.sh_addralign	= sydata->d_align;
 	shy.sh_size		= sy->sz;
 	shy.sh_type		= SHT_SYMTAB;
 	shy.sh_flags		= 0;
