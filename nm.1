@@ -23,134 +23,300 @@
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
 .Dd May 4, 2008
-.Os [FreeBSD] [8.0]
-.Dt nm 1
+.Os
+.Dt NM 1
 .Sh NAME
 .Nm nm
-.Nd "Display symbolic information in files."
+.Nd display symbolic information in object files
 .Sh SYNOPSIS
 .Nm
-.Op Fl A | -print-file-name
-.Op Fl a | -debug-syms
-.Op Fl BP
-.Op Fl C | -demangle=style | -no-demangle
-.Op Fl D | -dynamic
-.Op Fl eg
-.Op Fl h | -help
-.Op Fl l | -line-numbers
-.Op Fl n | v | -numeric-sort
-.Op Fl ox
-.Op Fl p | -no-sort
-.Op Fl r | -reverse-sort
-.Op Fl S | -print-size
-.Op Fl s | -print-armap
+.Op Fl -debug-syms
+.Op Fl -defined-only
+.Op Fl -demangle Ns Op = Ns style
+.Op Fl -dynamic
+.Op Fl -help
+.Op Fl -line-numbers
+.Op Fl -no-demangle
+.Op Fl -no-sort
+.Op Fl -numeric-sort
+.Op Fl -print-armap
+.Op Fl -print-file-name
+.Op Fl -print-size
+.Op Fl -radix= Ns Ar format
+.Op Fl -reverse-sort
 .Op Fl -size-sort
-.Op Fl t | -radix=format
-.Op Fl -target=name
-.Op Fl u | -undefined-only | -defined-only
-.Op Fl V | -version
+.Op Fl -undefined-only
+.Op Fl -version
+.Op Fl A
+.Op Fl B
+.Op Fl C Op Ar style
+.Op Fl D
+.Op Fl P
+.Op Fl V
+.Op Fl a
+.Op Fl e
+.Op Fl g
+.Op Fl h
+.Op Fl l
+.Op Fl n
+.Op Fl o
+.Op Fl p
+.Op Fl r
+.Op Fl S
+.Op Fl s
+.Op Fl t Ar format
+.Op Fl u
+.Op Fl x
 .Ar file ...
 .Sh DESCRIPTION
-.Nm 
-utility display symbolic information in object, executable, object library
-file. If no symbolic information for valid input file, no error return.
-If file arguments are empty, read a.out.
+The
+.Nm
+utility displays symbolic information in the object files,
+executables, and object library files named by its arguments.
+Lack of symbolic information in an otherwise valid input
+file, is not considered to be an error.
+If no files are specified on the command line,
+.Nm
+will attempt to read
+.Pa a.out .
 .Pp
-Default output format is bsd format, decimal radix, alphabetically name sort,
-no-demangle.
+The
+.Nm
+utility recognizes the following options:
+.Bl -tag -width ".Fl d Ar argument"
+.It Fl -debug-syms
+Display all symbols, including debugger-only symbols.
+.It Fl -defined-only
+Display only defined symbols.
+.It Fl -demangle Ns Op = Ns Ar style
+Decode (demangle) low-level symbol names into human-readable names.
+Supported values for argument
+.Ar style
+are
+.Sq auto
+and
+.Sq gnu-v3 .
+If argument
+.Ar style
+is not specified, it is taken to be
+.Sq auto .
+.It Fl -dynamic
+Only display dynamic symbols.
+This option is only meaningful for shared libraries.
+.It Fl -help
+Display a help message and exit.
+.It Fl -format Ns = Ns Ar format
+Display output in the format specified by argument
+.Ar format .
+Supported values for the format argument are
+.Sq bsd ,
+.Sq sysv ,
+and
+.Sq posix .
+The default output format is
+.Sq bsd .
+.It Fl -line-numbers
+Display the filename and line number associated a symbol using
+any debugging information present in the input file.
+For defined symbols, look up the line number associated with
+the address of the symbol.
+For undefined symbols, look up the line number associated with
+a relocation entry that refers to the symbol.
+If line number information can be determined, it is displayed after
+other symbol information.
+.It Fl -no-demangle
+Do not demangle symbol names (default).
+.It Fl -no-sort
+Do not sort symbols.
+.It Fl -numeric-sort
+Sort symbols numerically by address instead of alphabetically by name.
+.It Fl -print-armap
+For
+.Xr ar 1
+archives, include the index of the archive's members.
+.It Fl -print-file-name
+Write the full pathname or library name of an object on each line,
+before the rest of the information for a symbol.
+If this option is not specified,
+.Nm
+will only identify an input file once, before its symbols are
+listed.
+.It Fl -print-size
+Print the size of each symbol instead of its value.
+.It Fl -radix Ns = Ns Ar radix
+Print numeric values using the specified radix.
+Supported values for argument
+.Ar radix
+are
+.Sq d
+for decimal,
+.Sq o
+for octal, and
+.Sq x
+for hexadecimal.
+.It Fl -reverse-sort
+Reverse the order of the sort.
+.It Fl -size-sort
+Sort symbols by size instead of alphabetically by name.
+.It Fl -undefined-only
+Display only undefined symbols.
+.It Fl -version
+Display the version number for
+.Nm
+and exit.
+.It Fl A
+Equivalent to specifying option
+.Fl -print-file-name .
+.It Fl B
+Equivalent to specifying option
+.Fl -format Ns Ar =bsd .
+.It Fl C Op Ar style
+Equivalent to specifying option
+.Fl -demangle Ns Op = Ns Ar style .
+.It Fl D
+Equivalent to specifying option
+.Fl -dynamic .
+.It Fl F Ar format
+Equivalent to specifying option
+.Fl -format Ns = Ns Ar format .
+.It Fl P
+Equivalent to specifying option
+.Fl -format Ns = Ns Ar posix .
+.It Fl S
+Equivalent to specifying option
+.Fl -print-size .
+.It Fl V
+Equivalent to specifying option
+.Fl -version .
+.It Fl a
+Equivalent to specifying option
+.Fl -debug-syms .
+.It Fl e
+Only display information for global and static symbols.
+.It Fl f
+Produce full output (default).
+.It Fl g
+Only display information about global (external) symbols.
+.It Fl h
+Equivalent to specifying option
+.Fl -help .
+.It Fl l
+Equivalent to specifying option
+.Fl -line-numbers .
+.It Fl n
+Equivalent to specifying option
+.Fl -numeric-sort .
+.It Fl o
+Equivalent to specifying option
+.Fl t Ar o .
+.It Fl p
+Equivalent to specifying option
+.Fl -no-sort .
+.It Fl v
+Equivalent to option
+.Fl n .
+.It Fl r
+Equivalent to specifying option
+.Fl -reverse-sort
+.It Fl s
+Equivalent to specifying option
+.Fl -print-armap .
+.It Fl t Ar radix
+Equivalent to specifying option
+.Fl t Ar radix .
+.It Fl u
+Equivalent to specifying option
+.Fl -undefined-only .
+.It Fl x
+Write numeric values in hexadecimal (equivalent to -t x).
+.El
+.Sh OUTPUT FORMAT
 .Pp
-The symbol type. If lowercase, the symbol is local and if uppercase, the symbol
-is global.
-.Bl -tag -width
+The
+.Nm
+utility can present its information in a number of formats, numeric
+radices and sort orders.
+By default
+.Nm
+uses BSD style output, a decimal radix, without output sorted
+alphabetically by name and without demangling of names.
+.Pp
+For each symbol listed,
+.Nm
+presents the following information:
+.Bl -bullet -compact
+.It
+The library or object name, if options
+.Fl A
+or
+.Fl -print-file-name
+were specified.
+.It
+The symbol name.
+.It
+The type of the symbol denoted by a single character as below:
+.Bl -tag -compact -width indent
 .It A
-Absolute symbol.
+A global, absolute symbol.
 .It B
-Bss symbol.
+A global
+.Dq bss
+(uninitialized data) symbol.
 .It C
-Common symbol.
+A
+.Dq common
+symbol, representing uninitialized data.
 .It D
-Data symbol.
-.It F
-Filename in aout, external only.
-.It I
-Alias definition in aout.
+A global symbol naming initialized data.
 .It N
-Debugging symbol.
+A debugger symbol.
+.It R
+A read-only data symbol.
 .It T
-Text symbol.
+A global text symbol.
 .It U
-Undefined symbol.
+An undefined symbol.
 .It V
-Weak object.
+A weak object.
 .It W
-Weak symbol.
-Warning refs in aout, internal only.
+A weak reference.
+.It a
+A local absolute symbol.
+.It b
+A local
+.Dq bss
+(uninitialized data) symbol.
+.It d
+A local data symbol.
+.It t
+A local text symbol.
+.It v
+A weak object that is undefined.
+.It w
+A weak symbol that is undefined.
 .It ?
 None of the above.
 .El
-.Pp
-Options:
-.Bl -tag -width ".Fl d Ar argument"
-.It Fl A | -print-file-name
-Write the full pathname or library name of an object on each line.
-.It Fl a | -debug-syms
-Display all symbols include debugger-only symbols.
-.It Fl B
-Display in bsd format style, same as --format=bsd.
-.It Fl C | -demangle=style
-Decode low-level symbol names. Supported style are 'auto' (default), 'gnu-v3'.
-.It Fl -no-demangle
-Don't demangle low-level symbol names (default).
-.It Fl D | -dynamic
-Display only dynamic symbols.
-.It Fl e
-Display only global and static symbol (equivalent to -g).
-.It Fl f
-Produce full output (default).
-.It Fl -format=format
-Display output in specific format. Supported format are 'bsd' (default), 'sysv', 'posix'.
-.It Fl g
-Display only global symbol information.
-.It Fl h | -help
-Show help message.
-.It Fl l | -line-numbers
-Display filename and line number using debugging information.
-.It Fl n | v | -numeric-sort
-Sort symbols numerically by value.
-.It Fl o
-Write numeric values in octal (equivalent to -t o).
-.It Fl p | -no-sort
-Don't sort symbols.
-.It Fl P
-Write information in a portable output format (equivalent to --format=posix).
-.It Fl r | -reverse-sort
-Reverse the order of the sort.
-.It Fl S | -print-size
-Print size instead value.
-.It Fl s | -print-armap
-Include the index of archive members.
-.It Fl -size-sort
-Sort symbols by size.
-.It Fl t Ar format
-Write each numric value in the specified format. 'd' for decimal, 'o' for
-octal, and 'x' for hexadecimal.
-.It Fl -target=name
-Specify an object code format. Supported target 'elf', 'aout'.
-.It Fl u | -undefined-only
-Display only undefined symbols.
-.It Fl -defined-only
-Display only defined symbols.
-.It Fl V | -version
-Show the version number.
-.It Fl x
-Write numeric values in hexadecimal (equivalent to -t x).
+.It
+The value of the symbol.
+.It
+The size of the symbol if applicable.
+.It
+Line number information, if available and if options
+.Fl l
+or
+.Fl -line-numbers
+were specified.
 .El
 .Sh EXIT STATUS
 .Ex -std
 .Sh SEE ALSO
-.Xr ar 1
-.Xr objdump 1
-.Xr ranlib 1
+.Xr ar 1 ,
+.Xr objdump 1 ,
+.Xr ranlib 1 ,
+.Xr elf 3
 .Sh AUTHORS
-This manual page was written by
+The
+.Nm
+utility and this manual page were written by
 .An Hyogeol Lee Aq hyogeollee@gmail.com .
