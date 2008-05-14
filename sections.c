@@ -47,7 +47,6 @@ static int	is_print_section(struct elfcopy *ecp, const char *name);
 static int	is_remove_reloc_sec(struct elfcopy *ecp, uint32_t sh_info);
 static int	is_remove_section(struct elfcopy *ecp, const char *name);
 static void	modify_section(struct elfcopy *ecp, struct section *s);
-static size_t	new_index(struct elfcopy *ecp, size_t ndx);
 static void	print_data(const char *d, size_t sz);
 static void	print_section(struct section *s);
 static void	*read_section(struct section *s, size_t *size);
@@ -250,6 +249,7 @@ create_scn(struct elfcopy *ecp)
 	Elf_Scn *is;
 	GElf_Shdr ish;
 	size_t indx;
+	uint64_t oldndx, newndx;
 	int elferr;
 
 	/* Create internal .shstrtab section. */
@@ -310,9 +310,11 @@ create_scn(struct elfcopy *ecp)
 			errx(EX_SOFTWARE, "elf_newscn failed: %s",
 			    elf_errmsg(-1));
 
-		if ((s->ndx = elf_ndxscn(is)) == SHN_UNDEF)
+		if ((oldndx = elf_ndxscn(is)) == SHN_UNDEF ||
+		    (newndx = elf_ndxscn(s->os)) == SHN_UNDEF)
 			errx(EX_SOFTWARE, "elf_scnndx failed: %s",
 			    elf_errmsg(-1));
+		ecp->ndxtab[oldndx] = newndx;
 
 		/* create section header based on input object. */
 		if (strcmp(name, ".shstrtab") != 0)
@@ -421,7 +423,6 @@ copy_content(struct elfcopy *ecp)
 static void
 filter_reloc(struct elfcopy *ecp, struct section *s)
 {
-	struct section *t;
 	const char *name;
 	GElf_Shdr ish;
 	GElf_Rel rel;
@@ -439,20 +440,18 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 
 	/* We don't want to touch relocation info for dynamic symbols. */
 	if ((ecp->flags & SYMTAB_EXIST) == 0) {
-		TAILQ_FOREACH(t, &ecp->v_sec, sec_list) {
-			if (ish.sh_link == t->ndx)
-				return;
+		if (ish.sh_link == 0 || ecp->ndxtab[ish.sh_link] == 0) {
+			/*
+			 * This reloc section applies to the symbol table
+			 * that was stripped, so discard whole section.
+			 */
+			s->nocopy = 1;
+			s->sz = 0;
 		}
-		/*
-		 * We can know that symbol table was stripped and
-		 * this reloc section is indeed for the symbol table, if
-		 * code reaches here. So, delete all reloc entries.
-		 */
-		s->nocopy = 1;
-		s->sz = 0;
 		return;
 	} else {
-		if (ish.sh_link != ecp->symtab->ndx)
+		/* Symbol table exist, check if index equals. */
+		if (ish.sh_link != elf_ndxscn(ecp->symtab->is))
 			return;
 	}
 		
@@ -790,12 +789,10 @@ add_unloadables(struct elfcopy *ecp)
 			errx(EX_SOFTWARE, "elf_newscn() failed: %s",
 			    elf_errmsg(-1));
 		if ((s = calloc(1, sizeof(*s))) == NULL)
-			err(EX_SOFTWARE, "mallc failed");
+			err(EX_SOFTWARE, "calloc failed");
 		s->name = sa->name;
 		s->off = shstr->off;
 		s->sz = sa->size;
-		/* used as a flag, indicate the section is added from file */
-		s->ndx = -1;
 		s->loadable = 0;
 		s->is = NULL;
 		s->os = os;
@@ -840,23 +837,6 @@ add_to_shstrtab(struct elfcopy *ecp, const char *name)
 	insert_to_strtab(s, name);
 }
 
-static size_t
-new_index(struct elfcopy *ecp, size_t ndx)
-{
-	struct section *s;
-
-	TAILQ_FOREACH(s, &ecp->v_sec, sec_list) {
-		if (ndx == s->ndx)
-			return elf_ndxscn(s->os);
-	}
-
-	/*
-	 * Use 0 as the new link value, if the target section
-	 * no longer exists.
-	 */
-	return (0);
-}
-
 void
 update_shdr(struct elfcopy *ecp)
 {
@@ -877,7 +857,7 @@ update_shdr(struct elfcopy *ecp)
 		 * linked section might have changed.
 		 */
 		if (osh.sh_link != 0)
-			osh.sh_link = new_index(ecp, osh.sh_link);
+			osh.sh_link = ecp->ndxtab[osh.sh_link];
 
 		/*
 		 * sh_info of relocation section links to the section to which
@@ -885,7 +865,7 @@ update_shdr(struct elfcopy *ecp)
 		 */
 		if ((s->type == SHT_REL || s->type == SHT_RELA) &&
 		    osh.sh_info != 0)
-			osh.sh_info = new_index(ecp, osh.sh_info);
+			osh.sh_info = ecp->ndxtab[osh.sh_info];
 
 		if (!gelf_update_shdr(s->os, &osh))
 			errx(EX_SOFTWARE, "gelf_update_shdr() failed: %s",
