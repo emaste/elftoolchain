@@ -10,6 +10,7 @@ all
         ^nm_archive2
         ^nm_shared_object1
         ^nm_shared_object2
+        ^nm_option
         "Complete Test Suite"
 
 vector_str
@@ -51,3 +52,8 @@ nm_shared_object2
         "Starting nm Shared Object Test 2"
         /ts/nm_shared_object2/nm_shared_object2-tc
         "Complete nm Shared Object Test 2"
+
+nm_option
+        "Starting nm Option Test"
+        /ts/nm_option/nm_option-tc
+        "Complete nm Option Test"
