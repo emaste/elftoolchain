@@ -74,7 +74,6 @@ struct section {
 	uint64_t cap;		/* section capacity */
 	uint64_t align;		/* section alignment */
 	uint64_t type;		/* section type */
-	uint32_t ndx;		/* original index */
 	int loadable;		/* whether loadable */
 	int pseudo;
 	int nocopy;
@@ -145,6 +144,9 @@ struct elfcopy {
 #define SYMTAB_CREATED	0x0040
 
 	int flags;
+
+	/* keep track of section index changes. */
+	uint64_t *ndxtab;
 
 	/* bit vector to mark symbols involving relocation */
 	unsigned char *v_rel;

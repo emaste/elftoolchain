@@ -137,6 +137,7 @@ create_elf(struct elfcopy *ecp)
 	struct section *shtab;
 	GElf_Ehdr ieh;
 	GElf_Ehdr oeh;
+	size_t ishnum;
 
 	ecp->flags |= SYMTAB_INTACT;
 
@@ -172,6 +173,13 @@ create_elf(struct elfcopy *ecp)
 		ecp->flags |= RELOCATABLE;
 	else
 		errx(EX_DATAERR, "unsupported e_type");
+
+	if (!elf_getshnum(ecp->ein, &ishnum))
+		errx(EX_SOFTWARE, "elf_getshnum failed: %s",
+		    elf_errmsg(-1));
+	if (ishnum > 0 && (ecp->ndxtab = calloc(ishnum,
+	    sizeof(*ecp->ndxtab))) == NULL)
+		err(EX_SOFTWARE, "calloc failed");
 
 	setup_phdr(ecp);
 
