@@ -62,8 +62,8 @@ typedef void (*fn_sym_print)(const GElf_Sym *);
 typedef int (*fn_filter)(char, const GElf_Sym *, const char *);
 
 /* output filter list */
-SLIST_HEAD(filter_head, filter_entry) g_filter =
-SLIST_HEAD_INITIALIZER(g_filter);
+SLIST_HEAD(filter_head, filter_entry) nm_out_filter =
+SLIST_HEAD_INITIALIZER(nm_out_filter);
 
 struct filter_entry {
 	fn_filter	fn;
@@ -133,9 +133,9 @@ struct nm_prog_options {
 	fn_sym_print		size_print_fn;
 };
 
-#define CHECK_SYM_PRINT_DATA(p)	(p->headp == NULL || p->sh_num == 0 ||	      \
+#define	CHECK_SYM_PRINT_DATA(p)	(p->headp == NULL || p->sh_num == 0 ||	      \
 p->t_table == NULL || p->s_table == NULL || p->filename == NULL)
-#define IS_SYM_TYPE(t)		(t == '?' || isalpha(t) != 0)
+#define	IS_SYM_TYPE(t)		(t == '?' || isalpha(t) != 0)
 #define	IS_UNDEF_SYM_TYPE(t)	(t == 'U' || t == 'v' || t == 'w')
 #define	IS_COM_SYM(s)		(s->st_shndx == SHN_COMMON)
 #define	FASTLOWER(t)		(t + 32)
@@ -169,7 +169,7 @@ static void		print_version(void);
 static int		read_elf(const char *);
 static unsigned char	*relocate_sec(Elf_Data *, Elf_Data *, int);
 static struct line_info_entry	*search_addr(struct line_info_head *, GElf_Sym *);
-static void		set_g_value_print_fn(enum radix);
+static void		set_opt_value_print_fn(enum radix);
 static int		sym_elem_def(char, const GElf_Sym *, const char *);
 static int		sym_elem_global(char, const GElf_Sym *, const char *);
 static int		sym_elem_nondebug(char, const GElf_Sym *, const char *);
@@ -326,9 +326,9 @@ filter_dest(void)
 {
 	struct filter_entry *e;
 
-	while (!SLIST_EMPTY(&g_filter)) {
-		e = SLIST_FIRST(&g_filter);
-		SLIST_REMOVE_HEAD(&g_filter, filter_entries);
+	while (!SLIST_EMPTY(&nm_out_filter)) {
+		e = SLIST_FIRST(&nm_out_filter);
+		SLIST_REMOVE_HEAD(&nm_out_filter, filter_entries);
 		free(e);
 	}
 }
@@ -345,7 +345,7 @@ filter_insert(fn_filter filter_fn)
 
 	e->fn = filter_fn;
 
-	SLIST_INSERT_HEAD(&g_filter, e, filter_entries);
+	SLIST_INSERT_HEAD(&nm_out_filter, e, filter_entries);
 
 	return (1);
 }
@@ -430,7 +430,8 @@ get_sym(Elf *elf, struct sym_head *headp, int shnum,
 
 				filter = false;
 				type = get_sym_type(&sym, type_table);
-				SLIST_FOREACH(fep, &g_filter, filter_entries)
+				SLIST_FOREACH(fep, &nm_out_filter,
+				    filter_entries)
 				    if (fep->fn(type, &sym, sym_name) == 0) {
 					    filter = true;
 
@@ -514,7 +515,7 @@ global_init(void)
 	nm_opts.value_print_fn = &sym_value_dec_print;
 	nm_opts.size_print_fn = &sym_size_dec_print;
 
-	SLIST_INIT(&g_filter);
+	SLIST_INIT(&nm_out_filter);
 }
 
 static bool
@@ -1158,7 +1159,7 @@ search_addr(struct line_info_head *l, GElf_Sym *g)
 }
 
 static void
-set_g_value_print_fn(enum radix t)
+set_opt_value_print_fn(enum radix t)
 {
 
 	switch (t) {
@@ -1919,7 +1920,7 @@ main(int argc, char *argv[])
 	assert(nm_opts.value_print_fn != NULL &&
 	    "nm_opts.value_print_fn is null");
 
-	set_g_value_print_fn(t);
+	set_opt_value_print_fn(t);
 
 	if (nm_opts.undef_only == true) {
 		if (nm_opts.sort_fn == &cmp_size)
