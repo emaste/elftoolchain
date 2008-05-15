@@ -164,6 +164,7 @@ static bool		is_sec_debug(GElf_Shdr *);
 static bool		is_sec_readonly(GElf_Shdr *);
 static bool		is_sec_text(GElf_Shdr *);
 static void		print_ar_index(int fd, Elf *);
+static void		print_demangle_name(const char *, const char *);
 static void		print_header(const char *, const char *);
 static void		print_version(void);
 static int		read_elf(const char *);
@@ -189,6 +190,7 @@ static void		sym_list_print(struct sym_print_data *,
 			    struct line_info_head *);
 static void		sym_list_print_each(struct sym_entry *,
 			    struct sym_print_data *, struct line_info_head *);
+static struct sym_entry	*sym_list_sort(struct sym_print_data *);
 static int		sym_section_filter(const GElf_Shdr *);
 static void		sym_size_oct_print(const GElf_Sym *);
 static void		sym_size_hex_print(const GElf_Sym *);
@@ -615,6 +617,37 @@ print_ar_index(int fd, Elf *arf)
 	}
 
 	elf_rand(arf, start);
+}
+
+static void
+print_demangle_name(const char *format, const char *name)
+{
+	enum demangle d;
+	char *demangle;
+
+	if (format == NULL || name == NULL)
+		return;
+
+	d = nm_opts.demangle_type == DEMANGLE_AUTO ?
+	    get_demangle_type(name) : nm_opts.demangle_type;
+
+	switch (d) {
+	case DEMANGLE_GV3:
+		{
+			demangle = cpp_demangle_ia64(name);
+		
+			printf(format, demangle == NULL ? name : demangle);
+
+			free(demangle);
+		}
+		break;
+	case DEMANGLE_AUTO:
+		/* NOTREACHED */
+		/* FALLTHROUGH */
+	case DEMANGLE_NONE:
+	default:
+		printf(format, name);
+	}
 }
 
 static void
@@ -1076,14 +1109,14 @@ next_cmd:
 			}
 		}
 
-		sym_list_dest(&list_head);
-
 		if (sec_table != NULL)
 			for (i = 0; i < shnum; ++i)
 				free(sec_table[i]);
 
 		free(sec_table);
 		free(type_table);
+
+		sym_list_dest(&list_head);
 
 		/*
 		 * If file is not archive, elf_next return ELF_C_NULL and
@@ -1197,7 +1230,6 @@ static void
 sym_elem_print_all(char type, const char *sec, const GElf_Sym *sym,
     const char *name)
 {
-	enum demangle d;
 
 	if (sec == NULL || sym == NULL || name == NULL ||
 	    nm_opts.value_print_fn == NULL)
@@ -1240,59 +1272,19 @@ sym_elem_print_all(char type, const char *sec, const GElf_Sym *sym,
 
 	printf(" %c ", type);
 
-	d = nm_opts.demangle_type == DEMANGLE_AUTO ?
-	    get_demangle_type(name) : nm_opts.demangle_type;
-
-	switch (d) {
-	case DEMANGLE_GV3:
-		{
-			char *demangle = cpp_demangle_ia64(name);
-		
-			printf("%s", demangle == NULL ? name : demangle);
-
-			free(demangle);
-		}
-		break;
-	case DEMANGLE_AUTO:
-		/* NOTREACHED */
-		/* FALLTHROUGH */
-	case DEMANGLE_NONE:
-	default:
-		printf("%s", name);
-	}
+	print_demangle_name("%s", name);
 }
 
 static void
 sym_elem_print_all_portable(char type, const char *sec, const GElf_Sym *sym,
     const char *name)
 {
-	enum demangle d;
 
 	if (sec == NULL || sym == NULL || name == NULL ||
 	    nm_opts.value_print_fn == NULL)
 		return;
 
-	d = nm_opts.demangle_type == DEMANGLE_AUTO ?
-	    get_demangle_type(name) : nm_opts.demangle_type;
-
-	switch (d) {
-	case DEMANGLE_GV3:
-		{
-			char *demangle = cpp_demangle_ia64(name);
-
-			printf("%s", demangle == NULL ? name : demangle);
-
-			free(demangle);
-		}
-
-		break;
-	case DEMANGLE_AUTO:
-		/* NOTREACHED */
-		/* FALLTHROUGH */
-	case DEMANGLE_NONE:
-	default:
-		printf("%s", name);
-	}
+	print_demangle_name("%s", name);
 
 	printf(" %c ", type);
 
@@ -1311,33 +1303,12 @@ static void
 sym_elem_print_all_sysv(char type, const char *sec, const GElf_Sym *sym,
     const char *name)
 {
-	enum demangle d;
 
 	if (sec == NULL || sym == NULL || name == NULL ||
 	    nm_opts.value_print_fn == NULL)
 		return;
 
-	d = nm_opts.demangle_type == DEMANGLE_AUTO ?
-	    get_demangle_type(name) : nm_opts.demangle_type;
-
-	switch (d) {
-	case DEMANGLE_GV3:
-		{
-			char *demangle = cpp_demangle_ia64(name);
-
-			printf("%-20s|", demangle == NULL ? name : demangle);
-
-			free(demangle);
-		}
-
-		break;
-	case DEMANGLE_AUTO:
-		/* NOTREACHED */
-		/* FALLTHROUGH */
-	case DEMANGLE_NONE:
-	default:
-		printf("%-20s|", name);
-	}
+	print_demangle_name("%-20s|", name);
 
 	if (IS_UNDEF_SYM_TYPE(type))
 		printf("                ");
@@ -1510,30 +1481,13 @@ sym_list_insert(struct sym_head *headp, const char *name, const GElf_Sym *sym)
 static void
 sym_list_print(struct sym_print_data *p, struct line_info_head *line_info)
 {
-	struct sym_entry *ep, *e_v;
-	int idx;
+	struct sym_entry *e_v;
 
 	if (p == NULL || CHECK_SYM_PRINT_DATA(p))
 		return;
 
-	if ((e_v = malloc(sizeof(struct sym_entry) * p->list_num)) == NULL)
+	if ((e_v = sym_list_sort(p)) == NULL)
 		return;
-
-	idx = 0;
-	STAILQ_FOREACH(ep, p->headp, sym_entries) {
-		if (ep->name != NULL && ep->sym != NULL) {
-			e_v[idx].name = ep->name;
-			e_v[idx].sym = ep->sym;
-
-			++idx;
-		}
-	}
-
-	assert((size_t)idx == p->list_num);
-
-	if (nm_opts.sort_fn != &cmp_none)
-		qsort_r(e_v, p->list_num, sizeof(struct sym_entry), p,
-		    nm_opts.sort_fn);
 
 	if (nm_opts.sort_reverse == false)
 		for (size_t i = 0; i != p->list_num; ++i)
@@ -1626,6 +1580,37 @@ sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
 	}
 
 	printf("\n");
+}
+
+static struct sym_entry	*
+sym_list_sort(struct sym_print_data *p)
+{
+	struct sym_entry *ep, *e_v;
+	int idx;
+
+	if (p == NULL || CHECK_SYM_PRINT_DATA(p))
+		return (NULL);
+
+	if ((e_v = malloc(sizeof(struct sym_entry) * p->list_num)) == NULL)
+		return (NULL);
+
+	idx = 0;
+	STAILQ_FOREACH(ep, p->headp, sym_entries) {
+		if (ep->name != NULL && ep->sym != NULL) {
+			e_v[idx].name = ep->name;
+			e_v[idx].sym = ep->sym;
+
+			++idx;
+		}
+	}
+
+	assert((size_t)idx == p->list_num);
+
+	if (nm_opts.sort_fn != &cmp_none)
+		qsort_r(e_v, p->list_num, sizeof(struct sym_entry), p,
+		    nm_opts.sort_fn);
+
+	return (e_v);
 }
 
 static void
