@@ -173,6 +173,8 @@ static struct line_info_entry	*search_addr(struct line_info_head *, GElf_Sym *);
 static void		set_opt_value_print_fn(enum radix);
 static int		sym_elem_def(char, const GElf_Sym *, const char *);
 static int		sym_elem_global(char, const GElf_Sym *, const char *);
+static int		sym_elem_global_static(char, const GElf_Sym *,
+			    const char *);
 static int		sym_elem_nondebug(char, const GElf_Sym *, const char *);
 static int		sym_elem_nonzero_size(char, const GElf_Sym *,
 			    const char *);
@@ -1381,6 +1383,23 @@ sym_elem_global(char type, const GElf_Sym *sym, const char *name)
 }
 
 static int
+sym_elem_global_static(char type, const GElf_Sym *sym, const char *name)
+{
+	unsigned char info;
+
+	assert(sym != NULL);
+
+	UNUSED(type);
+	UNUSED(name);
+
+	info = sym->st_info >> 4;
+
+	return (info == STB_LOCAL ||
+	    info == STB_GLOBAL ||
+	    info == STB_WEAK);
+}
+
+static int
 sym_elem_nondebug(char type, const GElf_Sym *sym, const char *name)
 {
 
@@ -1685,8 +1704,7 @@ usage(int exitcode)
 \n    -C, --demangle[=style]    Decode low-level symbol names\
 \n        --no-demangle         Do not demangle low-level symbol names\
 \n    -D, --dynamic             Display only dynamic symbols\
-\n    -e                        Display only global and static symbol. Same as\
-\n                               -g");
+\n    -e                        Display only global and static symbol.");
 	printf("\
 \n    -f                        Produce full output. Same as default output\
 \n    --format=format           Display output in specific format.\
@@ -1804,7 +1822,9 @@ main(int argc, char *argv[])
 		case 'f':
 			break;
 		case 'e':
-			/* FALLTHROUGH */
+			filter_insert(sym_elem_global_static);
+
+			break;
 		case 'g':
 			filter_insert(sym_elem_global);
 
