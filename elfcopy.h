@@ -177,6 +177,8 @@ void	create_scn(struct elfcopy *ecp);
 void	create_symtab(struct elfcopy *ecp);
 struct section *insert_shtab(struct elfcopy *ecp);
 void	insert_to_strtab(struct section *t, const char *s);
+int	is_remove_reloc_sec(struct elfcopy *ecp, uint32_t sh_info);
+int	is_remove_section(struct elfcopy *ecp, const char *name);
 struct sec_action *lookup_sec_act(struct elfcopy *ecp,
 	    const char *name, int add);
 int	lookup_keep_symlist(struct elfcopy *ecp, const char *name);

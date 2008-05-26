@@ -44,14 +44,12 @@ static int	is_compress_section(struct elfcopy *ecp, const char *name);
 static int	is_debug_section(const char *name);
 static int	is_modify_section(struct elfcopy *ecp, const char *name);
 static int	is_print_section(struct elfcopy *ecp, const char *name);
-static int	is_remove_reloc_sec(struct elfcopy *ecp, uint32_t sh_info);
-static int	is_remove_section(struct elfcopy *ecp, const char *name);
 static void	modify_section(struct elfcopy *ecp, struct section *s);
 static void	print_data(const char *d, size_t sz);
 static void	print_section(struct section *s);
 static void	*read_section(struct section *s, size_t *size);
 
-static int
+int
 is_remove_section(struct elfcopy *ecp, const char *name)
 {
 
@@ -90,7 +88,7 @@ is_remove_section(struct elfcopy *ecp, const char *name)
  * Relocation section need to be remove if the section it applies will
  * be removed.
  */
-static int
+int
 is_remove_reloc_sec(struct elfcopy *ecp, uint32_t sh_info)
 {
 	const char *name;

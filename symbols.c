@@ -30,6 +30,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <err.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sysexits.h>
 
@@ -112,17 +113,22 @@ is_remove_symbol(struct elfcopy *ecp, size_t sc, int i, GElf_Sym *s,
 static void
 mark_symbols(struct elfcopy *ecp, size_t sc)
 {
+	const char *name;
 	Elf_Data *d;
 	Elf_Scn *s;
 	GElf_Rel r;
 	GElf_Rela ra;
 	GElf_Shdr sh;
-	size_t n;
+	size_t n, indx;
 	int elferr, i, len;
 
 	ecp->v_rel = malloc((sc + 7) / 8);
 	if (ecp->v_rel == NULL)
 		err(EX_SOFTWARE, "malloc failed");
+
+	if (elf_getshstrndx(ecp->ein, &indx) == 0)
+		errx(EX_SOFTWARE, "elf_getshstrndx failed: %s",
+		    elf_errmsg(-1));
 
 	s = NULL;
 	while ((s = elf_nextscn(ecp->ein, s)) != NULL) {
@@ -132,6 +138,19 @@ mark_symbols(struct elfcopy *ecp, size_t sc)
 
 		if (sh.sh_type != SHT_REL && sh.sh_type != SHT_RELA)
 			continue;
+
+		/*
+		 * Skip if this reloc section won't appear in the
+		 * output object.
+		 */
+		if ((name = elf_strptr(ecp->ein, indx, sh.sh_name)) == NULL)
+			errx(EX_SOFTWARE, "elf_strptr failed: %s",
+			    elf_errmsg(-1));
+		if (is_remove_section(ecp, name) ||
+		    is_remove_reloc_sec(ecp, sh.sh_info)) {
+			printf("skip reloc: %s\n", name);
+			continue;
+		}
 
 		d = NULL;
 		n = 0;
@@ -166,6 +185,10 @@ mark_symbols(struct elfcopy *ecp, size_t sc)
 	if (elferr != 0)
 		errx(EX_SOFTWARE, "elf_nextscn failed: %s",
 		    elf_errmsg(elferr));
+
+	for(i = 0; (size_t)i < sc; i++)
+		if (BIT_ISSET(ecp->v_rel, i))
+			printf("sym %d used in reloc\n", i);
 }
 
 /*
