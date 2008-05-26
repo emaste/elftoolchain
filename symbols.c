@@ -315,9 +315,10 @@ generate_symbols(struct elfcopy *ecp)
 		sy_buf##SZ[nsyms].st_name = st_sz;		\
 	sy_buf##SZ[nsyms].st_info	= sym.st_info;		\
 	sy_buf##SZ[nsyms].st_other	= sym.st_other;		\
-	sy_buf##SZ[nsyms].st_shndx	= sym.st_shndx;		\
 	sy_buf##SZ[nsyms].st_value	= sym.st_value;		\
 	sy_buf##SZ[nsyms].st_size	= sym.st_size;		\
+	sy_buf##SZ[nsyms].st_shndx	=			\
+	    ecp->ndxtab[sym.st_shndx];				\
 } while (0)
 
 	id = NULL;
