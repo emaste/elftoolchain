@@ -36,6 +36,7 @@ __FBSDID("$FreeBSD$");
 
 #include "elfcopy.h"
 
+static uint32_t	calc_nonlocal(struct section *s);
 static int	is_debug_symbol(GElf_Sym *s);
 static int	is_global_symbol(GElf_Sym *s);
 static int	is_needed_symbol(struct elfcopy *ecp, int i, GElf_Sym *s);
@@ -44,7 +45,6 @@ static int	is_remove_symbol(struct elfcopy *ecp, size_t sc, int i,
 static int	is_weak_symbol(GElf_Sym *s);
 static int	lookup_strip_symlist(struct elfcopy *ecp, const char *name);
 static void	mark_symbols(struct elfcopy *ecp, size_t sc);
-static uint32_t	set_shinfo(struct section *s);
 
 #define BIT_SET(v, n) (v[(n)>>3] |= 1U << ((n) & 7))
 #define BIT_CLR(v, n) (v[(n)>>3] &= ~(1U << ((n) & 7)))
@@ -430,6 +430,13 @@ create_symtab(struct elfcopy *ecp)
 	shy.sh_entsize		= gelf_fsize(ecp->eout, ELF_T_SYM, 1,
 	    EV_CURRENT);
 
+	/*
+	 * According to SYSV abi, here sh_info is one greater than
+	 * the symbol table index of the last local symbol(binding
+	 * STB_LOCAL).
+	 */
+	shy.sh_info		= calc_nonlocal(sy);
+
 	sht.sh_addr		= 0;
 	sht.sh_addralign	= 1;
 	sht.sh_size		= st->sz;
@@ -445,17 +452,10 @@ create_symtab(struct elfcopy *ecp)
 	if (!gelf_update_shdr(st->os, &sht))
 		errx(EX_SOFTWARE, "gelf_update_shdr() failed: %s",
 		    elf_errmsg(-1));
-
-	/*
-	 * According to SYSV abi, here sh_info is one greater than
-	 * the symbol table index of the last local symbol(binding
-	 * STB_LOCAL).
-	 */
-	set_shinfo(sy);
 }
 
 static uint32_t
-set_shinfo(struct section *s)
+calc_nonlocal(struct section *s)
 {
 	GElf_Shdr osh;
 	GElf_Sym sym;
@@ -475,7 +475,7 @@ set_shinfo(struct section *s)
 			if (gelf_getsym(od, i, &sym) != &sym)
 				errx(EX_SOFTWARE, "gelf_getsym failed: %s",
 				     elf_errmsg(-1));
-			if (GELF_ST_BIND(sym.st_info) == STB_GLOBAL)
+			if (GELF_ST_BIND(sym.st_info) == STB_LOCAL)
 				nonlocal = i + 1;
 		}
 	}
