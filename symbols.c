@@ -152,6 +152,10 @@ mark_symbols(struct elfcopy *ecp, size_t sc)
 			continue;
 		}
 
+		/* Skip if it's not for .symtab */
+		if (sh.sh_link != elf_ndxscn(ecp->symtab->is))
+			continue;
+
 		d = NULL;
 		n = 0;
 		while (n < sh.sh_size && (d = elf_getdata(s, d)) != NULL) {
