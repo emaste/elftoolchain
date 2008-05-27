@@ -122,9 +122,9 @@ mark_symbols(struct elfcopy *ecp, size_t sc)
 	size_t n, indx;
 	int elferr, i, len;
 
-	ecp->v_rel = malloc((sc + 7) / 8);
+	ecp->v_rel = calloc((sc + 7) / 8, 1);
 	if (ecp->v_rel == NULL)
-		err(EX_SOFTWARE, "malloc failed");
+		err(EX_SOFTWARE, "calloc failed");
 
 	if (elf_getshstrndx(ecp->ein, &indx) == 0)
 		errx(EX_SOFTWARE, "elf_getshstrndx failed: %s",
@@ -156,6 +156,7 @@ mark_symbols(struct elfcopy *ecp, size_t sc)
 		n = 0;
 		while (n < sh.sh_size && (d = elf_getdata(s, d)) != NULL) {
 			len = d->d_size / sh.sh_entsize;
+			printf("num of reloc=%d\n", len);
 			for (i = 0; i < len; i++) {
 				if (sh.sh_type == SHT_REL) {
 					if (gelf_getrel(d, i, &r) != &r)
@@ -170,8 +171,10 @@ mark_symbols(struct elfcopy *ecp, size_t sc)
 						     elf_errmsg(-1));
 					n = GELF_R_SYM(ra.r_info);
 				}
-				if (n > 0 && n < sc)
+				if (n > 0 && n < sc) {
+					printf("set reloc: %ju\n", n);
 					BIT_SET(ecp->v_rel, n);
+				}
 				else if (n != 0)
 					warnx("invalid symbox index");
 			}
