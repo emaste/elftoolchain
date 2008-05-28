@@ -158,9 +158,9 @@ static int		get_sym(Elf *, struct sym_head *, int,
 			    const Elf_Data *, const Elf_Data *, const char *);
 static char		get_sym_type(const GElf_Sym *, const char *);
 static void		global_init(void);
-static bool		is_sec_bss(GElf_Shdr *);
 static bool		is_sec_data(GElf_Shdr *);
-static bool		is_sec_debug(GElf_Shdr *);
+static bool		is_sec_debug(const char *);
+static bool		is_sec_nobits(GElf_Shdr *);
 static bool		is_sec_readonly(GElf_Shdr *);
 static bool		is_sec_text(GElf_Shdr *);
 static void		print_ar_index(int fd, Elf *);
@@ -482,7 +482,7 @@ get_sym_type(const GElf_Sym *sym, const char *type_table)
 	if (sym->st_shndx == SHN_UNDEF) /* undefined */
 		return ('U');
 
-	return (is_local == true ?
+	return (is_local == true && type_table[sym->st_shndx] != 'N' ?
 	    TOLOWER(type_table[sym->st_shndx]) :
 	    type_table[sym->st_shndx]);
 }
@@ -523,33 +523,41 @@ global_init(void)
 }
 
 static bool
-is_sec_bss(GElf_Shdr *s)
-{
-
-	assert(s != NULL && "shdr is NULL");
-
-	return (s->sh_type == SHT_NOBITS &&
-	    s->sh_flags == (SHF_ALLOC + SHF_WRITE));
-}
-
-static bool
 is_sec_data(GElf_Shdr *s)
 {
 
 	assert(s != NULL && "shdr is NULL");
 
-	return ((s->sh_type == SHT_PROGBITS &&
-		s->sh_flags == (SHF_ALLOC + SHF_WRITE)) ||
-	    s->sh_type == SHT_DYNAMIC);
+	return (((s->sh_flags & SHF_ALLOC) != 0) && s->sh_type != SHT_NOBITS);
 }
 
 static bool
-is_sec_debug(GElf_Shdr *s)
+is_sec_debug(const char *shname)
+{
+	const char *dbg_sec[] = {
+		".debug",
+		".gnu.linkonce.wi.",
+		".line",
+		".stab"
+	};
+	const char **p;
+
+	assert(shname != NULL && "shname is NULL");
+
+	for(p = dbg_sec; *p; p++)
+		if (strncmp(shname, *p, strlen(*p)) == 0)
+			return (true);
+
+	return (false);
+}
+
+static bool
+is_sec_nobits(GElf_Shdr *s)
 {
 
 	assert(s != NULL && "shdr is NULL");
 
-	return (s->sh_type == SHT_PROGBITS && s->sh_flags == 0);
+	return (s->sh_type == SHT_NOBITS);
 }
 
 static bool
@@ -558,18 +566,7 @@ is_sec_readonly(GElf_Shdr *s)
 
 	assert(s != NULL && "shdr is NULL");
 
-	return ((s->sh_type == SHT_PROGBITS &&
-		(s->sh_flags == SHF_ALLOC ||
-		    s->sh_flags == (SHF_ALLOC + SHF_MERGE) ||
-		    s->sh_flags == (SHF_ALLOC + SHF_MERGE + SHF_STRINGS))) ||
-	    s->sh_type == SHT_NOTE ||
-	    s->sh_type == SHT_HASH ||
-	    s->sh_type == SHT_DYNSYM ||
-	    s->sh_type == SHT_STRTAB ||
-	    s->sh_type == SHT_RELA ||
-	    s->sh_type == SHT_GNU_verdef ||
-	    s->sh_type == SHT_GNU_verneed ||
-	    s->sh_type == SHT_GNU_versym);
+	return ((s->sh_flags & SHF_WRITE) == 0);
 }
 
 static bool
@@ -578,8 +575,7 @@ is_sec_text(GElf_Shdr *s)
 
 	assert(s != NULL && "shdr is NULL");
 
-	return (s->sh_type == SHT_PROGBITS &&
-	    s->sh_flags == (SHF_ALLOC + SHF_EXECINSTR));
+	return ((s->sh_flags & SHF_EXECINSTR) != 0);
 }
 
 static void
@@ -981,16 +977,20 @@ read_elf(const char *filename)
 			} else if ((sec_table[i] = strdup("*UND*")) == NULL)
 				goto next_cmd;
 
-			if (is_sec_bss(&shdr) == true)
-				type_table[i] = 'B';
-			else if (is_sec_data(&shdr) == true)
-				type_table[i] = 'D';
-			else if (is_sec_text(&shdr) == true)
+			if (is_sec_text(&shdr) == true)
 				type_table[i] = 'T';
-			else if (is_sec_readonly(&shdr) == true)
-				type_table[i] = 'R';
-			else if (is_sec_debug(&shdr) == true)
+			else if (is_sec_data(&shdr) == true) {
+				if (is_sec_readonly(&shdr) == true)
+					type_table[i] = 'R';
+				else
+					type_table[i] = 'D';
+			} else if (is_sec_nobits(&shdr) == true)
+				type_table[i] = 'B';
+			else if (is_sec_debug(shname) == true)
 				type_table[i] = 'N';
+			else if (is_sec_readonly(&shdr) == true &&
+			    is_sec_nobits(&shdr) == false )
+				type_table[i] = 'n';
 		}
 
 		print_header(filename, objname);
