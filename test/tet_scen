@@ -11,6 +11,7 @@ all
         ^nm_shared_object1
         ^nm_shared_object2
         ^nm_option
+        ^nm_debug
         "Complete Test Suite"
 
 vector_str
@@ -57,3 +58,8 @@ nm_option
         "Starting nm Option Test"
         /ts/nm_option/nm_option-tc
         "Complete nm Option Test"
+
+nm_debug
+        "Starting nm Debug Option Test"
+        /ts/nm_debug/nm_debug-tc
+        "Complete nm Debug Option Test"
