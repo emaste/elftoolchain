@@ -151,6 +151,9 @@ struct elfcopy {
 	/* bit vector to mark symbols involving relocation */
 	unsigned char *v_rel;
 
+	/* bit vector to mark sections that have section symbol */
+	unsigned char *v_secsym;
+
 	STAILQ_HEAD(, segment) v_seg;
 	STAILQ_HEAD(, sec_action) v_sac;
 	STAILQ_HEAD(, sec_add) v_sadd;
