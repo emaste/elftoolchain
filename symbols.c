@@ -345,7 +345,6 @@ generate_symbols(struct elfcopy *ecp)
 			if (is_remove_symbol(ecp, sc, i, &sym, name) != 0)
 				continue;
 
-			/* FIXME: st_shndx may change. */
 			if (ec == ELFCLASS32)
 				COPYSYM(32);
 			else
