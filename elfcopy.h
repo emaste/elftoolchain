@@ -163,8 +163,6 @@ struct elfcopy {
 	STAILQ_HEAD(, symlist) v_sym_keep;
 	/* list of internal section structure */
 	TAILQ_HEAD(, section) v_sec;
-	/* list of modified section data buffers */
-	SLIST_HEAD(, section) v_mdat;
 };
 
 void	add_unloadables(struct elfcopy *ecp);
