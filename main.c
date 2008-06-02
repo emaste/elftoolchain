@@ -615,6 +615,9 @@ main(int argc, char **argv)
 		err(EX_SOFTWARE, "malloc failed");
 	memset(ecp, 0, sizeof(*ecp));
 
+	/* There is always an empty section. */
+	ecp->nos = 1;
+
 	STAILQ_INIT(&ecp->v_seg);
 	STAILQ_INIT(&ecp->v_sac);
 	STAILQ_INIT(&ecp->v_sadd);
