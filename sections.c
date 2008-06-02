@@ -233,7 +233,7 @@ insert_to_sec_list(struct elfcopy *ecp, struct section *sec)
 	}
 
 	TAILQ_INSERT_TAIL(&ecp->v_sec, sec, sec_list);
-	if (s->pseudo == 0)
+	if (sec->pseudo == 0)
 		ecp->nos++;
 }
 

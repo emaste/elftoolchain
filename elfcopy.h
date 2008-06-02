@@ -101,6 +101,7 @@ struct symbuf {
 	Elf32_Sym *g32;	/* 32bit global symbol */
 	Elf64_Sym *l64;	/* 64bit local symbol */
 	Elf64_Sym *g64;	/* 64bit global symbol */
+	size_t ngs, nls; /* number of each kind */
 };
 
 /*
