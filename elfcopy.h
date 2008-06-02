@@ -95,6 +95,14 @@ struct segment {
 	STAILQ_ENTRY(segment) seg_list;
 };
 
+/* Symbol table storage. */
+struct symbuf {
+	Elf32_Sym *l32;	/* 32bit local symbol */
+	Elf32_Sym *g32;	/* 32bit global symbol */
+	Elf64_Sym *l64;	/* 64bit local symbol */
+	Elf64_Sym *g64;	/* 64bit global symbol */
+};
+
 /*
  * Structure encapsulates the "global" data for "elfcopy" program.
  */
@@ -113,6 +121,7 @@ struct elfcopy {
 	int iphnum;	/* number of program headers of input object */
 	int ophnum;	/* number of program headers of output object */
 
+	int nos;	/* number of sections of output object */
 	/*
 	 * flags indicating whether there exist sections
 	 * to add/remove/(only)copy. FIXME use bit instead.
