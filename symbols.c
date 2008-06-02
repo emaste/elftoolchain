@@ -74,6 +74,16 @@ is_global_symbol(GElf_Sym *s)
 }
 
 static int
+is_local_symbol(GElf_Sym *s)
+{
+
+	if (GELF_ST_BIND(s->st_info) == STB_LOCAL)
+		return (1);
+
+	return (0);
+}
+
+static int
 is_remove_symbol(struct elfcopy *ecp, size_t sc, int i, GElf_Sym *s,
     const char *name)
 {
@@ -147,10 +157,8 @@ mark_symbols(struct elfcopy *ecp, size_t sc)
 			errx(EX_SOFTWARE, "elf_strptr failed: %s",
 			    elf_errmsg(-1));
 		if (is_remove_section(ecp, name) ||
-		    is_remove_reloc_sec(ecp, sh.sh_info)) {
-			printf("skip reloc: %s\n", name);
+		    is_remove_reloc_sec(ecp, sh.sh_info))
 			continue;
-		}
 
 		/* Skip if it's not for .symtab */
 		if (sh.sh_link != elf_ndxscn(ecp->symtab->is))
@@ -175,10 +183,8 @@ mark_symbols(struct elfcopy *ecp, size_t sc)
 						     elf_errmsg(-1));
 					n = GELF_R_SYM(ra.r_info);
 				}
-				if (n > 0 && n < sc) {
-					printf("set reloc: %ju\n", n);
+				if (n > 0 && n < sc)
 					BIT_SET(ecp->v_rel, n);
-				}
 				else if (n != 0)
 					warnx("invalid symbox index");
 			}
@@ -193,9 +199,11 @@ mark_symbols(struct elfcopy *ecp, size_t sc)
 		errx(EX_SOFTWARE, "elf_nextscn failed: %s",
 		    elf_errmsg(elferr));
 
+#if 0
 	for(i = 0; (size_t)i < sc; i++)
 		if (BIT_ISSET(ecp->v_rel, i))
 			printf("sym %d used in reloc\n", i);
+#endif
 }
 
 /*
@@ -234,13 +242,14 @@ is_weak_symbol(GElf_Sym *s)
 static void
 generate_symbols(struct elfcopy *ecp)
 {
+	struct symbuf *sy_buf;
 	GElf_Shdr ish;
 	GElf_Sym sym;
 	Elf_Data* id;
 	Elf_Scn *is;
-	Elf32_Sym *sy_buf32;
-	Elf64_Sym *sy_buf64;
-	size_t ishstrndx, n, nsyms, sc, symndx, sy_cap, st_sz, st_cap;
+	size_t ishstrndx, n, nsyms, sc, symndx;
+	size_t gsy_cap, lsy_cap;
+	size_t st_sz, st_cap;
 	char *name, *st_buf;
 	int ec, elferr, i;
 
@@ -251,18 +260,21 @@ generate_symbols(struct elfcopy *ecp)
 		errx(EX_SOFTWARE, "gelf_getclass failed: %s",
 		    elf_errmsg(-1));
 
-	/* Allocate storage for symbol table and string table. */
+	if ((sy_buf = calloc(sizeof(*sy_buf), 1)) == 0)
+		err(EX_SOFTWARE, "calloc failed");
 	nsyms = 0;
-	sy_cap = 64;
-	sy_buf32 = NULL;
-	sy_buf64 = NULL;
+	gsy_cap = lsy_cap = 64;
 	st_cap = 512;
 	if ((st_buf = malloc(st_cap)) == NULL)
 		err(EX_SOFTWARE, "malloc failed");
 	st_buf[0] = '\0';
 	st_sz = 1;
+	ecp->v_secsym = calloc((ecp->nos + 7) / 8, 1);
+	if (ecp->v_secsym == NULL)
+		err(EX_SOFTWARE, "calloc failed");
 
 	symndx = 0;
+	name = NULL;
 	is = NULL;
 	while ((is = elf_nextscn(ecp->ein, is)) != NULL) {
 		if (gelf_getshdr(is, &ish) != &ish)
@@ -303,29 +315,30 @@ generate_symbols(struct elfcopy *ecp)
 	if (is == NULL)
 		errx(EX_DATAERR, "can't find .strtab section");
 
-#define	COPYSYM(SZ) do {					\
-	if (sy_buf##SZ == NULL) {				\
-		sy_buf##SZ = malloc(sy_cap *			\
+#define	COPYSYM(B, SZ) do {					\
+	if (sy_buf->B##SZ == NULL) {				\
+		sy_buf->B##SZ = malloc(B##sy_cap *		\
 		    sizeof(Elf##SZ##_Sym));			\
-		if (sy_buf##SZ == NULL)				\
+		if (sy_buf->B##SZ == NULL)			\
 			err(EX_SOFTWARE, "malloc failed");	\
-	} else if (nsyms >= sy_cap) {				\
-		sy_cap *= 2;					\
-		sy_buf##SZ = realloc(sy_buf##SZ,		\
-		    sy_cap * sizeof(Elf##SZ##_Sym));		\
-		if (sy_buf##SZ == NULL)				\
+	} else if (sy_buf->n##B##s >= B##sy_cap) {		\
+		B##sy_cap *= 2;					\
+		sy_buf->B##SZ = realloc(sy_buf->B##SZ,		\
+		    B##sy_cap * sizeof(Elf##SZ##_Sym));		\
+		if (sy_buf->B##SZ == NULL)			\
 			err(EX_SOFTWARE, "realloc failed");	\
 	}							\
-	if (*name == '\0')					\
-		sy_buf##SZ[nsyms].st_name = 0;			\
+	if (sym.st_name == 0 || *name == '\0')			\
+		sy_buf->B##SZ[sy_buf->n##B##s].st_name = 0;	\
 	else							\
-		sy_buf##SZ[nsyms].st_name = st_sz;		\
-	sy_buf##SZ[nsyms].st_info	= sym.st_info;		\
-	sy_buf##SZ[nsyms].st_other	= sym.st_other;		\
-	sy_buf##SZ[nsyms].st_value	= sym.st_value;		\
-	sy_buf##SZ[nsyms].st_size	= sym.st_size;		\
-	sy_buf##SZ[nsyms].st_shndx	=			\
+		sy_buf->B##SZ[sy_buf->n##B##s].st_name = st_sz;	\
+	sy_buf->B##SZ[sy_buf->n##B##s].st_info	= sym.st_info;	\
+	sy_buf->B##SZ[sy_buf->n##B##s].st_other	= sym.st_other;	\
+	sy_buf->B##SZ[sy_buf->n##B##s].st_value	= sym.st_value;	\
+	sy_buf->B##SZ[sy_buf->n##B##s].st_size	= sym.st_size;	\
+	sy_buf->B##SZ[sy_buf->n##B##s].st_shndx	=		\
 	    ecp->ndxtab[sym.st_shndx];				\
+	sy_buf->n##B##s++;					\
 } while (0)
 
 	id = NULL;
@@ -337,7 +350,7 @@ generate_symbols(struct elfcopy *ecp)
 				errx(EX_SOFTWARE, "gelf_getsym failed: %s",
 				     elf_errmsg(-1));
 			if ((name = elf_strptr(ecp->ein, symndx,
-					       sym.st_name)) == NULL)
+			    sym.st_name)) == NULL)
 				errx(EX_SOFTWARE, "elf_strptr failed: %s",
 				     elf_errmsg(-1));
 
@@ -345,11 +358,26 @@ generate_symbols(struct elfcopy *ecp)
 			if (is_remove_symbol(ecp, sc, i, &sym, name) != 0)
 				continue;
 
-			if (ec == ELFCLASS32)
-				COPYSYM(32);
-			else
-				COPYSYM(64);
+			/* Copy symbol. */
+			if (ec == ELFCLASS32) {
+				if (is_local_symbol(&sym))
+					COPYSYM(l, 32);
+				else
+					COPYSYM(g, 32);
+			} else {
+				if (is_local_symbol(&sym))
+					COPYSYM(l, 64);
+				else
+					COPYSYM(g, 64);
+			}
 			nsyms++;
+
+			/*
+			 * Mark the section the symbol points to, if
+			 * this is a STT_SECTION symbol.
+			 */
+			if (GELF_ST_TYPE(sym.st_info) == STT_SECTION)
+				BIT_SET(ecp->v_secsym, sym.st_shndx);
 
 			if (*name == '\0')
 				continue;
@@ -370,12 +398,27 @@ generate_symbols(struct elfcopy *ecp)
 		errx(EX_SOFTWARE, "elf_getdata failed: %s",
 		     elf_errmsg(elferr));
 
+	/*
+	 * Create STT_SECTION symbols for sections that do not already
+	 * got one.
+	 */
+	for(i = 1; i < ecp->nos; i++) {
+		if (!BIT_ISSET(ecp->v_secsym, i)) {
+			sym.st_name	= 0;
+			sym.st_value	= 0;
+			sym.st_size	= 0;
+			sym.st_info	= GELF_ST_INFO(STB_LOCAL, STT_SECTION);
+			sym.st_shndx	= i;
+			if (ec == ELFCLASS32)
+				COPYSYM(l, 32);
+			else
+				COPYSYM(l, 64);
+		}
+	}
+
 	ecp->symtab->sz = nsyms *
 	    (ec == ELFCLASS32 ? sizeof(Elf32_Sym) : sizeof(Elf64_Sym));
-	if (ec == ELFCLASS32)
-		ecp->symtab->buf = sy_buf32;
-	else
-		ecp->symtab->buf = sy_buf64;
+	ecp->symtab->buf = sy_buf;
 	ecp->strtab->sz = st_sz;
 	ecp->strtab->buf = st_buf;
 }
@@ -384,7 +427,8 @@ void
 create_symtab(struct elfcopy *ecp)
 {
 	struct section *sy, *st;
-	Elf_Data *sydata, *stdata;
+	struct symbuf *sy_buf;
+	Elf_Data *gsydata, *lsydata, *stdata;
 	GElf_Shdr shy, sht;
 
 	sy = ecp->symtab;
@@ -408,20 +452,53 @@ create_symtab(struct elfcopy *ecp)
 
 	generate_symbols(ecp);
 
-	if ((sydata = elf_newdata(sy->os)) == NULL)
-		errx(EX_SOFTWARE, "elf_newdata() failed: %s.",
-		    elf_errmsg(-1));
+	sy_buf = sy->buf;
+	if (sy_buf->nls > 0) {
+		if ((lsydata = elf_newdata(sy->os)) == NULL)
+			errx(EX_SOFTWARE, "elf_newdata() failed: %s.",
+			     elf_errmsg(-1));
+		if (ecp->oec == ELFCLASS32) {
+			lsydata->d_align	= 4;
+			lsydata->d_off		= 0;
+			lsydata->d_buf		= sy_buf->l32;
+			lsydata->d_size		= sy_buf->nls * sizeof(Elf32_Sym);
+			lsydata->d_type		= ELF_T_SYM;
+			lsydata->d_version	= EV_CURRENT;
+		} else {
+			lsydata->d_align	= 8;
+			lsydata->d_off		= 0;
+			lsydata->d_buf		= sy_buf->l64;
+			lsydata->d_size		= sy_buf->nls * sizeof(Elf64_Sym);
+			lsydata->d_type		= ELF_T_SYM;
+			lsydata->d_version	= EV_CURRENT;
+		}
+	}
+	if (sy_buf->ngs > 0) {
+		if ((gsydata = elf_newdata(sy->os)) == NULL)
+			errx(EX_SOFTWARE, "elf_newdata() failed: %s.",
+			     elf_errmsg(-1));
+		if (ecp->oec == ELFCLASS32) {
+			gsydata->d_align	= 4;
+			gsydata->d_off		= roundup(sy_buf->nls *
+			    sizeof(Elf32_Sym), 4);
+			gsydata->d_buf		= sy_buf->g32;
+			gsydata->d_size		= sy_buf->ngs * sizeof(Elf32_Sym);
+			gsydata->d_type		= ELF_T_SYM;
+			gsydata->d_version	= EV_CURRENT;
+		} else {
+			gsydata->d_align	= 8;
+			gsydata->d_off		= roundup(sy_buf->nls *
+			    sizeof(Elf64_Sym), 8);
+			gsydata->d_buf		= sy_buf->g64;
+			gsydata->d_size		= sy_buf->ngs * sizeof(Elf64_Sym);
+			gsydata->d_type		= ELF_T_SYM;
+			gsydata->d_version	= EV_CURRENT;
+		}
+	}
+
 	if ((stdata = elf_newdata(st->os)) == NULL)
 		errx(EX_SOFTWARE, "elf_newdata() failed: %s.",
 		    elf_errmsg(-1));
-
-	sydata->d_align		= (ecp->oec == ELFCLASS32 ? 4 : 8);
-	sydata->d_off		= 0;
-	sydata->d_buf		= sy->buf;
-	sydata->d_size		= sy->sz;
-	sydata->d_type		= ELF_T_SYM;
-	sydata->d_version	= EV_CURRENT;
-
 	stdata->d_align		= 1;
 	stdata->d_off		= 0;
 	stdata->d_buf		= st->buf;
@@ -430,13 +507,12 @@ create_symtab(struct elfcopy *ecp)
 	stdata->d_version	= EV_CURRENT;
 
 	shy.sh_addr		= 0;
-	shy.sh_addralign	= sydata->d_align;
+	shy.sh_addralign	= (ecp->oec == ELFCLASS32 ? 4 : 8);
 	shy.sh_size		= sy->sz;
 	shy.sh_type		= SHT_SYMTAB;
 	shy.sh_flags		= 0;
 	shy.sh_entsize		= gelf_fsize(ecp->eout, ELF_T_SYM, 1,
 	    EV_CURRENT);
-
 	/*
 	 * According to SYSV abi, here sh_info is one greater than
 	 * the symbol table index of the last local symbol(binding
