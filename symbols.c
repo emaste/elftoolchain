@@ -168,7 +168,6 @@ mark_symbols(struct elfcopy *ecp, size_t sc)
 		n = 0;
 		while (n < sh.sh_size && (d = elf_getdata(s, d)) != NULL) {
 			len = d->d_size / sh.sh_entsize;
-			printf("num of reloc=%d\n", len);
 			for (i = 0; i < len; i++) {
 				if (sh.sh_type == SHT_REL) {
 					if (gelf_getrel(d, i, &r) != &r)
@@ -242,12 +241,13 @@ is_weak_symbol(GElf_Sym *s)
 static void
 generate_symbols(struct elfcopy *ecp)
 {
+	struct section *s;
 	struct symbuf *sy_buf;
 	GElf_Shdr ish;
 	GElf_Sym sym;
 	Elf_Data* id;
 	Elf_Scn *is;
-	size_t ishstrndx, n, nsyms, sc, symndx;
+	size_t ishstrndx, n, ndx, nsyms, sc, symndx;
 	size_t gsy_cap, lsy_cap;
 	size_t st_sz, st_cap;
 	char *name, *st_buf;
@@ -376,8 +376,10 @@ generate_symbols(struct elfcopy *ecp)
 			 * Mark the section the symbol points to, if
 			 * this is a STT_SECTION symbol.
 			 */
-			if (GELF_ST_TYPE(sym.st_info) == STT_SECTION)
-				BIT_SET(ecp->v_secsym, sym.st_shndx);
+			if (GELF_ST_TYPE(sym.st_info) == STT_SECTION) {
+				printf("sec %ju has STT_SECTION\n", ecp->ndxtab[sym.st_shndx]);
+				BIT_SET(ecp->v_secsym, ecp->ndxtab[sym.st_shndx]);
+			}
 
 			if (*name == '\0')
 				continue;
@@ -400,15 +402,28 @@ generate_symbols(struct elfcopy *ecp)
 
 	/*
 	 * Create STT_SECTION symbols for sections that do not already
-	 * got one.
+	 * got one. However, we do not create STT_SECTION symbol for
+	 * .symtab, .strtab, .shstrtab and reloc sec of relocatables.
 	 */
-	for(i = 1; i < ecp->nos; i++) {
-		if (!BIT_ISSET(ecp->v_secsym, i)) {
+	
+	printf("nos=%d\n", ecp->nos);
+	TAILQ_FOREACH(s, &ecp->v_sec, sec_list) {
+		if (strcmp(s->name, ".symtab") == 0 ||
+		    strcmp(s->name, ".strtab") == 0 ||
+		    strcmp(s->name, ".shstrtab") == 0)
+			continue;
+		if ((ecp->flags & RELOCATABLE) != 0 &&
+		    ((s->type == SHT_REL) || (s->type == SHT_RELA)))
+			continue;
+
+		ndx = elf_ndxscn(s->os);
+		if (!BIT_ISSET(ecp->v_secsym, ndx)) {
+			printf("add section symbol for sec %ju\n", ndx);
 			sym.st_name	= 0;
 			sym.st_value	= 0;
 			sym.st_size	= 0;
 			sym.st_info	= GELF_ST_INFO(STB_LOCAL, STT_SECTION);
-			sym.st_shndx	= i;
+			sym.st_shndx	= ndx;
 			if (ec == ELFCLASS32)
 				COPYSYM(l, 32);
 			else
