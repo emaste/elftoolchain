@@ -423,7 +423,8 @@ generate_symbols(struct elfcopy *ecp)
 			sym.st_value	= 0;
 			sym.st_size	= 0;
 			sym.st_info	= GELF_ST_INFO(STB_LOCAL, STT_SECTION);
-			sym.st_shndx	= ndx;
+			/* Use input sec index since COPYSYM will translate. */
+			sym.st_shndx	= elf_ndxscn(s->is);
 			if (ec == ELFCLASS32)
 				COPYSYM(l, 32);
 			else
