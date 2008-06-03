@@ -329,8 +329,13 @@ generate_symbols(struct elfcopy *ecp)
 	sy_buf->B##SZ[sy_buf->n##B##s].st_other	= sym.st_other;	\
 	sy_buf->B##SZ[sy_buf->n##B##s].st_value	= sym.st_value;	\
 	sy_buf->B##SZ[sy_buf->n##B##s].st_size	= sym.st_size;	\
-	sy_buf->B##SZ[sy_buf->n##B##s].st_shndx	=		\
-	    ecp->ndxtab[sym.st_shndx];				\
+	if (sym.st_shndx == SHN_UNDEF ||			\
+	    sym.st_shndx >= SHN_LORESERVE)			\
+		sy_buf->B##SZ[sy_buf->n##B##s].st_shndx =	\
+		    sym.st_shndx;				\
+	else							\
+		sy_buf->B##SZ[sy_buf->n##B##s].st_shndx	=	\
+		    ecp->ndxtab[sym.st_shndx];			\
 	sy_buf->n##B##s++;					\
 } while (0)
 
