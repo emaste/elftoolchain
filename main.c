@@ -195,6 +195,9 @@ create_elf(struct elfcopy *ecp)
 	if (ecp->sections_to_add != 0)
 		add_unloadables(ecp);
 
+	if ((ecp->flags & SYMTAB_EXIST) != 0)
+		create_symtab(ecp);
+
 	copy_content(ecp);
 
 	/*
