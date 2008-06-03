@@ -228,11 +228,13 @@ insert_to_sec_list(struct elfcopy *ecp, struct section *sec)
 	TAILQ_FOREACH(s, &ecp->v_sec, sec_list) {
 		if (sec->off < s->off) {
 			TAILQ_INSERT_BEFORE(s, sec, sec_list);
-			return;
+			goto inc_nos;
 		}
 	}
 
 	TAILQ_INSERT_TAIL(&ecp->v_sec, sec, sec_list);
+
+inc_nos:
 	if (sec->pseudo == 0)
 		ecp->nos++;
 }
