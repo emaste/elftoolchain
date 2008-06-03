@@ -384,18 +384,10 @@ copy_content(struct elfcopy *ecp)
 		if (s->pseudo)
 			continue;
 
-		/* "Symbol table section" is treated specially. */
+		/* Skip special sections. */
 		if (strcmp(s->name, ".symtab") == 0 ||
-		    strcmp(s->name, ".strtab") == 0) {
-			if ((ecp->flags & SYMTAB_CREATED) == 0) {
-				create_symtab(ecp);
-				ecp->flags |= SYMTAB_CREATED;
-			}
-			continue;
-		}
-
-		/* Section header table is always regenerated. */
-		if (strcmp(s->name, ".shstrtab") == 0)
+		    strcmp(s->name, ".strtab") == 0 ||
+		    strcmp(s->name, ".shstrtab") == 0)
 			continue;
 
 		/*
