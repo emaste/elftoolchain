@@ -30,7 +30,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <err.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <sysexits.h>
 
@@ -197,12 +196,6 @@ mark_symbols(struct elfcopy *ecp, size_t sc)
 	if (elferr != 0)
 		errx(EX_SOFTWARE, "elf_nextscn failed: %s",
 		    elf_errmsg(elferr));
-
-#if 0
-	for(i = 0; (size_t)i < sc; i++)
-		if (BIT_ISSET(ecp->v_rel, i))
-			printf("sym %d used in reloc\n", i);
-#endif
 }
 
 /*
@@ -376,10 +369,8 @@ generate_symbols(struct elfcopy *ecp)
 			 * Mark the section the symbol points to, if
 			 * this is a STT_SECTION symbol.
 			 */
-			if (GELF_ST_TYPE(sym.st_info) == STT_SECTION) {
-				printf("sec %ju has STT_SECTION\n", ecp->ndxtab[sym.st_shndx]);
+			if (GELF_ST_TYPE(sym.st_info) == STT_SECTION)
 				BIT_SET(ecp->v_secsym, ecp->ndxtab[sym.st_shndx]);
-			}
 
 			if (*name == '\0')
 				continue;
@@ -405,8 +396,6 @@ generate_symbols(struct elfcopy *ecp)
 	 * got one. However, we do not create STT_SECTION symbol for
 	 * .symtab, .strtab, .shstrtab and reloc sec of relocatables.
 	 */
-	
-	printf("nos=%d\n", ecp->nos);
 	TAILQ_FOREACH(s, &ecp->v_sec, sec_list) {
 		if (strcmp(s->name, ".symtab") == 0 ||
 		    strcmp(s->name, ".strtab") == 0 ||
@@ -418,7 +407,6 @@ generate_symbols(struct elfcopy *ecp)
 
 		ndx = elf_ndxscn(s->os);
 		if (!BIT_ISSET(ecp->v_secsym, ndx)) {
-			printf("add section symbol for sec %ju\n", ndx);
 			sym.st_name	= 0;
 			sym.st_value	= 0;
 			sym.st_size	= 0;
