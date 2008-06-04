@@ -411,6 +411,7 @@ copy_content(struct elfcopy *ecp)
 		 * need update, as symbol index may have changed.
 		 */
 		if ((ecp->flags & SYMTAB_INTACT) == 0 &&
+		    (ecp->flags & SYMTAB_EXIST) &&
 		    (s->type == SHT_REL || s->type == SHT_RELA))
 			update_reloc(ecp, s);
 
