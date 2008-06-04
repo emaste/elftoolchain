@@ -37,6 +37,7 @@ __FBSDID("$FreeBSD$");
 #include "elfcopy.h"
 
 static void	add_to_shstrtab(struct elfcopy *ecp, const char *name);
+static void	filter_reloc(struct elfcopy *ecp, struct section *s);
 static void	insert_to_sec_list(struct elfcopy *ecp, struct section *sec);
 static int	is_append_section(struct elfcopy *ecp, const char *name);
 static int	is_compress_section(struct elfcopy *ecp, const char *name);
@@ -390,10 +391,13 @@ copy_content(struct elfcopy *ecp)
 		    strcmp(s->name, ".shstrtab") == 0)
 			continue;
 
-		if (s->type == SHT_REL || s->type == SHT_RELA) {
-			update_reloc(ecp, s);
-			continue;
-		}
+		/*
+		 * If strip action is STRIP_ALL, relocation info need
+		 * to be stripped. Skip filtering otherwisw.
+		 */
+		if (ecp->strip == STRIP_ALL &&
+		    (s->type == SHT_REL || s->type == SHT_RELA))
+			filter_reloc(ecp, s);
 
 		/* Add check for whether change section name here */
 
@@ -402,17 +406,25 @@ copy_content(struct elfcopy *ecp)
 
 		copy_data(s);
 
+		/*
+		 * If symbol table is modified, relocation info might
+		 * need update, as symbol index may have changed.
+		 */
+		if ((ecp->flags & SYMTAB_INTACT) == 0 &&
+		    (s->type == SHT_REL || s->type == SHT_RELA))
+			update_reloc(ecp, s);
+
 		if (is_print_section(ecp, s->name))
 			print_section(s);
 	}
 }
 
 /*
- * Update and filter relocation entries, only keep those entries whose
- * symbol is in the keep list, in the mean time update symbol index.
+ * Filter relocation entries, only keep those entries whose
+ * symbol is in the keep list.
  */
 static void
-update_reloc(struct elfcopy *ecp, struct section *s)
+filter_reloc(struct elfcopy *ecp, struct section *s)
 {
 	const char *name;
 	GElf_Shdr ish;
@@ -422,7 +434,7 @@ update_reloc(struct elfcopy *ecp, struct section *s)
 	Elf64_Rel *rel64;
 	Elf32_Rela *rela32;
 	Elf64_Rela *rela64;
-	Elf_Data *id, *od;
+	Elf_Data *id;
 	uint64_t cap, n, nrels;
 	int elferr, i;
 
@@ -447,23 +459,6 @@ update_reloc(struct elfcopy *ecp, struct section *s)
 			return;
 	}
 
-	s->nocopy = 1;
-	nrels = 0;
-	n = ish.sh_size / ish.sh_entsize;
-
-	if ((id = elf_getdata(s->is, NULL)) == NULL)
-		errx(EX_SOFTWARE, "elf_getdata() failed: %s",
-		    elf_errmsg(-1));
-
-	/*
-	 * If strip action is STRIP_ALL, relocation info need
-	 * to be stripped. Skip filtering otherwisw.
-	 */
-	if (ecp->strip != STRIP_ALL) {
-		nrels = n;
-		goto update_reloc;
-	}
-
 #define	COPYREL(REL, SZ) do {					\
 	if (nrels == 0) {					\
 		if ((REL##SZ = malloc(cap *			\
@@ -483,11 +478,15 @@ update_reloc(struct elfcopy *ecp, struct section *s)
 	nrels++;						\
 } while (0)
 
+	nrels = 0;
 	cap = 4;		/* keep list is usually small. */
 	rel32 = NULL;
 	rel64 = NULL;
 	rela32 = NULL;
 	rela64 = NULL;
+	if ((id = elf_getdata(s->is, NULL)) == NULL)
+		errx(EX_SOFTWARE, "elf_getdata() failed: %s",
+		    elf_errmsg(-1));
 	n = ish.sh_size / ish.sh_entsize;
 	for(i = 0; (uint64_t)i < n; i++) {
 		if (s->type == SHT_REL) {
@@ -536,10 +535,18 @@ update_reloc(struct elfcopy *ecp, struct section *s)
 	}
 	s->sz = gelf_fsize(ecp->eout, (s->type == SHT_REL ? ELF_T_REL :
 	    ELF_T_RELA), nrels, EV_CURRENT);
-	if (nrels == 0)
-		return;
+	s->nocopy = 1;
+}
 
-update_reloc:
+static void
+update_reloc(struct elfcopy *ecp, struct section *s)
+{
+	GElf_Shdr osh;
+	GElf_Rel rel;
+	GElf_Rela rela;
+	Elf_Data *od;
+	uint64_t n;
+	int i;
 
 #define UPDATEREL(REL) do {						\
 	if (gelf_get##REL(od, i, &REL) != &REL)				\
@@ -552,21 +559,16 @@ update_reloc:
 		    elf_errmsg(-1));					\
 } while(0)
 
-	if ((od = elf_newdata(s->os)) == NULL)
+	if (s->sz == 0)
+		return;
+	if (gelf_getshdr(s->os, &osh) == NULL)
+		errx(EX_SOFTWARE, "gelf_getehdr() failed: %s",
+		    elf_errmsg(-1));
+	if ((od = elf_getdata(s->os, NULL)) == NULL)
 		errx(EX_SOFTWARE, "elf_newdata() failed: %s",
 		    elf_errmsg(-1));
-	od->d_align	= id->d_align;
-	od->d_off	= 0;
-	od->d_type	= id->d_type;
-	od->d_version	= id->d_version;
-	if (s->buf == NULL) {
-		od->d_buf	= id->d_buf;
-		od->d_size	= id->d_size;
-	} else {
-		od->d_buf	= s->buf;
-		od->d_size	= s->sz;
-	}
-	for(i = 0; (uint64_t)i < nrels; i++) {
+	n = osh.sh_size / osh.sh_entsize;
+	for(i = 0; (uint64_t)i < n; i++) {
 		if (s->type == SHT_REL)
 			UPDATEREL(rel);
 		else
