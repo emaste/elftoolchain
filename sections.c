@@ -367,7 +367,7 @@ insert_shtab(struct elfcopy *ecp)
 	shtab->sz = gelf_fsize(ecp->eout, ELF_T_SHDR, nsecs + 1, EV_CURRENT);
 	if (shtab->sz == 0)
 		errx(EX_SOFTWARE, "gelf_fsize() failed: %s", elf_errmsg(-1));
-	shtab->align = 4;
+	shtab->align = (ecp->oec == ELFCLASS32 ? 4 : 8);
 	shtab->loadable = 0;
 	shtab->pseudo = 1;
 	insert_to_sec_list(ecp, shtab);
