@@ -74,6 +74,7 @@ struct section {
 	uint64_t cap;		/* section capacity */
 	uint64_t align;		/* section alignment */
 	uint64_t type;		/* section type */
+	uint64_t vma;		/* section virtual addr */
 	int loadable;		/* whether loadable */
 	int pseudo;
 	int nocopy;
@@ -88,6 +89,7 @@ struct segment {
 	uint64_t fsz;		/* file size */
 	uint64_t msz;		/* memory size */
 	uint64_t type;
+
 
 	int remove;
 

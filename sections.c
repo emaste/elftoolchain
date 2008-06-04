@@ -265,6 +265,7 @@ create_scn(struct elfcopy *ecp)
 	s->align = 1;
 	s->loadable = 0;
 	s->type = SHT_STRTAB;
+	s->vma = 0;
 
 	if (elf_getshstrndx(ecp->ein, &indx) == 0)
 		errx(EX_SOFTWARE, "elf_getshstrndx failed: %s",
@@ -302,6 +303,7 @@ create_scn(struct elfcopy *ecp)
 			s->sz		= ish.sh_size;
 			s->align	= ish.sh_addralign;
 			s->type		= ish.sh_type;
+			s->vma		= ish.sh_addr;
 			s->loadable	= add_to_inseg_list(ecp, s);
 		} else {
 			/* Assuming .shstrtab is "unloadable". */
