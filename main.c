@@ -177,8 +177,8 @@ create_elf(struct elfcopy *ecp)
 	if (!elf_getshnum(ecp->ein, &ishnum))
 		errx(EX_SOFTWARE, "elf_getshnum failed: %s",
 		    elf_errmsg(-1));
-	if (ishnum > 0 && (ecp->ndxtab = calloc(ishnum,
-	    sizeof(*ecp->ndxtab))) == NULL)
+	if (ishnum > 0 && (ecp->secndx = calloc(ishnum,
+	    sizeof(*ecp->secndx))) == NULL)
 		err(EX_SOFTWARE, "calloc failed");
 
 	setup_phdr(ecp);

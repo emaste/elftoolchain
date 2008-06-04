@@ -37,7 +37,6 @@ __FBSDID("$FreeBSD$");
 #include "elfcopy.h"
 
 static void	add_to_shstrtab(struct elfcopy *ecp, const char *name);
-static void	filter_reloc(struct elfcopy *ecp, struct section *s);
 static void	insert_to_sec_list(struct elfcopy *ecp, struct section *sec);
 static int	is_append_section(struct elfcopy *ecp, const char *name);
 static int	is_compress_section(struct elfcopy *ecp, const char *name);
@@ -48,6 +47,7 @@ static void	modify_section(struct elfcopy *ecp, struct section *s);
 static void	print_data(const char *d, size_t sz);
 static void	print_section(struct section *s);
 static void	*read_section(struct section *s, size_t *size);
+static void	update_reloc(struct elfcopy *ecp, struct section *s);
 
 int
 is_remove_section(struct elfcopy *ecp, const char *name)
@@ -316,7 +316,7 @@ create_scn(struct elfcopy *ecp)
 		    (newndx = elf_ndxscn(s->os)) == SHN_UNDEF)
 			errx(EX_SOFTWARE, "elf_scnndx failed: %s",
 			    elf_errmsg(-1));
-		ecp->ndxtab[oldndx] = newndx;
+		ecp->secndx[oldndx] = newndx;
 
 		/* create section header based on input object. */
 		if (strcmp(name, ".shstrtab") != 0)
@@ -390,13 +390,10 @@ copy_content(struct elfcopy *ecp)
 		    strcmp(s->name, ".shstrtab") == 0)
 			continue;
 
-		/*
-		 * If strip action is STRIP_ALL, relocation info need
-		 * to be stripped too.
-		 */
-		if (ecp->strip == STRIP_ALL &&
-		    (s->type == SHT_REL || s->type == SHT_RELA))
-			filter_reloc(ecp, s);
+		if (s->type == SHT_REL || s->type == SHT_RELA) {
+			update_reloc(ecp, s);
+			continue;
+		}
 
 		/* Add check for whether change section name here */
 
@@ -411,11 +408,11 @@ copy_content(struct elfcopy *ecp)
 }
 
 /*
- * Filter relocation entry, only keep those entries whose symbol
- * is in the keep list.
+ * Update and filter relocation entries, only keep those entries whose
+ * symbol is in the keep list, in the mean time update symbol index.
  */
 static void
-filter_reloc(struct elfcopy *ecp, struct section *s)
+update_reloc(struct elfcopy *ecp, struct section *s)
 {
 	const char *name;
 	GElf_Shdr ish;
@@ -425,8 +422,9 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 	Elf64_Rel *rel64;
 	Elf32_Rela *rela32;
 	Elf64_Rela *rela64;
-	Elf_Data *id;
-	int elferr, i, nrels, cap;
+	Elf_Data *id, *od;
+	uint64_t cap, n, nrels;
+	int elferr, i;
 
 	if (gelf_getshdr(s->is, &ish) == NULL)
 		errx(EX_SOFTWARE, "gelf_getehdr() failed: %s",
@@ -434,7 +432,7 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 
 	/* We don't want to touch relocation info for dynamic symbols. */
 	if ((ecp->flags & SYMTAB_EXIST) == 0) {
-		if (ish.sh_link == 0 || ecp->ndxtab[ish.sh_link] == 0) {
+		if (ish.sh_link == 0 || ecp->secndx[ish.sh_link] == 0) {
 			/*
 			 * This reloc section applies to the symbol table
 			 * that was stripped, so discard whole section.
@@ -448,7 +446,24 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 		if (ish.sh_link != elf_ndxscn(ecp->symtab->is))
 			return;
 	}
-		
+
+	s->nocopy = 1;
+	nrels = 0;
+	n = ish.sh_size / ish.sh_entsize;
+
+	if ((id = elf_getdata(s->is, NULL)) == NULL)
+		errx(EX_SOFTWARE, "elf_getdata() failed: %s",
+		    elf_errmsg(-1));
+
+	/*
+	 * If strip action is STRIP_ALL, relocation info need
+	 * to be stripped. Skip filtering otherwisw.
+	 */
+	if (ecp->strip != STRIP_ALL) {
+		nrels = n;
+		goto update_reloc;
+	}
+
 #define	COPYREL(REL, SZ) do {					\
 	if (nrels == 0) {					\
 		if ((REL##SZ = malloc(cap *			\
@@ -465,17 +480,16 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 	REL##SZ[nrels].r_info	= REL.r_info;			\
 	if (s->type == SHT_RELA)				\
 		rela##SZ[nrels].r_addend = rela.r_addend;	\
+	nrels++;						\
 } while (0)
 
-	i = 0;
-	nrels = 0;
 	cap = 4;		/* keep list is usually small. */
 	rel32 = NULL;
 	rel64 = NULL;
 	rela32 = NULL;
 	rela64 = NULL;
-	id = NULL;
-	while ((id = elf_getdata(s->is, id)) != NULL) {
+	n = ish.sh_size / ish.sh_entsize;
+	for(i = 0; (uint64_t)i < n; i++) {
 		if (s->type == SHT_REL) {
 			if (gelf_getrel(id, i, &rel) != &rel)
 				errx(EX_SOFTWARE, "gelf_getrel failed: %s",
@@ -522,7 +536,42 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 	}
 	s->sz = gelf_fsize(ecp->eout, (s->type == SHT_REL ? ELF_T_REL :
 	    ELF_T_RELA), nrels, EV_CURRENT);
-	s->nocopy = 1;
+	if (nrels == 0)
+		return;
+
+update_reloc:
+
+#define UPDATEREL(REL) do {						\
+	if (gelf_get##REL(od, i, &REL) != &REL)				\
+		errx(EX_SOFTWARE, "gelf_get##REL failed: %s",		\
+		    elf_errmsg(-1));					\
+	REL.r_info = GELF_R_INFO(ecp->symndx[GELF_R_SYM(REL.r_info)],	\
+	    GELF_R_TYPE(REL.r_info));					\
+	if (!gelf_update_##REL(od, i, &REL))				\
+		errx(EX_SOFTWARE, "gelf_update_##REL failed: %s",	\
+		    elf_errmsg(-1));					\
+} while(0)
+
+	if ((od = elf_newdata(s->os)) == NULL)
+		errx(EX_SOFTWARE, "elf_newdata() failed: %s",
+		    elf_errmsg(-1));
+	od->d_align	= id->d_align;
+	od->d_off	= 0;
+	od->d_type	= id->d_type;
+	od->d_version	= id->d_version;
+	if (s->buf == NULL) {
+		od->d_buf	= id->d_buf;
+		od->d_size	= id->d_size;
+	} else {
+		od->d_buf	= s->buf;
+		od->d_size	= s->sz;
+	}
+	for(i = 0; (uint64_t)i < nrels; i++) {
+		if (s->type == SHT_REL)
+			UPDATEREL(rel);
+		else
+			UPDATEREL(rela);
+	}
 }
 
 void
@@ -851,7 +900,7 @@ update_shdr(struct elfcopy *ecp)
 		 * linked section might have changed.
 		 */
 		if (osh.sh_link != 0)
-			osh.sh_link = ecp->ndxtab[osh.sh_link];
+			osh.sh_link = ecp->secndx[osh.sh_link];
 
 		/*
 		 * sh_info of relocation section links to the section to which
@@ -859,7 +908,7 @@ update_shdr(struct elfcopy *ecp)
 		 */
 		if ((s->type == SHT_REL || s->type == SHT_RELA) &&
 		    osh.sh_info != 0)
-			osh.sh_info = ecp->ndxtab[osh.sh_info];
+			osh.sh_info = ecp->secndx[osh.sh_info];
 
 		if (!gelf_update_shdr(s->os, &osh))
 			errx(EX_SOFTWARE, "gelf_update_shdr() failed: %s",
