@@ -426,7 +426,7 @@ create_secsym:
 		ndx = elf_ndxscn(s->os);
 		if (!BIT_ISSET(ecp->v_secsym, ndx)) {
 			sym.st_name	= 0;
-			sym.st_value	= 0;
+			sym.st_value	= s->vma;
 			sym.st_size	= 0;
 			sym.st_info	= GELF_ST_INFO(STB_LOCAL, STT_SECTION);
 			/* Use input sec index since COPYSYM will translate. */
