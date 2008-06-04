@@ -565,6 +565,9 @@ update_reloc(struct elfcopy *ecp, struct section *s)
 	if (gelf_getshdr(s->os, &osh) == NULL)
 		errx(EX_SOFTWARE, "gelf_getehdr() failed: %s",
 		    elf_errmsg(-1));
+	/* Only process .symtab reloc info. */
+	if (osh.sh_link != elf_ndxscn(ecp->symtab->is))
+		return;
 	if ((od = elf_getdata(s->os, NULL)) == NULL)
 		errx(EX_SOFTWARE, "elf_newdata() failed: %s",
 		    elf_errmsg(-1));
