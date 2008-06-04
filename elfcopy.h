@@ -154,8 +154,11 @@ struct elfcopy {
 
 	int flags;
 
-	/* keep track of section index changes. */
-	uint64_t *ndxtab;
+	/* keep record of section index changes. */
+	uint64_t *secndx;
+
+	/* keep record of symbol index changes. */
+	uint64_t *symndx;
 
 	/* bit vector to mark symbols involving relocation */
 	unsigned char *v_rel;

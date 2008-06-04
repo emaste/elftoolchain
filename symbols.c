@@ -64,9 +64,7 @@ static int
 is_global_symbol(GElf_Sym *s)
 {
 
-	if (GELF_ST_BIND(s->st_info) == STB_GLOBAL &&
-	    s->st_shndx != SHN_UNDEF &&
-	    s->st_shndx != SHN_COMMON)
+	if (GELF_ST_BIND(s->st_info) == STB_GLOBAL)
 		return (1);
 
 	return (0);
@@ -95,7 +93,7 @@ is_remove_symbol(struct elfcopy *ecp, size_t sc, int i, GElf_Sym *s,
 
 	/* Remove the symbol if the section it refers to was removed. */
 	if (s->st_shndx != SHN_UNDEF && s->st_shndx < SHN_LORESERVE &&
-	    ecp->ndxtab[s->st_shndx] == 0)
+	    ecp->secndx[s->st_shndx] == 0)
 		return (1);
 
 	if (ecp->strip == STRIP_ALL)
@@ -236,11 +234,12 @@ generate_symbols(struct elfcopy *ecp)
 {
 	struct section *s;
 	struct symbuf *sy_buf;
+	unsigned char *gsym;
 	GElf_Shdr ish;
 	GElf_Sym sym;
 	Elf_Data* id;
 	Elf_Scn *is;
-	size_t ishstrndx, n, ndx, nsyms, sc, symndx;
+	size_t ishstrndx, ndx, nsyms, sc, symndx;
 	size_t gsy_cap, lsy_cap;
 	size_t st_sz, st_cap;
 	char *name, *st_buf;
@@ -335,67 +334,81 @@ generate_symbols(struct elfcopy *ecp)
 		    sym.st_shndx;				\
 	else							\
 		sy_buf->B##SZ[sy_buf->n##B##s].st_shndx	=	\
-		    ecp->ndxtab[sym.st_shndx];			\
+		    ecp->secndx[sym.st_shndx];			\
 	sy_buf->n##B##s++;					\
 } while (0)
 
-	id = NULL;
-	n = 0;
-	while (n < ish.sh_size && (id = elf_getdata(is, id)) != NULL) {
-		sc = id->d_size / ish.sh_entsize;
-		for (i = 0; (size_t)i < sc; i++) {
-			if (gelf_getsym(id, i, &sym) != &sym)
-				errx(EX_SOFTWARE, "gelf_getsym failed: %s",
-				     elf_errmsg(-1));
-			if ((name = elf_strptr(ecp->ein, symndx,
-			    sym.st_name)) == NULL)
-				errx(EX_SOFTWARE, "elf_strptr failed: %s",
-				     elf_errmsg(-1));
-
-			/* symbol filtering. */
-			if (is_remove_symbol(ecp, sc, i, &sym, name) != 0)
-				continue;
-
-			/* Copy symbol. */
-			if (ec == ELFCLASS32) {
-				if (is_local_symbol(&sym))
-					COPYSYM(l, 32);
-				else
-					COPYSYM(g, 32);
-			} else {
-				if (is_local_symbol(&sym))
-					COPYSYM(l, 64);
-				else
-					COPYSYM(g, 64);
-			}
-			nsyms++;
-
-			/*
-			 * Mark the section the symbol points to, if
-			 * this is a STT_SECTION symbol.
-			 */
-			if (GELF_ST_TYPE(sym.st_info) == STT_SECTION)
-				BIT_SET(ecp->v_secsym, ecp->ndxtab[sym.st_shndx]);
-
-			if (*name == '\0')
-				continue;
-			while (st_sz + strlen(name) >= st_cap - 1) {
-				st_cap *= 2;
-				st_buf = realloc(st_buf, st_cap);
-				if (st_buf == NULL)
-					err(EX_SOFTWARE, "realloc failed");
-			}
-			strncpy(&st_buf[st_sz], name, strlen(name));
-			st_buf[st_sz + strlen(name)] = '\0';
-			st_sz += strlen(name) + 1;
+	gsym = NULL;
+	sc = ish.sh_size / ish.sh_entsize;
+	if (sc > 0) {
+		ecp->symndx = calloc(sc, sizeof(*ecp->symndx));
+		if (ecp->symndx == NULL)
+			err(EX_SOFTWARE, "calloc failed");
+		gsym = calloc((sc + 7) / 8, sizeof(*gsym));
+		if (gsym == NULL)
+			err(EX_SOFTWARE, "calloc failed");
+		if ((id = elf_getdata(is, NULL)) == NULL) {
+			elferr = elf_errno();
+			if (elferr != 0)
+				errx(EX_SOFTWARE, "elf_getdata failed: %s",
+				    elf_errmsg(elferr));
+			goto create_secsym;
 		}
-		n += id->d_size;
-	}
-	elferr = elf_errno();
-	if (elferr != 0)
-		errx(EX_SOFTWARE, "elf_getdata failed: %s",
-		     elf_errmsg(elferr));
+	} else
+			goto create_secsym;
 
+	for (i = 0; (size_t)i < sc; i++) {
+		if (gelf_getsym(id, i, &sym) != &sym)
+			errx(EX_SOFTWARE, "gelf_getsym failed: %s",
+			    elf_errmsg(-1));
+		if ((name = elf_strptr(ecp->ein, symndx,
+			    sym.st_name)) == NULL)
+			errx(EX_SOFTWARE, "elf_strptr failed: %s",
+			    elf_errmsg(-1));
+
+		/* symbol filtering. */
+		if (is_remove_symbol(ecp, sc, i, &sym, name) != 0)
+			continue;
+
+		/* Copy symbol. */
+		if (is_global_symbol(&sym)) {
+			BIT_SET(gsym, i);
+			ecp->symndx[i] = sy_buf->ngs;
+		} else
+			ecp->symndx[i] = sy_buf->nls;
+		if (ec == ELFCLASS32) {
+			if (is_local_symbol(&sym))
+				COPYSYM(l, 32);
+			else
+				COPYSYM(g, 32);
+		} else {
+			if (is_local_symbol(&sym))
+				COPYSYM(l, 64);
+			else
+				COPYSYM(g, 64);
+		}
+
+		/*
+		 * Mark the section the symbol points to, if
+		 * this is a STT_SECTION symbol.
+		 */
+		if (GELF_ST_TYPE(sym.st_info) == STT_SECTION)
+			BIT_SET(ecp->v_secsym, ecp->secndx[sym.st_shndx]);
+
+		if (*name == '\0')
+			continue;
+		while (st_sz + strlen(name) >= st_cap - 1) {
+			st_cap *= 2;
+			st_buf = realloc(st_buf, st_cap);
+			if (st_buf == NULL)
+				err(EX_SOFTWARE, "realloc failed");
+		}
+		strncpy(&st_buf[st_sz], name, strlen(name));
+		st_buf[st_sz + strlen(name)] = '\0';
+		st_sz += strlen(name) + 1;
+	}
+
+create_secsym:
 	/*
 	 * Create STT_SECTION symbols for sections that do not already
 	 * got one. However, we do not create STT_SECTION symbol for
@@ -423,6 +436,14 @@ generate_symbols(struct elfcopy *ecp)
 			else
 				COPYSYM(l, 64);
 		}
+	}
+
+	/* Update index translation for global symbols. */
+	if (gsym != NULL) {
+		for(i = 0; (size_t)i < sc; i++)
+			if (BIT_ISSET(gsym, i))
+				ecp->symndx[i] += sy_buf->nls;
+		free(gsym);
 	}
 
 	ecp->symtab->sz = (sy_buf->nls + sy_buf->ngs) *
