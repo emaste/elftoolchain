@@ -84,12 +84,27 @@ static int
 is_remove_symbol(struct elfcopy *ecp, size_t sc, int i, GElf_Sym *s,
     const char *name)
 {
+	GElf_Sym sym0 = {
+		0, 		/* st_name */
+		0,		/* st_value */
+		0,		/* st_size */
+		0,		/* st_info */
+		0,		/* st_other */
+		SHN_UNDEF,	/* st_shndx */
+	};
 
 	if (lookup_keep_symlist(ecp, name) != 0)
 		return (0);
 
 	if (lookup_strip_symlist(ecp, name) != 0)
 		return (1);
+
+	/*
+	 * Keep the first symbol if it is the special reserved symbol.
+	 * XXX Should we generate one if it's missing?
+	 */
+	if (i == 0 && !memcmp(s, &sym0, sizeof(GElf_Sym)))
+		return (0);
 
 	/* Remove the symbol if the section it refers to was removed. */
 	if (s->st_shndx != SHN_UNDEF && s->st_shndx < SHN_LORESERVE &&
