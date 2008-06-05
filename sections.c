@@ -66,7 +66,9 @@ is_remove_section(struct elfcopy *ecp, const char *name)
 	}
 
 	if (is_debug_section(name))
-		if (ecp->strip == STRIP_ALL || ecp->strip == STRIP_DEBUG)
+		if (ecp->strip == STRIP_ALL ||
+		    ecp->strip == STRIP_DEBUG ||
+		    ecp->strip == STRIP_UNNEEDED)
 			return (1);
 
 	if (ecp->sections_to_remove != 0 ||
