@@ -45,6 +45,7 @@
 #include <unistd.h>
 
 #include "cpp_demangle.h"
+#include "cpp_demangle_arm.h"
 #include "dwarf_line_number.h"
 
 /* symbol information list */
@@ -98,7 +99,7 @@ enum print_name {
 };
 
 enum demangle {
-	DEMANGLE_NONE, DEMANGLE_AUTO, DEMANGLE_GV3
+	DEMANGLE_NONE, DEMANGLE_AUTO, DEMANGLE_GV3, DEMANGLE_ARM
 };
 
 struct nm_prog_options {
@@ -364,6 +365,9 @@ get_demangle_type(const char *org)
 	if (is_cpp_mangled_ia64(org))
 		return (DEMANGLE_GV3);
 
+	if (is_cpp_mangled_ARM(org))
+		return (DEMANGLE_ARM);
+
 	return (DEMANGLE_NONE);
 }
 
@@ -376,6 +380,9 @@ get_demangle_option(const char *opt)
 
 	if (strncasecmp(opt, "gnu-v3", 6) == 0)
 		return (DEMANGLE_GV3);
+
+	if (strncasecmp(opt, "arm", 3) == 0)
+		return (DEMANGLE_ARM);
 
 	errx(EX_USAGE, "unknown demangling style '%s'", opt);
 
@@ -639,6 +646,16 @@ print_demangle_name(const char *format, const char *name)
 			free(demangle);
 		}
 		break;
+	case DEMANGLE_ARM:
+		{
+			demangle = cpp_demangle_ARM(name);
+
+			printf(format, demangle == NULL ? name : demangle);
+
+			free(demangle);
+		}
+
+                break;
 	case DEMANGLE_AUTO:
 		/* NOTREACHED */
 		/* FALLTHROUGH */
