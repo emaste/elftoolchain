@@ -406,7 +406,7 @@ read_func_name(struct demangle_data *d)
 			    == NULL)
 				return (false);
 
-			snprintf(op_name, len, "%s",
+			snprintf(op_name, len + 1, "%s",
 			    d->vec.container[d->vec.size - 1]);
 			vector_str_pop(&d->vec);
 
@@ -423,12 +423,12 @@ read_func_name(struct demangle_data *d)
 		} else if (isdigit(*d->p)) {
 			assert(d->vec.size > 0);
 
-			len = strlen(d->vec.container[d->vec.size - 1]);
+			len = strlen(d->vec.container[d->vec.size - 1]) + 1;
 			if ((op_name = malloc(sizeof(char) * (len + 1)))
 			    == NULL)
 				return (false);
 
-			snprintf(op_name, len, "%s",
+			snprintf(op_name, len + 1, "%s",
 			    d->vec.container[d->vec.size - 1]);
 			vector_str_pop(&d->vec);
 
