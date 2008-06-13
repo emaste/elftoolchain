@@ -287,7 +287,8 @@ generate_symbols(struct elfcopy *ecp)
 		if (gelf_getshdr(is, &ish) != &ish)
 			errx(EX_SOFTWARE, "elf_getshdr failed: %s",
 			    elf_errmsg(-1));
-		if ((name = elf_strptr(ecp->ein, ishstrndx, ish.sh_name)) == NULL)
+		if ((name = elf_strptr(ecp->ein, ishstrndx, ish.sh_name)) ==
+		    NULL)
 			errx(EX_SOFTWARE, "elf_strptr failed: %s",
 			    elf_errmsg(-1));
 		if (strcmp(name, ".strtab") == 0) {
@@ -506,14 +507,16 @@ create_symtab(struct elfcopy *ecp)
 			lsydata->d_align	= 4;
 			lsydata->d_off		= 0;
 			lsydata->d_buf		= sy_buf->l32;
-			lsydata->d_size		= sy_buf->nls * sizeof(Elf32_Sym);
+			lsydata->d_size		= sy_buf->nls *
+				sizeof(Elf32_Sym);
 			lsydata->d_type		= ELF_T_SYM;
 			lsydata->d_version	= EV_CURRENT;
 		} else {
 			lsydata->d_align	= 8;
 			lsydata->d_off		= 0;
 			lsydata->d_buf		= sy_buf->l64;
-			lsydata->d_size		= sy_buf->nls * sizeof(Elf64_Sym);
+			lsydata->d_size		= sy_buf->nls *
+				sizeof(Elf64_Sym);
 			lsydata->d_type		= ELF_T_SYM;
 			lsydata->d_version	= EV_CURRENT;
 		}
@@ -524,16 +527,20 @@ create_symtab(struct elfcopy *ecp)
 			     elf_errmsg(-1));
 		if (ecp->oec == ELFCLASS32) {
 			gsydata->d_align	= 4;
-			gsydata->d_off		= sy_buf->nls * sizeof(Elf32_Sym);
+			gsydata->d_off		= sy_buf->nls *
+				sizeof(Elf32_Sym);
 			gsydata->d_buf		= sy_buf->g32;
-			gsydata->d_size		= sy_buf->ngs * sizeof(Elf32_Sym);
+			gsydata->d_size		= sy_buf->ngs *
+				sizeof(Elf32_Sym);
 			gsydata->d_type		= ELF_T_SYM;
 			gsydata->d_version	= EV_CURRENT;
 		} else {
 			gsydata->d_align	= 8;
-			gsydata->d_off		= sy_buf->nls * sizeof(Elf64_Sym);
+			gsydata->d_off		= sy_buf->nls *
+				sizeof(Elf64_Sym);
 			gsydata->d_buf		= sy_buf->g64;
-			gsydata->d_size		= sy_buf->ngs * sizeof(Elf64_Sym);
+			gsydata->d_size		= sy_buf->ngs *
+				sizeof(Elf64_Sym);
 			gsydata->d_type		= ELF_T_SYM;
 			gsydata->d_version	= EV_CURRENT;
 		}
