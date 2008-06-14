@@ -58,6 +58,8 @@ static bool	read_func(struct demangle_data *);
 static bool	read_func_name(struct demangle_data *);
 static bool	read_op(struct demangle_data *);
 static bool	read_qual_name(struct demangle_data *);
+static int	read_subst(struct demangle_data *);
+static int	read_subst_iter(struct demangle_data *);
 static bool	read_type(struct demangle_data *);
 
 /*
@@ -115,70 +117,22 @@ cpp_demangle_ARM(const char *org)
 
 	for (;;) {
 		if (*d.p == 'T') {
-			size_t idx;
-			char *str;
+			const int rtn_subst = read_subst(&d);
 
-			idx = strtol(d.p + 1, &str, 10);
-			if (idx == 0 && (errno == EINVAL || errno == ERANGE))
+			if (rtn_subst == -1)
 				goto clean;
-
-			assert(idx > 0);
-			assert(str != NULL);
-
-			d.p = str;
-
-			if (vector_str_push(&d.vec, d.arg.container[idx - 1],
-				strlen(d.arg.container[idx - 1])) == false)
-				goto clean;
-
-			if (vector_str_push(&d.arg, d.arg.container[idx - 1],
-				strlen(d.arg.container[idx - 1])) == false)
-				goto clean;
-
-			if (*d.p == '\0')
+			else if (rtn_subst == 1)
 				break;
 
 			continue;
 		}
 
 		if (*d.p == 'N') {
-			size_t idx;
-			char repeat;
-			char *str;
+			const int rtn_subst_iter = read_subst_iter(&d);
 
-			++d.p;
-			assert(*d.p > 48 && *d.p < 58 && "*d.p not in ASCII numeric range");
-
-			repeat = *d.p - 48;
-
-			assert(repeat > 1);
-
-			++d.p;
-
-			idx = strtol(d.p, &str, 10);
-			if (idx == 0 && (errno == EINVAL || errno == ERANGE))
+			if (rtn_subst_iter == -1)
 				goto clean;
-
-			assert(idx > 0);
-			assert(str != NULL);
-
-			d.p = str;
-
-			for (int i = 0; i < repeat ; ++i) {
-				if (vector_str_push(&d.vec, d.arg.container[idx - 1],
-					strlen(d.arg.container[idx - 1])) == false)
-					goto clean;
-
-				if (vector_str_push(&d.arg, d.arg.container[idx - 1],
-					strlen(d.arg.container[idx - 1])) == false)
-					goto clean;
-
-				
-				if (i != repeat - 1 && vector_str_push(&d.vec, ", ", 2) == false)
-					goto clean;
-			}
-			
-			if (*d.p == '\0')
+			else if(rtn_subst_iter == 1)
 				break;
 
 			continue;
@@ -277,15 +231,23 @@ init_demangle_data(struct demangle_data *d)
 	d->cnst = false;
 	d->type = ENCODE_FUNC;
 
-	return (vector_str_init(&d->vec) &&
-	    vector_str_init(&d->arg));
+	if (vector_str_init(&d->vec) == false)
+		return (false);
+
+	if (vector_str_init(&d->arg) == false) {
+		vector_str_dest(&d->vec);
+
+		return (false);
+	}
+
+	return (true);
 }
 
 static bool
 push_CTDT(const char *s, size_t l, struct vector_str *v)
 {
 
-	if (s == NULL || v == NULL)
+	if (s == NULL || l == 0 || v == NULL)
 		return (false);
 
 	if (vector_str_push(v, s, l) == false)
@@ -423,7 +385,7 @@ read_func_name(struct demangle_data *d)
 		} else if (isdigit(*d->p)) {
 			assert(d->vec.size > 0);
 
-			len = strlen(d->vec.container[d->vec.size - 1]) + 1;
+			len = strlen(d->vec.container[d->vec.size - 1]);
 			if ((op_name = malloc(sizeof(char) * (len + 1)))
 			    == NULL)
 				return (false);
@@ -670,6 +632,87 @@ read_qual_name(struct demangle_data *d)
 	d->p = d->p + 2;
 
 	return (true);
+}
+
+/* Return -1 at fail, 0 at success, and 1 at end */
+static int
+read_subst(struct demangle_data *d)
+{
+	size_t idx;
+	char *str;
+
+	if (d == NULL)
+		return (-1);
+
+	idx = strtol(d->p + 1, &str, 10);
+	if (idx == 0 && (errno == EINVAL || errno == ERANGE))
+		return (-1);
+
+	assert(idx > 0);
+	assert(str != NULL);
+
+	d->p = str;
+
+	if (vector_str_push(&d->vec, d->arg.container[idx - 1],
+		strlen(d->arg.container[idx - 1])) == false)
+		return (-1);
+
+	if (vector_str_push(&d->arg, d->arg.container[idx - 1],
+		strlen(d->arg.container[idx - 1])) == false)
+		return (-1);
+
+	if (*d->p == '\0')
+		return (1);
+
+	return (0);
+}
+
+static int
+read_subst_iter(struct demangle_data *d)
+{
+	size_t idx;
+	char repeat;
+	char *str;
+
+	if (d == NULL)
+		return (-1);
+
+	++d->p;
+	assert(*d->p > 48 && *d->p < 58 && "*d->p not in ASCII numeric range");
+
+	repeat = *d->p - 48;
+
+	assert(repeat > 1);
+
+	++d->p;
+
+	idx = strtol(d->p, &str, 10);
+	if (idx == 0 && (errno == EINVAL || errno == ERANGE))
+		return (-1);
+
+	assert(idx > 0);
+	assert(str != NULL);
+
+	d->p = str;
+
+	for (int i = 0; i < repeat ; ++i) {
+		if (vector_str_push(&d->vec, d->arg.container[idx - 1],
+			strlen(d->arg.container[idx - 1])) == false)
+			return (-1);
+
+		if (vector_str_push(&d->arg, d->arg.container[idx - 1],
+			strlen(d->arg.container[idx - 1])) == false)
+			return (-1);
+				
+		if (i != repeat - 1 &&
+		    vector_str_push(&d->vec, ", ", 2) == false)
+			return (-1);
+	}
+			
+	if (*d->p == '\0')
+		return (1);
+
+	return (0);
 }
 
 static bool
