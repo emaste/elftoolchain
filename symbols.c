@@ -480,6 +480,13 @@ create_symtab(struct elfcopy *ecp)
 	sy = ecp->symtab;
 	st = ecp->strtab;
 
+	if ((sy->os = elf_newscn(ecp->eout)) == NULL ||
+	    (st->os = elf_newscn(ecp->eout)) == NULL)
+		errx(EX_SOFTWARE, "elf_newscn failed: %s",
+		    elf_errmsg(-1));
+	ecp->secndx[elf_ndxscn(sy->is)] = elf_ndxscn(sy->os);
+	ecp->secndx[elf_ndxscn(st->is)] = elf_ndxscn(st->os);
+
 	copy_shdr(ecp, sy->is, sy->os, ".symtab");
 	copy_shdr(ecp, st->is, st->os, ".strtab");
 

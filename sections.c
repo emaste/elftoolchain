@@ -313,20 +313,26 @@ create_scn(struct elfcopy *ecp)
 			s->off		= ish.sh_offset;
 		}
 
+		oldndx = newndx = SHN_UNDEF;
 		if (strcmp(name, ".symtab") != 0 &&
-		    strcmp(name, ".strtab") != 0)
+		    strcmp(name, ".strtab") != 0) {
 			if ((s->os = elf_newscn(ecp->eout)) == NULL)
 				errx(EX_SOFTWARE, "elf_newscn failed: %s",
 				    elf_errmsg(-1));
-
-		if ((oldndx = elf_ndxscn(is)) == SHN_UNDEF ||
-		    (newndx = elf_ndxscn(s->os)) == SHN_UNDEF)
+			if ((newndx = elf_ndxscn(s->os)) == SHN_UNDEF)
+				errx(EX_SOFTWARE, "elf_scnndx failed: %s",
+				    elf_errmsg(-1));
+		}
+		if ((oldndx = elf_ndxscn(is)) == SHN_UNDEF)
 			errx(EX_SOFTWARE, "elf_scnndx failed: %s",
 			    elf_errmsg(-1));
-		ecp->secndx[oldndx] = newndx;
+		if (oldndx != SHN_UNDEF && newndx != SHN_UNDEF)
+			ecp->secndx[oldndx] = newndx;
 
 		/* create section header based on input object. */
-		if (strcmp(name, ".shstrtab") != 0)
+		if (strcmp(name, ".symtab") != 0 &&
+		    strcmp(name, ".strtab") != 0 &&
+		    strcmp(name, ".shstrtab") != 0)
 			copy_shdr(ecp, s->is, s->os, s->name);
 
 		if (strcmp(name, ".symtab") == 0) {
@@ -907,7 +913,7 @@ update_shdr(struct elfcopy *ecp)
 		/* Find section name in string table and set sh_name. */
 		osh.sh_name = lookup_string(ecp->shstrtab, s->name);
 
-		/* 
+		/*
 		 * sh_link needs to be updated, since the index of the
 		 * linked section might have changed.
 		 */
