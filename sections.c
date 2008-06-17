@@ -313,9 +313,11 @@ create_scn(struct elfcopy *ecp)
 			s->off		= ish.sh_offset;
 		}
 
-		if ((s->os = elf_newscn(ecp->eout)) == NULL)
-			errx(EX_SOFTWARE, "elf_newscn failed: %s",
-			    elf_errmsg(-1));
+		if (strcmp(name, ".symtab") != 0 &&
+		    strcmp(name, ".strtab") != 0)
+			if ((s->os = elf_newscn(ecp->eout)) == NULL)
+				errx(EX_SOFTWARE, "elf_newscn failed: %s",
+				    elf_errmsg(-1));
 
 		if ((oldndx = elf_ndxscn(is)) == SHN_UNDEF ||
 		    (newndx = elf_ndxscn(s->os)) == SHN_UNDEF)
