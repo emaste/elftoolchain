@@ -676,7 +676,7 @@ lookup_keep_symlist(struct elfcopy *ecp, const char *name)
 
 	STAILQ_FOREACH(s, &ecp->v_sym_keep, sym_list) {
 		if (strcmp(name, s->name) == 0)
-			return 1;
+			return (1);
 	}
 
 	return (0);
@@ -689,7 +689,7 @@ lookup_strip_symlist(struct elfcopy *ecp, const char *name)
 
 	STAILQ_FOREACH(s, &ecp->v_sym_strip, sym_list) {
 		if (strcmp(name, s->name) == 0)
-			return 1;
+			return (1);
 	}
 
 	return (0);
