@@ -42,6 +42,7 @@ static int	is_needed_symbol(struct elfcopy *ecp, int i, GElf_Sym *s);
 static int	is_remove_symbol(struct elfcopy *ecp, size_t sc, int i,
 		    GElf_Sym *s, const char *name);
 static int	is_weak_symbol(GElf_Sym *s);
+static int	generate_symbols(struct elfcopy *ecp);
 static int	lookup_strip_symlist(struct elfcopy *ecp, const char *name);
 static void	mark_symbols(struct elfcopy *ecp, size_t sc);
 
@@ -244,7 +245,7 @@ is_weak_symbol(GElf_Sym *s)
 	return (0);
 }
 
-static void
+static int
 generate_symbols(struct elfcopy *ecp)
 {
 	struct section *s;
@@ -368,10 +369,10 @@ generate_symbols(struct elfcopy *ecp)
 			if (elferr != 0)
 				errx(EX_SOFTWARE, "elf_getdata failed: %s",
 				    elf_errmsg(elferr));
-			goto create_secsym;
+			return (0);
 		}
 	} else
-			goto create_secsym;
+		return (0);
 
 	for (i = 0; (size_t)i < sc; i++) {
 		if (gelf_getsym(id, i, &sym) != &sym)
@@ -424,7 +425,15 @@ generate_symbols(struct elfcopy *ecp)
 		st_sz += strlen(name) + 1;
 	}
 
-create_secsym:
+
+	/*
+	 * Give up if there is no real symbols inside the table.
+	 * XXX The logic here needs to be improved. We need to
+	 * check if that only local symbol is the reserved symbol.
+	 */
+	if (sy_buf->nls <= 1 && sy_buf->ngs == 0)
+		return (0);
+
 	/*
 	 * Create STT_SECTION symbols for sections that do not already
 	 * got one. However, we do not create STT_SECTION symbol for
@@ -467,6 +476,8 @@ create_secsym:
 	ecp->symtab->buf = sy_buf;
 	ecp->strtab->sz = st_sz;
 	ecp->strtab->buf = st_buf;
+
+	return (1);
 }
 
 void
@@ -477,6 +488,15 @@ create_symtab(struct elfcopy *ecp)
 	Elf_Data *gsydata, *lsydata, *stdata;
 	GElf_Shdr shy, sht;
 
+	if (((ecp->flags & SYMTAB_INTACT) == 0) && !generate_symbols(ecp)) {
+		TAILQ_REMOVE(&ecp->v_sec, ecp->symtab, sec_list);
+		TAILQ_REMOVE(&ecp->v_sec, ecp->strtab, sec_list);
+		free(ecp->symtab);
+		free(ecp->strtab);
+		ecp->flags &= ~SYMTAB_EXIST;
+		return;
+	}
+		
 	sy = ecp->symtab;
 	st = ecp->strtab;
 
@@ -502,8 +522,6 @@ create_symtab(struct elfcopy *ecp)
 		copy_data(st);
 		return;
 	}
-
-	generate_symbols(ecp);
 
 	sy_buf = sy->buf;
 	if (sy_buf->nls > 0) {
