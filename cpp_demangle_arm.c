@@ -56,6 +56,7 @@ static bool	push_CTDT(const char *, size_t, struct vector_str *);
 static bool	read_class(struct demangle_data *);
 static bool	read_func(struct demangle_data *);
 static bool	read_func_name(struct demangle_data *);
+static bool	read_func_ptr(struct demangle_data *);
 static bool	read_op(struct demangle_data *);
 static bool	read_qual_name(struct demangle_data *);
 static int	read_subst(struct demangle_data *);
@@ -414,6 +415,133 @@ clean:
 	return (rtn);
 }
 
+/* Read function ptr type */
+static bool
+read_func_ptr(struct demangle_data *d)
+{
+	struct demangle_data fptr;
+	char *arg_type, *rtn_type;
+	int lim;
+
+	if (d == NULL)
+		return (false);
+
+	if (init_demangle_data(&fptr) == false)
+		return (false);
+
+	fptr.p = d->p + 1;
+	lim = 0;
+	arg_type = NULL;
+	rtn_type = NULL;
+
+	for (;;) {
+		if (read_type(&fptr) == false) {
+			dest_demangle_data(&fptr);
+
+			return (false);
+		}
+
+		if (fptr.ptr == true) {
+			if (vector_str_push(&fptr.vec, "*", 1) == false) {
+				dest_demangle_data(&fptr);
+
+				return (false);
+			}
+
+			fptr.ptr = false;
+		}
+
+		if (fptr.ref == true) {
+			if (vector_str_push(&fptr.vec, "&", 1) == false) {
+				dest_demangle_data(&fptr);
+
+				return (false);
+			}
+
+			fptr.ref = false;
+		}
+
+		if (fptr.cnst == true) {
+			if (vector_str_push(&fptr.vec, " const", 6) == false) {
+				dest_demangle_data(&fptr);
+
+				return (false);
+			}
+
+			fptr.cnst = false;
+		}
+
+		if (*fptr.p == '_')
+			break;
+
+		if (vector_str_push(&fptr.vec, ", ", 2) == false) {
+			dest_demangle_data(&fptr);
+
+			return (false);
+		}
+
+		if (++lim > CPP_DEMANGLE_ARM_TRY) {
+
+			dest_demangle_data(&fptr);
+
+			return (false);
+		}
+	}
+
+	arg_type = vector_str_get_flat(&fptr.vec, NULL);
+	/* skip '_' */
+	d->p = fptr.p + 1;
+
+	dest_demangle_data(&fptr);
+
+	if (init_demangle_data(&fptr) == false) {
+		free(arg_type);
+
+		return (false);
+	}
+
+	fptr.p = d->p;
+	lim = 0;
+
+	if (read_type(&fptr) == false) {
+		free(arg_type);
+		dest_demangle_data(&fptr);
+
+		return (false);
+	}
+
+	rtn_type = vector_str_get_flat(&fptr.vec, NULL);
+	d->p = fptr.p;
+
+
+	dest_demangle_data(&fptr);
+
+	if (vector_str_push(&d->vec, rtn_type, strlen(rtn_type)) == false) {
+		free(rtn_type);
+		free(arg_type);
+
+		return (false);
+	}
+
+	free(rtn_type);
+
+	if (vector_str_push(&d->vec, " (*)(", 5) == false) {
+		free(arg_type);
+
+		return (false);
+	}
+
+	if (vector_str_push(&d->vec, arg_type, strlen(arg_type)) == false) {
+		free(arg_type);
+
+		return (false);
+	}
+
+	free(arg_type);
+
+	return (vector_str_push(&d->vec, ")", 1));
+}
+
 static bool
 read_op(struct demangle_data *d)
 {
@@ -764,134 +892,9 @@ read_type(struct demangle_data *d)
 		case 'P' :
 			++d->p;
 
-			/* function ptr */
-			if (*d->p == 'F') {
-				struct demangle_data fptr;
-				char *arg_type, *rtn_type;
-				int lim;
-
-				if (init_demangle_data(&fptr) == false)
-					return (false);
-
-				fptr.p = d->p + 1;
-				lim = 0;
-				arg_type = NULL;
-				rtn_type = NULL;
-
-				for (;;) {
-					if (read_type(&fptr) == false) {
-						dest_demangle_data(&fptr);
-
-						return (false);
-					}
-
-					if (fptr.ptr == true) {
-						if (vector_str_push(&fptr.vec,
-							"*", 1) == false) {
-							dest_demangle_data(&fptr);
-
-							return (false);
-						}
-
-						fptr.ptr = false;
-					}
-
-					if (fptr.ref == true) {
-						if (vector_str_push(&fptr.vec,
-							"&", 1) == false) {
-							dest_demangle_data(&fptr);
-
-							return (false);
-						}
-
-						fptr.ref = false;
-					}
-
-					if (fptr.cnst == true) {
-						if (vector_str_push(&fptr.vec,
-							" const", 6) == false) {
-							dest_demangle_data(&fptr);
-
-							return (false);
-						}
-
-						fptr.cnst = false;
-					}
-
-					if (*fptr.p == '_')
-						break;
-
-					if (vector_str_push(&fptr.vec, ", ",
-						2) == false) {
-							dest_demangle_data(&fptr);
-
-							return (false);
-					}
-
-					if (++lim > CPP_DEMANGLE_ARM_TRY) {
-
-						dest_demangle_data(&fptr);
-
-						return (false);
-					}
-				}
-
-				arg_type = vector_str_get_flat(&fptr.vec, NULL);
-				/* skip '_' */
-				d->p = fptr.p + 1;
-
-				dest_demangle_data(&fptr);
-
-				if (init_demangle_data(&fptr) == false) {
-					free(arg_type);
-
-					return (false);
-				}
-
-				fptr.p = d->p;
-				lim = 0;
-
-				if (read_type(&fptr) == false) {
-					free(arg_type);
-					dest_demangle_data(&fptr);
-
-					return (false);
-				}
-
-				rtn_type = vector_str_get_flat(&fptr.vec, NULL);
-				d->p = fptr.p;
-
-
-				dest_demangle_data(&fptr);
-
-				if (vector_str_push(&d->vec, rtn_type, 
-					strlen(rtn_type)) == false) {
-					free(rtn_type);
-					free(arg_type);
-
-					return (false);
-				}
-
-				free(rtn_type);
-
-				if (vector_str_push(&d->vec, " (*)(", 5)
-				    == false) {
-					free(arg_type);
-
-					return (false);
-				}
-
-				if (vector_str_push(&d->vec, arg_type,
-					strlen(arg_type)) == false) {
-					free(arg_type);
-
-					return (false);
-				}
-
-				free(arg_type);
-
-				return (vector_str_push(&d->vec, ")", 1));
-			} else
+			if (*d->p == 'F')
+				return (read_func_ptr(d));
+			else
 				d->ptr = true;
 
 			break;
