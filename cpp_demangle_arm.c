@@ -40,7 +40,8 @@ enum encode_type {
 };
 
 struct demangle_data {
-	bool	ptr, ref, cnst;
+	bool	ptr, ref, cnst, array, memptr;
+	char	*array_str, *memptr_str;
 	const char *p;
 	enum encode_type type;
 	struct vector_str vec;
@@ -53,10 +54,12 @@ struct demangle_data {
 static void	dest_demangle_data(struct demangle_data *);
 static bool	init_demangle_data(struct demangle_data *);
 static bool	push_CTDT(const char *, size_t, struct vector_str *);
+static bool	read_array(struct demangle_data *);
 static bool	read_class(struct demangle_data *);
 static bool	read_func(struct demangle_data *);
 static bool	read_func_name(struct demangle_data *);
 static bool	read_func_ptr(struct demangle_data *);
+static bool	read_memptr(struct demangle_data *);
 static bool	read_op(struct demangle_data *);
 static bool	read_qual_name(struct demangle_data *);
 static int	read_subst(struct demangle_data *);
@@ -67,10 +70,6 @@ static bool	read_type(struct demangle_data *);
  * Decode ARM style mangling.
  *
  * Return new allocated string or NULL.
- *
- * TODO.
- *  1. User type operator(__op).
- *  2. Type declarators : array(A), pointer to member(M).
  */
 char *
 cpp_demangle_ARM(const char *org)
@@ -165,6 +164,26 @@ cpp_demangle_ARM(const char *org)
 			d.cnst = false;
 		}
 
+		if (d.array == true) {
+			if (vector_str_push(&d.vec, d.array_str,
+				strlen(d.array_str)) == false)
+				goto clean;
+
+			free(d.array_str);
+			d.array_str = NULL;
+			d.array = false;
+		}
+
+		if (d.memptr == true) {
+			if (vector_str_push(&d.vec, d.memptr_str,
+				strlen(d.memptr_str)) == false)
+				goto clean;
+
+			free(d.memptr_str);
+			d.memptr_str = NULL;
+			d.memptr = false;
+		}
+
 		if (*d.p == '\0')
 			break;
 
@@ -217,6 +236,9 @@ dest_demangle_data(struct demangle_data *d)
 	if (d != NULL) {
 		vector_str_dest(&d->arg);
 		vector_str_dest(&d->vec);
+
+		free(d->memptr_str);
+		free(d->array_str);
 	}
 }
 
@@ -230,6 +252,12 @@ init_demangle_data(struct demangle_data *d)
 	d->ptr = false;
 	d->ref = false;
 	d->cnst = false;
+	d->array = false;
+	d->memptr = false;
+
+	d->array_str = NULL;
+	d->memptr_str = NULL;
+
 	d->type = ENCODE_FUNC;
 
 	if (vector_str_init(&d->vec) == false)
@@ -261,6 +289,46 @@ push_CTDT(const char *s, size_t l, struct vector_str *v)
 
 	if (vector_str_push(v, "()", 2) == false)
 		return (false);
+
+	return (true);
+}
+
+static bool
+read_array(struct demangle_data *d)
+{
+	size_t len;
+	const char *end;
+
+	if (d == NULL || d->p == NULL)
+		return (false);
+
+	end = d->p;
+	assert(end != NULL);
+
+	for (;;) {
+		if (*end == '\0')
+			return (false);
+
+		if (isdigit(*end) == 0)
+			break;
+	}
+
+	if (*end != '_')
+		return (false);
+
+	len = end - d->p;
+	assert(len > 0);
+
+	free(d->array_str);
+	if ((d->array_str = malloc(sizeof(char) * (len + 3))) == NULL)
+		return (false);
+
+	strncpy(d->array_str + 1, d->p, len);
+	*d->array_str = '[';
+	*(d->array_str + len + 1) = ']';
+
+	d->array = true;
+	d->p = end + 1;
 
 	return (true);
 }
@@ -543,6 +611,52 @@ read_func_ptr(struct demangle_data *d)
 }
 
 static bool
+read_memptr(struct demangle_data *d)
+{
+	struct demangle_data mptr;
+	size_t len;
+	char *mptr_str;
+
+	if (d == NULL || d->p == NULL)
+		return (false);
+
+	if (init_demangle_data(&mptr) == false)
+		return (false);
+
+	mptr.p = d->p;
+
+	if (read_qual_name(&mptr) == false) {
+		dest_demangle_data(&mptr);
+
+		return (false);
+	}
+
+	d->p = mptr.p;
+
+	if ((mptr_str = vector_str_get_flat(&mptr.vec, &len)) == NULL) {
+		dest_demangle_data(&mptr);
+
+		return (false);
+	}
+
+	free(d->memptr_str);
+	if ((d->memptr_str = malloc(sizeof(char) * (len + 4))) == NULL) {
+		free(mptr_str);
+
+		dest_demangle_data(&mptr);
+
+		return (false);
+	}
+
+	snprintf(d->memptr_str, len + 3, "%s::*", mptr_str);
+
+	free(mptr_str);
+	dest_demangle_data(&mptr);
+
+	return (true);
+}
+
+static bool
 read_op(struct demangle_data *d)
 {
 
@@ -726,7 +840,16 @@ read_op(struct demangle_data *d)
 		return (vector_str_push(&d->vec, "operator delete()",
 			17));
 	case SIMPLE_HASH('o', 'p') :
-		/* operator xx */
+		/* TODO. Test this */
+		d->p += 2;
+
+		if (vector_str_push(&d->vec, "operator ", 9) == false)
+			return (false);
+
+		if (vector_str_push(&d->vec, d->p, strlen(d->p)) == false)
+			return (false);
+
+		return (vector_str_push(&d->vec, "()", 2));
 	default :
 		return (false);
 	};
@@ -904,9 +1027,22 @@ read_type(struct demangle_data *d)
 			d->ref = true;
 
 			break;
-		case 'A' :
 		case 'F' :
+			break;
+		case 'A' :
+			++d->p;
+
+			if (read_array(d) == false)
+				return (false);
+
+			break;
 		case 'M' :
+			++d->p;
+
+			if (read_memptr(d) == false)
+				return (false);
+
+			break;
 		default :
 			break;
 		};
