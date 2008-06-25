@@ -545,7 +545,8 @@ is_sec_debug(const char *shname)
 		".debug",
 		".gnu.linkonce.wi.",
 		".line",
-		".stab"
+		".stab",
+		NULL
 	};
 	const char **p;
 
