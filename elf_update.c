@@ -24,11 +24,7 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/elf_update.c,v 1.5 2008/03/19 06:06:34 jkoshy Exp $");
-
 #include <sys/mman.h>
-#include <sys/param.h>
 
 #include <assert.h>
 #include <errno.h>
@@ -39,6 +35,8 @@ __FBSDID("$FreeBSD: src/lib/libelf/elf_update.c,v 1.5 2008/03/19 06:06:34 jkoshy
 #include <unistd.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
 
 /*
  * Update the internal data structures associated with an ELF object.

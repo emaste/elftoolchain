@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,17 +25,15 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/gelf_cap.c,v 1.2 2006/12/18 05:40:01 jkoshy Exp $");
-
-#include <sys/limits.h>
 
 #include <assert.h>
 #include <gelf.h>
-#include <osreldate.h>
 
 #include "_libelf.h"
 
-#if	__FreeBSD_version >= 700025
+LIBELF_VCSID("$Id$");
+
+#if	LIBELF_CONFIG_CAP
 
 GElf_Cap *
 gelf_getcap(Elf_Data *d, int ndx, GElf_Cap *dst)
@@ -147,4 +145,4 @@ gelf_update_cap(Elf_Data *d, int ndx, GElf_Cap *gc)
 	return (1);
 }
 
-#endif	/* __FreeBSD_version >= 700025 */
+#endif	/* LIBELF_CONFIG_CAP */

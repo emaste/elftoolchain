@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,12 +25,12 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/libelf_data.c,v 1.3 2007/11/23 11:29:36 jkoshy Exp $");
 
 #include <libelf.h>
-#include <osreldate.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
 
 int
 _libelf_xlate_shtype(uint32_t sht)
@@ -40,20 +40,28 @@ _libelf_xlate_shtype(uint32_t sht)
 		return (ELF_T_DYN);
 	case SHT_DYNSYM:
 		return (ELF_T_SYM);
+#if	defined(SHT_FINI_ARRAY)
 	case SHT_FINI_ARRAY:
 		return (ELF_T_ADDR);
+#endif
+#if	defined(SHT_GROUP)
 	case SHT_GROUP:
 		return (ELF_T_WORD);
+#endif
 	case SHT_HASH:
 		return (ELF_T_WORD);
+#if	defined(SHT_INIT_ARRAY)
 	case SHT_INIT_ARRAY:
 		return (ELF_T_ADDR);
+#endif
 	case SHT_NOBITS:
 		return (ELF_T_BYTE);
 	case SHT_NOTE:
 		return (ELF_T_NOTE);
+#if	defined(SHT_PREINIT_ARRAY)
 	case SHT_PREINIT_ARRAY:
 		return (ELF_T_ADDR);
+#endif
 	case SHT_PROGBITS:
 		return (ELF_T_BYTE);
 	case SHT_REL:
@@ -64,17 +72,27 @@ _libelf_xlate_shtype(uint32_t sht)
 		return (ELF_T_BYTE);
 	case SHT_SYMTAB:
 		return (ELF_T_SYM);
+#if	defined(SHT_SYMTAB_SHNDX)
 	case SHT_SYMTAB_SHNDX:
 		return (ELF_T_WORD);
-#if	__FreeBSD_version >= 700025
-	case SHT_GNU_verdef:	/* == SHT_SUNW_verdef */
+#endif
+#if	defined(SHT_SUNW_verdef)
+	case SHT_SUNW_verdef:	/* == SHT_SUNW_verdef */
 		return (ELF_T_VDEF);
-	case SHT_GNU_verneed:	/* == SHT_SUNW_verneed */
+#endif
+#if	defined(SHT_SUNW_verneed)
+	case SHT_SUNW_verneed:	/* == SHT_SUNW_verneed */
 		return (ELF_T_VNEED);
-	case SHT_GNU_versym:	/* == SHT_SUNW_versym */
+#endif
+#if	defined(SHT_SUNW_versym)
+	case SHT_SUNW_versym:	/* == SHT_SUNW_versym */
 		return (ELF_T_HALF);
+#endif
+#if	defined(SHT_SUNW_move)
 	case SHT_SUNW_move:
 		return (ELF_T_MOVE);
+#endif
+#if	defined(SHT_SUNW_syminfo)
 	case SHT_SUNW_syminfo:
 		return (ELF_T_SYMINFO);
 #endif

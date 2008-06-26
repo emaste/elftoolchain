@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,22 +24,16 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/libelf.c,v 1.1 2006/11/11 17:16:33 jkoshy Exp $");
-
-#include <sys/param.h>
-
-#include <machine/elf.h>
-#include <machine/endian.h>
-
 #include <libelf.h>
 
 #include "_libelf.h"
 
+LIBELF_VCSID("$Id$");
+
 struct _libelf_globals _libelf = {
-	.libelf_arch		= ELF_ARCH,
-	.libelf_byteorder	= ELF_TARG_DATA,
-	.libelf_class		= ELF_TARG_CLASS,
+	.libelf_arch		= LIBELF_ARCH,
+	.libelf_byteorder	= LIBELF_BYTEORDER,
+	.libelf_class		= LIBELF_CLASS,
 	.libelf_error		= 0,
 	.libelf_fillchar	= 0,
 	.libelf_version		= EV_NONE

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,12 +25,13 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/libelf_xlate.c,v 1.3 2007/11/26 03:09:33 jkoshy Exp $");
 
 #include <assert.h>
 #include <libelf.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
 
 /*
  * Translate to/from the file representation of ELF objects.

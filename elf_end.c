@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,7 +25,6 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/elf_end.c,v 1.1 2006/11/11 17:16:33 jkoshy Exp $");
 
 #include <sys/mman.h>
 
@@ -34,6 +33,8 @@ __FBSDID("$FreeBSD: src/lib/libelf/elf_end.c,v 1.1 2006/11/11 17:16:33 jkoshy Ex
 #include <stdlib.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
 
 int
 elf_end(Elf *e)

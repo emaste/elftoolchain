@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/lib/libelf/gelf.h,v 1.3 2007/03/08 04:01:30 jkoshy Exp $
+ * $Id$
  */
 
 #ifndef	_GELF_H_
@@ -32,7 +32,6 @@
 #include <sys/cdefs.h>
 
 #include <libelf.h>
-#include <osreldate.h>
 
 typedef Elf64_Addr	GElf_Addr;	/* Addresses */
 typedef Elf64_Half	GElf_Half;	/* Half words (16 bit) */
@@ -50,7 +49,7 @@ typedef Elf64_Sym	GElf_Sym;	/* Symbol table entries */
 typedef Elf64_Rel	GElf_Rel;	/* Relocation entries */
 typedef Elf64_Rela	GElf_Rela;	/* Relocation entries with addend */
 
-#if	__FreeBSD_version >= 700025
+#if	__FreeBSD_version >= 700025 || __NetBSD_Version > 400000003
 typedef	Elf64_Cap	GElf_Cap;	/* SW/HW capabilities */
 typedef Elf64_Move	GElf_Move;	/* Move entries */
 typedef Elf64_Syminfo	GElf_Syminfo;	/* Symbol information */
@@ -100,7 +99,7 @@ int		gelf_update_symshndx(Elf_Data *_symdst, Elf_Data *_shindexdst,
 Elf_Data 	*gelf_xlatetof(Elf *_elf, Elf_Data *_dst, const Elf_Data *_src, unsigned int _encode);
 Elf_Data 	*gelf_xlatetom(Elf *_elf, Elf_Data *_dst, const Elf_Data *_src, unsigned int _encode);
 
-#if	__FreeBSD_version >= 700025
+#if	__FreeBSD_version >= 700025 || __NetBSD_Version > 400000003
 GElf_Cap	*gelf_getcap(Elf_Data *_data, int _index, GElf_Cap *_cap);
 GElf_Move	*gelf_getmove(Elf_Data *_src, int _index, GElf_Move *_dst);
 GElf_Syminfo	*gelf_getsyminfo(Elf_Data *_src, int _index, GElf_Syminfo *_dst);

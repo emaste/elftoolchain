@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006,2007 Joseph Koshy
+ * Copyright (c) 2006-2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,18 +25,14 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/libelf_convert.m4,v 1.4 2008/03/26 07:32:07 brueffer Exp $");
-
-#include <sys/types.h>
-#include <sys/elf32.h>
-#include <sys/elf64.h>
 
 #include <assert.h>
 #include <libelf.h>
-#include <osreldate.h>
 #include <string.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
 
 /* WARNING: GENERATED FROM __file__. */
 
@@ -85,22 +81,22 @@ __FBSDID("$FreeBSD: src/lib/libelf/libelf_convert.m4,v 1.4 2008/03/26 07:32:07 b
  * destination pointer is incremented after the write.
  */
 #define	WRITE_BYTE(P,X) do {						\
-		unsigned char *const _p = (unsigned char *) (P);	\
-		_p[0]		= (unsigned char) (X);			\
+		char *const _p = (char *) (P);	\
+		_p[0]		= (char) (X);			\
 		(P)		= _p + 1;				\
 	} while (0)
 #define	WRITE_HALF(P,X)	do {						\
 		uint16_t _t	= (X);					\
-		unsigned char *const _p	= (unsigned char *) (P);	\
-		unsigned const char *const _q = (unsigned char *) &_t;	\
+		char *const _p	= (char *) (P);	\
+		const char *const _q = (char *) &_t;	\
 		_p[0]		= _q[0];				\
 		_p[1]		= _q[1];				\
 		(P) 		= _p + 2;				\
 	} while (0)
 #define	WRITE_WORD(P,X)	do {						\
 		uint32_t _t	= (X);					\
-		unsigned char *const _p	= (unsigned char *) (P);	\
-		unsigned const char *const _q = (unsigned char *) &_t;	\
+		char *const _p	= (char *) (P);	\
+		const char *const _q = (char *) &_t;	\
 		_p[0]		= _q[0];				\
 		_p[1]		= _q[1];				\
 		_p[2]		= _q[2];				\
@@ -112,8 +108,8 @@ __FBSDID("$FreeBSD: src/lib/libelf/libelf_convert.m4,v 1.4 2008/03/26 07:32:07 b
 #define	WRITE_SWORD(P,X)	WRITE_WORD(P,X)
 #define	WRITE_WORD64(P,X)	do {					\
 		uint64_t _t	= (X);					\
-		unsigned char *const _p	= (unsigned char *) (P);	\
-		unsigned const char *const _q = (unsigned char *) &_t;	\
+		char *const _p	= (char *) (P);	\
+		const char *const _q = (char *) &_t;	\
 		_p[0]		= _q[0];				\
 		_p[1]		= _q[1];				\
 		_p[2]		= _q[2];				\
@@ -141,16 +137,16 @@ __FBSDID("$FreeBSD: src/lib/libelf/libelf_convert.m4,v 1.4 2008/03/26 07:32:07 b
  */
 
 #define	READ_BYTE(P,X)	do {						\
-		const unsigned char *const _p =				\
-			(const unsigned char *) (P);			\
+		const char *const _p =				\
+			(const char *) (P);			\
 		(X)		= _p[0];				\
 		(P)		= (P) + 1;				\
 	} while (0)
 #define	READ_HALF(P,X)	do {						\
 		uint16_t _t;						\
-		unsigned char *const _q = (unsigned char *) &_t;	\
-		const unsigned char *const _p =				\
-			(const unsigned char *) (P);			\
+		char *const _q = (char *) &_t;	\
+		const char *const _p =				\
+			(const char *) (P);			\
 		_q[0]		= _p[0];				\
 		_q[1]		= _p[1];				\
 		(P)		= (P) + 2;				\
@@ -158,9 +154,9 @@ __FBSDID("$FreeBSD: src/lib/libelf/libelf_convert.m4,v 1.4 2008/03/26 07:32:07 b
 	} while (0)
 #define	READ_WORD(P,X)	do {						\
 		uint32_t _t;						\
-		unsigned char *const _q = (unsigned char *) &_t;	\
-		const unsigned char *const _p =				\
-			(const unsigned char *) (P);			\
+		char *const _q = (char *) &_t;	\
+		const char *const _p =				\
+			(const char *) (P);			\
 		_q[0]		= _p[0];				\
 		_q[1]		= _p[1];				\
 		_q[2]		= _p[2];				\
@@ -173,9 +169,9 @@ __FBSDID("$FreeBSD: src/lib/libelf/libelf_convert.m4,v 1.4 2008/03/26 07:32:07 b
 #define	READ_SWORD(P,X)		READ_WORD(P,X)
 #define	READ_WORD64(P,X)	do {					\
 		uint64_t _t;						\
-		unsigned char *const _q = (unsigned char *) &_t;	\
-		const unsigned char *const _p =				\
-			(const unsigned char *) (P);			\
+		char *const _q = (char *) &_t;	\
+		const char *const _p =				\
+			(const char *) (P);			\
 		_q[0]		= _p[0];				\
 		_q[1]		= _p[1];				\
 		_q[2]		= _p[2];				\
@@ -415,12 +411,12 @@ static void
 libelf_cvt$3_$1_tom(char *dst, char *src, size_t count, int byteswap)
 {
 	Elf$3_$2	 t, *d;
-	unsigned char	*s,*s0;
+	char		*s,*s0;
 	size_t		fsz;
 
 	fsz = elf$3_fsize(ELF_T_$1, (size_t) 1, EV_CURRENT);
 	d   = ((Elf$3_$2 *) (uintptr_t) dst) + (count - 1);
-	s0  = (unsigned char *) src + (count - 1) * fsz;
+	s0  = (char *) src + (count - 1) * fsz;
 
 	while (count--) {
 		s = s0;
@@ -447,7 +443,7 @@ libelf_cvt$3_$1_tom(char *dst, char *src, size_t count, int byteswap)
  */
 
 define(`MAKE_TYPE_CONVERTER',
-  `#if	__FreeBSD_version >= $3 /* $1 */
+  `#if	LIBELF_CONFIG_$1
 ifdef(`BASE'_$1,
     `ifdef(`IGNORE_'$1,`',
       `MAKEPRIM_TO_F($1,$2,`',64)
@@ -461,7 +457,7 @@ ifdef(`BASE'_$1,
        MAKE_TO_F($1,$2,64)dnl
        MAKE_TO_M($1,$2,32)dnl
        MAKE_TO_M($1,$2,64)')')
-#endif /* $1 */
+#endif /* LIBELF_CONFIG_$1 */
 ')
 
 define(`MAKE_TYPE_CONVERTERS',
@@ -483,6 +479,7 @@ libelf_cvt_BYTE_tox(char *dst, char *src, size_t count, int byteswap)
 		(void) memcpy(dst, src, count);
 }
 
+#if	LIBELF_CONFIG_NOTE
 /*
  * Elf_Note structures comprise a fixed size header followed by variable
  * length strings.  The fixed size header needs to be byte swapped, but
@@ -590,6 +587,7 @@ libelf_cvt_NOTE_tof(char *dst, char *src, size_t count, int byteswap)
 		count -= sz;
 	}
 }
+#endif	/* LIBELF_CONFIG_NOTE */
 
 MAKE_TYPE_CONVERTERS(ELF_TYPE_LIST)
 
@@ -612,7 +610,7 @@ define(`CONV',
 
 define(`CONVERTER_NAME',
   `ifdef(`IGNORE_'$1,`',
-    `#if	__FreeBSD_version >= $3
+    `#if LIBELF_CONFIG_$1
     [ELF_T_$1] = {
         CONV($1,32,tof), CONV($1,32,tom),
         CONV($1,64,tof), CONV($1,64,tom) },
@@ -639,12 +637,14 @@ CONVERTER_NAMES(ELF_TYPE_LIST)
 		.tof64 = libelf_cvt_BYTE_tox,
 		.tom64 = libelf_cvt_BYTE_tox
 	},
+#if	LIBELF_CONFIG_NOTE
 	[ELF_T_NOTE] = {
 		.tof32 = libelf_cvt_NOTE_tof,
 		.tom32 = libelf_cvt_NOTE_tom,
 		.tof64 = libelf_cvt_NOTE_tof,
 		.tom64 = libelf_cvt_NOTE_tom
 	}
+#endif	/* LIBELF_CONFIG_NOTE */
 };
 
 void (*_libelf_get_translator(Elf_Type t, int direction, int elfclass))

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,13 +25,14 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/elf_getident.c,v 1.1 2006/11/11 17:16:33 jkoshy Exp $");
 
 #include <ar.h>
 #include <assert.h>
 #include <libelf.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
 
 char *
 elf_getident(Elf *e, size_t *sz)
@@ -58,7 +59,7 @@ elf_getident(Elf *e, size_t *sz)
 			*sz = e->e_rawsize;
 	}
 
-	return (e->e_rawfile);
+	return ((char *) e->e_rawfile);
 
  error:
 	if (sz)

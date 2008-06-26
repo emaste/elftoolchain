@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,18 +25,14 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/libelf_msize.m4,v 1.2 2006/12/18 05:40:01 jkoshy Exp $");
-
-#include <sys/types.h>
-#include <sys/elf32.h>
-#include <sys/elf64.h>
 
 #include <assert.h>
 #include <libelf.h>
-#include <osreldate.h>
 #include <string.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
 
 /* WARNING: GENERATED FROM __file__. */
 
@@ -74,7 +70,7 @@ define(`DEFINE_ELF_MSIZES',
 DEFINE_ELF_MSIZES(ELF_TYPE_LIST)
 
 define(`MSIZE',
-  `#if	__FreeBSD_version >= $3
+  `#if	LIBELF_CONFIG_$1
     [ELF_T_$1] = { .msz32 = $1_SIZE32, .msz64 = $1_SIZE64 },
 #endif')
 define(`MSIZES',

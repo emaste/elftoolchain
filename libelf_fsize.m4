@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,14 +22,15 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD: src/lib/libelf/libelf_fsize.m4,v 1.2 2006/12/18 05:40:01 jkoshy Exp $
  */
 
 #include <libelf.h>
-#include <osreldate.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
+
+/* WARNING: GENERATED FROM __file__. */
 
 /*
  * Create an array of file sizes from the elf_type definitions
@@ -115,7 +116,7 @@ DEFINE_ELF_FSIZES(ELF_TYPE_LIST)
 DEFINE_ELF_FSIZE(`IDENT',`')	# `IDENT' is a pseudo type
 
 define(`FSIZE',
-  `#if	__FreeBSD_version >= $3
+  `#if	LIBELF_CONFIG_$1
     [ELF_T_$1] = { .fsz32 = $1_SIZE32, .fsz64 = $1_SIZE64 },
 #endif')
 define(`FSIZES',

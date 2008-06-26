@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,9 +24,6 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/elf_data.c,v 1.2 2007/03/19 03:52:20 jkoshy Exp $");
-
 #include <assert.h>
 #include <errno.h>
 #include <libelf.h>
@@ -34,6 +31,7 @@ __FBSDID("$FreeBSD: src/lib/libelf/elf_data.c,v 1.2 2007/03/19 03:52:20 jkoshy E
 
 #include "_libelf.h"
 
+LIBELF_VCSID("$Id$");
 
 Elf_Data *
 elf_getdata(Elf_Scn *s, Elf_Data *d)
