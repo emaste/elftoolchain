@@ -1,4 +1,4 @@
-# $FreeBSD: src/lib/libelf/Makefile,v 1.5 2006/12/25 02:22:22 jkoshy Exp $
+# $Id$
 
 LIB=	elf
 
@@ -144,7 +144,18 @@ MLINKS+= \
 	gelf_xlatetof.3	elf${E}_xlatetom.3
 .endfor
 
-VERSION_MAP=		${.CURDIR}/Version.map
+# Determine the target operating system that we are building for.
+.if ${unix:MFreeBSD*}
+OS_TARGET=freebsd
+.elif ${unix:MNetBSD*}
+OS_TARGET=netbsd
+.else
+.error Unsupported target operating system.
+.endif
+
+.if exists(${.CURDIR}/os.${OS_TARGET}.mk)
+.include "os.${OS_TARGET}.mk"
+.endif
 
 LIBELF_TEST_HOOKS?=	1
 .if defined(LIBELF_TEST_HOOKS) && (${LIBELF_TEST_HOOKS} > 0)
