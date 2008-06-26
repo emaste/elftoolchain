@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,12 +25,13 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/libelf_extended.c,v 1.1 2006/12/25 02:22:22 jkoshy Exp $");
 
 #include <assert.h>
 #include <libelf.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
 
 /*
  * Retrieve section #0, allocating a new section if needed.

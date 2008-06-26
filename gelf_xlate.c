@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,7 +25,6 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/gelf_xlate.c,v 1.1 2006/11/11 17:16:33 jkoshy Exp $");
 
 #include <gelf.h>
 #include <libelf.h>
@@ -33,6 +32,7 @@ __FBSDID("$FreeBSD: src/lib/libelf/gelf_xlate.c,v 1.1 2006/11/11 17:16:33 jkoshy
 
 #include "_libelf.h"
 
+LIBELF_VCSID("$Id$");
 
 Elf_Data *
 elf32_xlatetof(Elf_Data *dst, const Elf_Data *src, unsigned int encoding)

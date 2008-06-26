@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,14 +25,13 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/gelf_rela.c,v 1.2 2008/03/02 06:33:10 jkoshy Exp $");
-
-#include <sys/limits.h>
 
 #include <assert.h>
 #include <gelf.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
 
 GElf_Rela *
 gelf_getrela(Elf_Data *d, int ndx, GElf_Rela *dst)

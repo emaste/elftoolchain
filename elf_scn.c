@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,15 +25,18 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/elf_scn.c,v 1.2 2006/12/25 02:22:22 jkoshy Exp $");
+#include <sys/queue.h>
 
 #include <assert.h>
 #include <errno.h>
 #include <gelf.h>
 #include <libelf.h>
+#include <stddef.h>
 #include <stdlib.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
 
 /*
  * Load an ELF section table and create a list of Elf_Scn structures.

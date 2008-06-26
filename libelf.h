@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,16 +23,22 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/lib/libelf/libelf.h,v 1.1 2006/11/11 17:16:33 jkoshy Exp $
+ * $Id$
  */
 
 #ifndef	_LIBELF_H_
 #define	_LIBELF_H_
 
-#include <sys/types.h>
+#include <sys/param.h>
+#include <sys/queue.h>
+
+#if defined(__FreeBSD__)
 #include <sys/elf32.h>
 #include <sys/elf64.h>
-#include <sys/queue.h>
+#elif defined(__NetBSD__)
+#include <sys/exec_elf.h>
+#elif defined(__linux__)
+#endif
 
 /* Library private data structures */
 typedef struct _Elf Elf;

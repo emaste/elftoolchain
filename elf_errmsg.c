@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,12 +25,13 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/elf_errmsg.c,v 1.2 2006/12/09 16:27:15 jkoshy Exp $");
 
 #include <libelf.h>
 #include <string.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
 
 /*
  * Retrieve a human readable translation for an error message.

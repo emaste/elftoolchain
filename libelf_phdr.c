@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,7 +27,6 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/libelf_phdr.c,v 1.2 2006/12/25 02:22:22 jkoshy Exp $");
 
 #include <assert.h>
 #include <gelf.h>
@@ -35,6 +34,8 @@ __FBSDID("$FreeBSD: src/lib/libelf/libelf_phdr.c,v 1.2 2006/12/25 02:22:22 jkosh
 #include <stdlib.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
 
 void *
 _libelf_getphdr(Elf *e, int ec)

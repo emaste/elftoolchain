@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,7 +25,6 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/libelf_ar.c,v 1.3 2007/03/27 04:40:57 jkoshy Exp $");
 
 #include <ar.h>
 #include <assert.h>
@@ -35,6 +34,8 @@ __FBSDID("$FreeBSD: src/lib/libelf/libelf_ar.c,v 1.3 2007/03/27 04:40:57 jkoshy 
 #include <string.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
 
 #define	LIBELF_NALLOC_SIZE	16
 
@@ -422,7 +423,7 @@ _libelf_ar_process_symtab(Elf *e, size_t *count)
 {
 	size_t n, nentries, off;
 	Elf_Arsym *symtab, *sym;
-	unsigned char  *p, *s, *end;
+	char  *p, *s, *end;
 
 	assert(e != NULL);
 	assert(count != NULL);
@@ -432,7 +433,7 @@ _libelf_ar_process_symtab(Elf *e, size_t *count)
 		return (NULL);
 	}
 
-	p = (unsigned char *) e->e_u.e_ar.e_rawsymtab;
+	p = e->e_u.e_ar.e_rawsymtab;
 	end = p + e->e_u.e_ar.e_rawsymtabsz;
 
 	GET_WORD(p, nentries);

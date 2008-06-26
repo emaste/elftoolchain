@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,13 +23,15 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/lib/libelf/_libelf.h,v 1.2 2006/12/25 02:22:22 jkoshy Exp $
+ * $Id$
  */
 
 #ifndef	__LIBELF_H_
 #define	__LIBELF_H_
 
 #include <sys/queue.h>
+
+#include "_libelf_config.h"
 
 #ifndef	NULL
 #define NULL 	((void *) 0)
@@ -83,7 +85,7 @@ struct _Elf {
 	unsigned int	e_flags;	/* ELF_F_*, LIBELF_F_* flags */
 	Elf_Kind	e_kind;		/* ELF_K_* */
 	Elf		*e_parent; 	/* non-NULL for archive members */
-	char	 	*e_rawfile;	/* uninterpreted bytes */
+	char		*e_rawfile;	/* uninterpreted bytes */
 	size_t		e_rawsize;	/* size of uninterpreted bytes */
 	unsigned int	e_version;	/* file version */
 

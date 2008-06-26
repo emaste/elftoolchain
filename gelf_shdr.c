@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006 Joseph Koshy
+ * Copyright (c) 2006,2008 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,15 +25,14 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libelf/gelf_shdr.c,v 1.1 2006/11/11 17:16:33 jkoshy Exp $");
-
-#include <sys/limits.h>
 
 #include <assert.h>
 #include <gelf.h>
 #include <libelf.h>
 
 #include "_libelf.h"
+
+LIBELF_VCSID("$Id$");
 
 Elf32_Shdr *
 elf32_getshdr(Elf_Scn *s)
