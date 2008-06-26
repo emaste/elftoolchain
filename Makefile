@@ -2,7 +2,8 @@
 
 LIB=	elf
 
-SRCS=	elf_begin.c						\
+SRCS=	elf.c							\
+	elf_begin.c						\
 	elf_cntl.c						\
 	elf_end.c elf_errmsg.c elf_errno.c			\
 	elf_data.c						\
@@ -40,7 +41,6 @@ SRCS=	elf_begin.c						\
 	gelf_syminfo.c						\
 	gelf_symshndx.c						\
 	gelf_xlate.c						\
-	libelf.c						\
 	libelf_align.c						\
 	libelf_allocate.c					\
 	libelf_ar.c						\
