@@ -36,12 +36,17 @@
 #include "cpp_demangle_arm.h"
 
 enum encode_type {
-	ENCODE_FUNC, ENCODE_OP, ENCODE_OP_CT, ENCODE_OP_DT
+	ENCODE_FUNC, ENCODE_OP, ENCODE_OP_CT, ENCODE_OP_DT, ENCODE_OP_USER
+};
+
+struct cstring {
+	char	*buf;
+	size_t	size;
 };
 
 struct demangle_data {
-	bool	ptr, ref, cnst, array, memptr;
-	char	*array_str, *memptr_str;
+	bool	ptr, ref, cnst, array;
+	struct cstring array_str;
 	const char *p;
 	enum encode_type type;
 	struct vector_str vec;
@@ -51,7 +56,9 @@ struct demangle_data {
 #define SIMPLE_HASH(x,y)	(64 * x + y)
 #define	CPP_DEMANGLE_ARM_TRY	128
 
+static void	dest_cstring(struct cstring *);
 static void	dest_demangle_data(struct demangle_data *);
+static bool	init_cstring(struct cstring *, size_t);
 static bool	init_demangle_data(struct demangle_data *);
 static bool	push_CTDT(const char *, size_t, struct vector_str *);
 static bool	read_array(struct demangle_data *);
@@ -105,6 +112,9 @@ cpp_demangle_ARM(const char *org)
 
 		goto flat;
 	}
+
+	if (d.type == ENCODE_OP_USER)
+		goto flat;
 
 	/* function type */
 	if (*d.p != 'F')
@@ -165,23 +175,12 @@ cpp_demangle_ARM(const char *org)
 		}
 
 		if (d.array == true) {
-			if (vector_str_push(&d.vec, d.array_str,
-				strlen(d.array_str)) == false)
+			if (vector_str_push(&d.vec, d.array_str.buf,
+				d.array_str.size) == false)
 				goto clean;
 
-			free(d.array_str);
-			d.array_str = NULL;
+			dest_cstring(&d.array_str);
 			d.array = false;
-		}
-
-		if (d.memptr == true) {
-			if (vector_str_push(&d.vec, d.memptr_str,
-				strlen(d.memptr_str)) == false)
-				goto clean;
-
-			free(d.memptr_str);
-			d.memptr_str = NULL;
-			d.memptr = false;
 		}
 
 		if (*d.p == '\0')
@@ -230,6 +229,18 @@ is_cpp_mangled_ARM(const char *org)
 }
 
 static void
+dest_cstring(struct cstring *s)
+{
+
+	if (s == NULL)
+		return;
+
+	free(s->buf);
+	s->buf = NULL;
+	s->size = 0;
+}
+
+static void
 dest_demangle_data(struct demangle_data *d)
 {
 
@@ -237,9 +248,23 @@ dest_demangle_data(struct demangle_data *d)
 		vector_str_dest(&d->arg);
 		vector_str_dest(&d->vec);
 
-		free(d->memptr_str);
-		free(d->array_str);
+		dest_cstring(&d->array_str);
 	}
+}
+
+static bool
+init_cstring(struct cstring *s, size_t len)
+{
+
+	if (s == NULL || len <= 1)
+		return (false);
+
+	if ((s->buf = malloc(sizeof(char) * len)) == NULL)
+		return (false);
+
+	s->size = len - 1;
+
+	return (true);
 }
 
 static bool
@@ -253,10 +278,9 @@ init_demangle_data(struct demangle_data *d)
 	d->ref = false;
 	d->cnst = false;
 	d->array = false;
-	d->memptr = false;
 
-	d->array_str = NULL;
-	d->memptr_str = NULL;
+	d->array_str.buf = NULL;
+	d->array_str.size = 0;
 
 	d->type = ENCODE_FUNC;
 
@@ -311,6 +335,8 @@ read_array(struct demangle_data *d)
 
 		if (isdigit(*end) == 0)
 			break;
+
+		++end;
 	}
 
 	if (*end != '_')
@@ -319,13 +345,13 @@ read_array(struct demangle_data *d)
 	len = end - d->p;
 	assert(len > 0);
 
-	free(d->array_str);
-	if ((d->array_str = malloc(sizeof(char) * (len + 3))) == NULL)
+	dest_cstring(&d->array_str);
+	if (init_cstring(&d->array_str, len + 3) == false)
 		return (false);
 
-	strncpy(d->array_str + 1, d->p, len);
-	*d->array_str = '[';
-	*(d->array_str + len + 1) = ']';
+	strncpy(d->array_str.buf + 1, d->p, len);
+	*d->array_str.buf = '[';
+	*(d->array_str.buf + len + 1) = ']';
 
 	d->array = true;
 	d->p = end + 1;
@@ -420,7 +446,8 @@ read_func_name(struct demangle_data *d)
 		if (read_op(d) == false)
 			return (false);
 
-		if (d->type == ENCODE_OP_CT || d->type == ENCODE_OP_DT)
+		if (d->type == ENCODE_OP_CT || d->type == ENCODE_OP_DT ||
+		    d->type == ENCODE_OP_USER)
 			return (true);
 
 		/* skip "__" */
@@ -615,6 +642,7 @@ read_memptr(struct demangle_data *d)
 {
 	struct demangle_data mptr;
 	size_t len;
+	bool rtn;
 	char *mptr_str;
 
 	if (d == NULL || d->p == NULL)
@@ -623,37 +651,35 @@ read_memptr(struct demangle_data *d)
 	if (init_demangle_data(&mptr) == false)
 		return (false);
 
+	rtn = false;
+	mptr_str = NULL;
+
 	mptr.p = d->p;
-
-	if (read_qual_name(&mptr) == false) {
-		dest_demangle_data(&mptr);
-
-		return (false);
-	}
+	if (*mptr.p == 'Q') {
+		if (read_qual_name(&mptr) == false)
+			goto clean;
+	} else {
+		if (read_class(&mptr) == false)
+			goto clean;
+	}	 
 
 	d->p = mptr.p;
 
-	if ((mptr_str = vector_str_get_flat(&mptr.vec, &len)) == NULL) {
-		dest_demangle_data(&mptr);
+	if ((mptr_str = vector_str_get_flat(&mptr.vec, &len)) == NULL)
+		goto clean;
 
-		return (false);
-	}
+	if (vector_str_push(&d->vec, mptr_str, len) == false)
+		goto clean;
 
-	free(d->memptr_str);
-	if ((d->memptr_str = malloc(sizeof(char) * (len + 4))) == NULL) {
-		free(mptr_str);
+	if (vector_str_push(&d->vec, "::*", 3) == false)
+		goto clean;
 
-		dest_demangle_data(&mptr);
-
-		return (false);
-	}
-
-	snprintf(d->memptr_str, len + 3, "%s::*", mptr_str);
-
+	rtn = true;
+clean:
 	free(mptr_str);
 	dest_demangle_data(&mptr);
 
-	return (true);
+	return (rtn);
 }
 
 static bool
@@ -840,9 +866,11 @@ read_op(struct demangle_data *d)
 		return (vector_str_push(&d->vec, "operator delete()",
 			17));
 	case SIMPLE_HASH('o', 'p') :
-		/* TODO. Test this */
+		/* TODO. Test case for this */
 		d->p += 2;
 
+		d->type = ENCODE_OP_USER;
+		
 		if (vector_str_push(&d->vec, "operator ", 9) == false)
 			return (false);
 

@@ -63,6 +63,7 @@ test_basic()
 	test_cpp_demangle_ARM("f__F1xi", "f(x, int)");
 	test_cpp_demangle_ARM("__ct__1xFv", "x::x()");
 	test_cpp_demangle_ARM("__dt__1xFv", "x::~x()");
+	test_cpp_demangle_ARM("__opT", "operator T()");
 }
 
 static void
@@ -76,6 +77,8 @@ test_modifier()
 	test_cpp_demangle_ARM("f__FPCc", "f(const char*)");
 	test_cpp_demangle_ARM("f__FCPc", "f(char* const)");
 	test_cpp_demangle_ARM("f__FPFPc_i", "f(int (*)(char*))");
+	test_cpp_demangle_ARM("f__FA10_i", "f(int[10])");
+	test_cpp_demangle_ARM("f__FM1S7complex", "f(S::*complex)");
 }
 
 static void
