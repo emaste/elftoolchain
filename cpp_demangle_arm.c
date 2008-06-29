@@ -35,6 +35,16 @@
 #include "vector_str.h"
 #include "cpp_demangle_arm.h"
 
+/**
+ * @file cpp_demangle_arm.c
+ * @brief Decode function name encoding in ARM.
+ *
+ * Function name encoding in "The Annotated C++ Reference Manual".
+ *
+ * Ref : "The Annotated C++ Reference Manual", Margaet A.Ellis,
+ *  Bjarne Stroustrup, AT&T Bell Laboratories 1990, pp 122-126.
+ */
+
 enum encode_type {
 	ENCODE_FUNC, ENCODE_OP, ENCODE_OP_CT, ENCODE_OP_DT, ENCODE_OP_USER
 };
