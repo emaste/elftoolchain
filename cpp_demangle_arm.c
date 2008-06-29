@@ -199,8 +199,8 @@ cpp_demangle_ARM(const char *org)
 		if ((arg = vector_str_substr(&d.vec, arg_begin, d.vec.size - 1,
 			    &arg_len)) == NULL)
 			goto clean;
-
-		if (vector_str_push(&d.arg, arg, strlen(arg)) == false)
+                
+		if (vector_str_push(&d.arg, arg, arg_len) == false)
 			goto clean;
 
 		free(arg);
@@ -521,6 +521,7 @@ static bool
 read_func_ptr(struct demangle_data *d)
 {
 	struct demangle_data fptr;
+	size_t arg_len, rtn_len;
 	char *arg_type, *rtn_type;
 	int lim;
 
@@ -589,7 +590,7 @@ read_func_ptr(struct demangle_data *d)
 		}
 	}
 
-	arg_type = vector_str_get_flat(&fptr.vec, NULL);
+	arg_type = vector_str_get_flat(&fptr.vec, &arg_len);
 	/* skip '_' */
 	d->p = fptr.p + 1;
 
@@ -611,13 +612,13 @@ read_func_ptr(struct demangle_data *d)
 		return (false);
 	}
 
-	rtn_type = vector_str_get_flat(&fptr.vec, NULL);
+	rtn_type = vector_str_get_flat(&fptr.vec, &rtn_len);
 	d->p = fptr.p;
 
 
 	dest_demangle_data(&fptr);
 
-	if (vector_str_push(&d->vec, rtn_type, strlen(rtn_type)) == false) {
+	if (vector_str_push(&d->vec, rtn_type, rtn_len) == false) {
 		free(rtn_type);
 		free(arg_type);
 
@@ -632,7 +633,7 @@ read_func_ptr(struct demangle_data *d)
 		return (false);
 	}
 
-	if (vector_str_push(&d->vec, arg_type, strlen(arg_type)) == false) {
+	if (vector_str_push(&d->vec, arg_type, arg_len) == false) {
 		free(arg_type);
 
 		return (false);
