@@ -47,6 +47,9 @@
 #endif	/* __FreeBSD_version__ >= 600102 */
 
 #if __FreeBSD_version >= 700009
+#define	LIBELF_CONFIG_VDEF	1
+#define	LIBELF_CONFIG_VNEED	1
+#define	LIBELF_CONFIG_XWORD	1
 #endif	/* __FreeBSD_version__ >= 700009 */
 
 #if __FreeBSD_version >= 700025
