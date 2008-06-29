@@ -218,14 +218,11 @@ clean:
 bool
 is_cpp_mangled_ARM(const char *org)
 {
-	size_t len;
 
 	if (org == NULL)
 		return (false);
 
-	len = strlen(org);
-
-	return (strnstr(org, "__", len) != NULL);
+	return (strstr(org, "__") != NULL);
 }
 
 static void
@@ -386,7 +383,7 @@ read_class(struct demangle_data *d)
 static bool
 read_func(struct demangle_data *d)
 {
-	size_t org_len, len;
+	size_t len;
 	const char *name;
 	char *delim;
 
@@ -394,8 +391,7 @@ read_func(struct demangle_data *d)
 		return (false);
 
 	assert(d->p != NULL && "d->p (org str) is NULL");
-	org_len = strlen(d->p);
-	if ((delim = strnstr(d->p, "__", org_len)) == NULL)
+	if ((delim = strstr(d->p, "__")) == NULL)
 		return (false);
 
 	len = delim - d->p;

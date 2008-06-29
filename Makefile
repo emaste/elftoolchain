@@ -6,4 +6,8 @@ LDADD=	-lelf
 CSTD=	c99
 NO_SHARED?= yes
 
+.if ${unix:MNetBSD*}
+CFLAGS+=	--std=${CSTD}
+.endif
+
 .include <bsd.prog.mk>

@@ -57,7 +57,7 @@ struct sym_entry {
 	STAILQ_ENTRY(sym_entry) sym_entries;
 };
 
-typedef int (*fn_sort)(void *, const void *, const void *);
+typedef int (*fn_sort)(const void *, const void *);
 typedef void (*fn_elem_print)(char, const char *, const GElf_Sym *, const char *);
 typedef void (*fn_sym_print)(const GElf_Sym *);
 typedef int (*fn_filter)(char, const GElf_Sym *, const char *);
@@ -147,10 +147,10 @@ p->t_table == NULL || p->s_table == NULL || p->filename == NULL)
 l.stqh_last = &(l).stqh_first;}
 #define	UNUSED(p)		((void)p)
 
-static int		cmp_name(void *, const void *, const void *);
-static int		cmp_none(void *, const void *, const void *);
-static int		cmp_size(void *, const void *, const void *);
-static int		cmp_value(void *, const void *, const void *);
+static int		cmp_name(const void *, const void *);
+static int		cmp_none(const void *, const void *);
+static int		cmp_size(const void *, const void *);
+static int		cmp_value(const void *, const void *);
 static void		filter_dest(void);
 static int		filter_insert(fn_filter);
 static enum demangle	get_demangle_type(const char *);
@@ -206,6 +206,14 @@ static void		usage(int);
 struct nm_prog_info	nm_info;
 struct nm_prog_options	nm_opts;
 
+/*
+ * Point to current sym_print_data to use portable qsort function.
+ *  (e.g. There is no qsort_r function in NetBSD.)
+ *
+ * Using in sym_list_sort.
+ */
+struct sym_print_data	*nm_print_data;
+
 static const struct option nm_longopts[] = {
 	{ "debug-syms",		no_argument,		NULL,		'a'},
 	{ "defined-only",	no_argument,		&nm_opts.def_only, 1 },
@@ -230,7 +238,7 @@ static const struct option nm_longopts[] = {
 };
 
 static int
-cmp_name(void *p, const void *l, const void *r)
+cmp_name(const void *l, const void *r)
 {
 
 	assert(l != NULL);
@@ -238,26 +246,23 @@ cmp_name(void *p, const void *l, const void *r)
 	assert(((const struct sym_entry *)l)->name != NULL);
 	assert(((const struct sym_entry *)r)->name != NULL);
 	
-	UNUSED(p);
-
 	return (strcmp(((const struct sym_entry *)l)->name,
 		((const struct sym_entry *)r)->name));
 }
 
 static int
-cmp_none(void *p, const void *l, const void *r)
+cmp_none(const void *l, const void *r)
 {
 
 	UNUSED(l);
 	UNUSED(r);
-	UNUSED(p);
 
 	return (0);
 }
 
 /* Size comparison. If l and r have same size, compare their name. */
 static int
-cmp_size(void *p, const void *lp, const void *rp)
+cmp_size(const void *lp, const void *rp)
 {
 	const struct sym_entry *l, *r;
 
@@ -271,8 +276,6 @@ cmp_size(void *p, const void *lp, const void *rp)
 	assert(r->name != NULL);
 	assert(r->sym != NULL);
 
-	UNUSED(p);
-
 	if (l->sym->st_size == r->sym->st_size)
 		return (strcmp(l->name, r->name));
 
@@ -281,7 +284,7 @@ cmp_size(void *p, const void *lp, const void *rp)
 
 /* Value comparison. Undefined symbols come first. */
 static int
-cmp_value(void *p, const void *lp, const void *rp)
+cmp_value(const void *lp, const void *rp)
 {
 	const struct sym_entry *l, *r;
 	int l_is_undef, r_is_undef;
@@ -290,8 +293,8 @@ cmp_value(void *p, const void *lp, const void *rp)
 	l = lp;
 	r = rp;
 
-	assert(p != NULL);
-	ttable = ((struct sym_print_data *)p)->t_table;
+	assert(nm_print_data != NULL);
+	ttable = nm_print_data->t_table;
 
 	assert(l != NULL);
 	assert(l->name != NULL);
@@ -1643,9 +1646,13 @@ sym_list_sort(struct sym_print_data *p)
 
 	assert((size_t)idx == p->list_num);
 
-	if (nm_opts.sort_fn != &cmp_none)
-		qsort_r(e_v, p->list_num, sizeof(struct sym_entry), p,
+	if (nm_opts.sort_fn != &cmp_none) {
+		nm_print_data = p;
+		assert(nm_print_data != NULL);
+
+		qsort(e_v, p->list_num, sizeof(struct sym_entry),
 		    nm_opts.sort_fn);
+	}
 
 	return (e_v);
 }
