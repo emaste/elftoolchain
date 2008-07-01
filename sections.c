@@ -65,11 +65,14 @@ is_remove_section(struct elfcopy *ecp, const char *name)
 			return (0);
 	}
 
-	if (is_debug_section(name))
+	if (is_debug_section(name)) {
 		if (ecp->strip == STRIP_ALL ||
 		    ecp->strip == STRIP_DEBUG ||
 		    ecp->strip == STRIP_UNNEEDED)
 			return (1);
+		if (ecp->strip == STRIP_NONDEBUG)
+			return (0);
+	}
 
 	if (ecp->sections_to_remove != 0 ||
 	    ecp->sections_to_copy != 0) {
@@ -329,11 +332,19 @@ create_scn(struct elfcopy *ecp)
 		if (oldndx != SHN_UNDEF && newndx != SHN_UNDEF)
 			ecp->secndx[oldndx] = newndx;
 
+		/*
+		 * If strip action is STRIP_NONDEBUG(only keep debug),
+		 * change sections flags of loadable sections to SHF_NOBITS,
+		 * and the content of those sections will be ignored.
+		 */
+		if (ecp->strip == STRIP_NONDEBUG && (ish.sh_flags & SHF_ALLOC))
+			s->type = SHT_NOBITS;
+
 		/* create section header based on input object. */
 		if (strcmp(name, ".symtab") != 0 &&
 		    strcmp(name, ".strtab") != 0 &&
 		    strcmp(name, ".shstrtab") != 0)
-			copy_shdr(ecp, s->is, s->os, s->name);
+			copy_shdr(ecp, s, NULL, 0);
 
 		if (strcmp(name, ".symtab") == 0) {
 			ecp->flags |= SYMTAB_EXIST;
@@ -774,21 +785,37 @@ read_section(struct section *s, size_t *size)
 }
 
 void
-copy_shdr(struct elfcopy *ecp, Elf_Scn *is, Elf_Scn *os, const char *name)
+copy_shdr(struct elfcopy *ecp, struct section *s, const char *name, int copy)
 {
 	GElf_Shdr ish, osh;
 
-	if (gelf_getshdr(is, &ish) == NULL)
+	if (gelf_getshdr(s->is, &ish) == NULL)
 		errx(EX_SOFTWARE, "526 gelf_getshdr() failed: %s",
 		    elf_errmsg(-1));
-	if (gelf_getshdr(os, &osh) == NULL)
+	if (gelf_getshdr(s->os, &osh) == NULL)
 		errx(EX_SOFTWARE, "529 gelf_getshdr() failed: %s",
 		    elf_errmsg(-1));
 
-	(void) memcpy(&osh, &ish, sizeof(ish));
-	add_to_shstrtab(ecp, name);
+	if (copy)
+		(void) memcpy(&osh, &ish, sizeof(ish));
+	else {
+		osh.sh_type		= s->type;
+		osh.sh_flags		= ish.sh_flags;
+		osh.sh_addr		= s->vma;
+		osh.sh_offset		= s->off;
+		osh.sh_size		= s->sz;
+		osh.sh_link		= ish.sh_link;
+		osh.sh_info		= ish.sh_info;
+		osh.sh_addralign	= s->align;
+		osh.sh_entsize		= ish.sh_entsize;
+	}
 
-	if (!gelf_update_shdr(os, &osh))
+	if (name == NULL)
+		add_to_shstrtab(ecp, s->name);
+	else
+		add_to_shstrtab(ecp, name);
+
+	if (!gelf_update_shdr(s->os, &osh))
 		errx(EX_SOFTWARE, "elf_update_shdr failed: %s",
 		    elf_errmsg(-1));
 }
