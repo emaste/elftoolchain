@@ -612,10 +612,8 @@ resync_sections(struct elfcopy *ecp)
 
 	off = 0;
 	TAILQ_FOREACH(s, &ecp->v_sec, sec_list) {
-		if (off == 0) {
-			off = s->off + s->sz;
-			continue;
-		}
+		if (off == 0)
+			off = s->off;
 
 		if (off <= s->off) {
 			if (s->loadable)
