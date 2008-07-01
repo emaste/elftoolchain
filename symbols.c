@@ -507,8 +507,8 @@ create_symtab(struct elfcopy *ecp)
 	ecp->secndx[elf_ndxscn(sy->is)] = elf_ndxscn(sy->os);
 	ecp->secndx[elf_ndxscn(st->is)] = elf_ndxscn(st->os);
 
-	copy_shdr(ecp, sy->is, sy->os, ".symtab");
-	copy_shdr(ecp, st->is, st->os, ".strtab");
+	copy_shdr(ecp, sy, ".symtab", 1);
+	copy_shdr(ecp, st, ".strtab", 1);
 
 	if (gelf_getshdr(sy->os, &shy) == NULL)
 		errx(EX_SOFTWARE, "gelf_getshdr() failed: %s",

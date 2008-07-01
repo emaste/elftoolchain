@@ -43,6 +43,7 @@ __FBSDID("$FreeBSD$");
 enum options
 {
 	ECP_ADD_SECTION,
+	ECP_ONLY_DEBUG,
 	ECP_RENAME_SECTION,
 	ECP_STRIP_UNNEEDED
 };
@@ -51,7 +52,7 @@ static struct option strip_longopts[] =
 {
 	{"help", no_argument, NULL, 'h'},
 	{"keep-symbol", required_argument, NULL, 'K'},
-/* 	{"only-keep-debug", no_argument, NULL, ECP_ONLY_DEBUG}, */
+	{"only-keep-debug", no_argument, NULL, ECP_ONLY_DEBUG},
 	{"output-file", required_argument, NULL, 'o'},
 	{"preserve-dates", no_argument, NULL, 'p'},
 	{"remove-section", required_argument, NULL, 'R'},
@@ -68,6 +69,7 @@ static struct option elfcopy_longopts[] =
 	{"help", no_argument, NULL, 'h'},
 	{"keep-symbol", required_argument, NULL, 'K'},
 	{"localize-symbol", required_argument, NULL, 'L'},
+	{"only-keep-debug", no_argument, NULL, ECP_ONLY_DEBUG},
 	{"only-section", required_argument, NULL, 'j'},
 	{"preserve-dates", no_argument, NULL, 'p'},
 	{"remove-section", required_argument, NULL, 'R'},
@@ -427,6 +429,9 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			STAILQ_INSERT_TAIL(&ecp->v_sadd, sa, sadd_list);
 			ecp->sections_to_add = 1;
 			break;
+		case ECP_ONLY_DEBUG:
+			ecp->strip = STRIP_NONDEBUG;
+			break;
 		case ECP_STRIP_UNNEEDED:
 			ecp->strip = STRIP_UNNEEDED;
 			break;
@@ -563,6 +568,9 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 			outfile = optarg;
 			break;
 		case 'p':
+			break;
+		case ECP_ONLY_DEBUG:
+			ecp->strip = STRIP_NONDEBUG;
 			break;
 		case ECP_STRIP_UNNEEDED:
 			ecp->strip = STRIP_UNNEEDED;
