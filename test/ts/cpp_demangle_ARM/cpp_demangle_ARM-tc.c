@@ -63,7 +63,8 @@ test_basic()
 	test_cpp_demangle_ARM("f__F1xi", "f(x, int)");
 	test_cpp_demangle_ARM("__ct__1xFv", "x::x()");
 	test_cpp_demangle_ARM("__dt__1xFv", "x::~x()");
-	test_cpp_demangle_ARM("__opT", "operator T()");
+	test_cpp_demangle_ARM("__opQ25Name16Class1__Q25Name16Class2",
+	    "Name1::Class2::operator Name1::Class1()");
 }
 
 static void
@@ -114,8 +115,8 @@ test_cpp_demangle_ARM(const char *org, const char *dst)
 		const size_t len = strlen(org);
 		char *msg;
 
-		if ((msg = malloc(len + 8)) != NULL) {
-			snprintf(msg, len + 8, "Cannot demangle : %s", org);
+		if ((msg = malloc(len + 19)) != NULL) {
+			snprintf(msg, len + 19, "Cannot demangle : %s", org);
 			tet_infoline(msg);
 			free(msg);
 		}
