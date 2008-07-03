@@ -78,6 +78,7 @@ static bool	read_func_name(struct demangle_data *);
 static bool	read_func_ptr(struct demangle_data *);
 static bool	read_memptr(struct demangle_data *);
 static bool	read_op(struct demangle_data *);
+static bool	read_op_user(struct demangle_data *);
 static bool	read_qual_name(struct demangle_data *);
 static int	read_subst(struct demangle_data *);
 static int	read_subst_iter(struct demangle_data *);
@@ -663,6 +664,8 @@ read_memptr(struct demangle_data *d)
 
 	mptr.p = d->p;
 	if (*mptr.p == 'Q') {
+		++mptr.p;
+
 		if (read_qual_name(&mptr) == false)
 			goto clean;
 	} else {
@@ -873,21 +876,93 @@ read_op(struct demangle_data *d)
 		return (vector_str_push(&d->vec, "operator delete()",
 			17));
 	case SIMPLE_HASH('o', 'p') :
-		/* TODO. Test case for this */
+		/* __op<TO_TYPE>__<FROM_TYPE> */
 		d->p += 2;
 
 		d->type = ENCODE_OP_USER;
-		
-		if (vector_str_push(&d->vec, "operator ", 9) == false)
-			return (false);
 
-		if (vector_str_push(&d->vec, d->p, strlen(d->p)) == false)
-			return (false);
-
-		return (vector_str_push(&d->vec, "()", 2));
+		return (read_op_user(d));
 	default :
 		return (false);
 	};
+}
+
+static bool
+read_op_user(struct demangle_data *d)
+{
+	struct demangle_data from, to;
+	size_t from_len, to_len;
+	bool rtn;
+	char *from_str, *to_str;
+
+	if (d == NULL)
+		return (false);
+
+	if (init_demangle_data(&from) == false)
+		return (false);
+
+	rtn = false;
+	from_str = NULL;
+	to_str = NULL;
+	if (init_demangle_data(&to) == false)
+		goto clean;
+
+	to.p = d->p;
+	if (*to.p == 'Q') {
+		++to.p;
+
+		if (read_qual_name(&to) == false)
+			goto clean;
+			
+		/* pop last '::' */
+		if (vector_str_pop(&to.vec) == false)
+			goto clean;
+	} else {
+		if (read_class(&to) == false)
+			goto clean;
+			
+		/* skip '__' */
+		to.p += 2;
+	}
+
+	if ((to_str = vector_str_get_flat(&to.vec, &to_len)) == NULL)
+		goto clean;
+
+	from.p = to.p;
+	if (*from.p == 'Q') {
+		++from.p;
+
+		if (read_qual_name(&from) == false)
+			goto clean;
+
+		/* pop last '::' */
+		if (vector_str_pop(&from.vec) == false)
+			goto clean;
+	} else {
+		if (read_class(&from) == false)
+			goto clean;
+	}
+
+	if ((from_str = vector_str_get_flat(&from.vec, &from_len)) == NULL)
+		goto clean;
+
+	if (vector_str_push(&d->vec, from_str, from_len) == false)
+		goto clean;
+
+	if (vector_str_push(&d->vec, "::operator ", 11) == false)
+		return (false);
+
+	if (vector_str_push(&d->vec, to_str, to_len) == false)
+		goto clean;
+
+	rtn = vector_str_push(&d->vec, "()", 2);
+clean:
+	free(to_str);
+	free(from_str);
+	dest_demangle_data(&to);
+	dest_demangle_data(&from);
+
+	return (rtn);
 }
 
 /* single digit + class names */
@@ -1088,6 +1163,8 @@ read_type(struct demangle_data *d)
 
 	switch (*d->p) {
 	case 'Q' :
+		++d->p;
+
 		return (read_qual_name(d));
 	case 'v' :
 		++d->p;
