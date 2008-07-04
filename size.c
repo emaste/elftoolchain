@@ -41,8 +41,7 @@ __FBSDID("$FreeBSD$");
 #include <gelf.h>
 
 #define BUF_SIZE	40
-#define ELF_ALIGN(val,x) \
-	(((val) + (x) - 1) > (val) ? (((val)+(x)-1) & ~((x)-1)) : ~0)
+#define ELF_ALIGN(val,x) (((val)+(x)-1) & ~((x)-1))
 
 #ifndef NT_AUXV
 #define NT_AUXV 6
