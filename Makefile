@@ -1,4 +1,4 @@
-# 
+#
 
 PROG=   size
 WARNS?= 6
