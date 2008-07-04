@@ -131,7 +131,7 @@ main(int argc, char **argv)
 			radix = RADIX_OCTAL;
 			break;
 		case 't':
-			show_loc = 1;			
+			show_loc = 1;
 			if (*optarg == 'd')
 				radix = RADIX_DECIMAL;
 			else if (*optarg == 'o')
@@ -159,7 +159,7 @@ main(int argc, char **argv)
 		case '?':
 		default:
 			usage();
-			/* NOTREACHED */			
+			/* NOTREACHED */
 		}
 	argc -= optind;
 	argv += optind;
@@ -179,19 +179,19 @@ int
 handle_file(const char *name)
 {
 	int fd, rt;
-	
+
 	if (name == NULL)
 		return (EX_NOINPUT);
 	if (strcmp("{standard input}", name) != 0) {
 		if (freopen(name, "rb", stdin) == NULL) {
 			warnx("'%s': %s", name, strerror(errno));
-			return (EX_NOINPUT);	
+			return (EX_NOINPUT);
 		}
 	} else {
 		return (find_strings(name, (off_t)0, (off_t)0));
 	}
 
-	fd = fileno(stdin);	
+	fd = fileno(stdin);
 	if (fd < 0)
 		return (EX_NOINPUT);
 	rt = handle_elf(name, fd);
@@ -217,7 +217,7 @@ handle_binary(const char *name, int fd)
 /*
  * Will analyse a file to see if it ELF, other files including ar(1),
  * core dumps are passed off and treated as flat binary files. Unlike
- * GNU size in FreeBSD this routine will not treat ELF object from 
+ * GNU size in FreeBSD this routine will not treat ELF object from
  * different archs as flat binary files(has to overridden using -a).
  */
 int
@@ -228,12 +228,12 @@ handle_elf(const char *name, int fd)
 	Elf *elf;
 	Elf_Scn *scn;
 	int rc;
-	
+
 	rc = EX_OK;
 	/* If entire file is choosen, treat it as a binary file */
 	if (entire_file)
 		return (handle_binary(name, fd));
-		
+
 	(void) lseek(fd, (off_t)0, SEEK_SET);
 	elf = elf_begin(fd, ELF_C_READ, NULL);
 	if (elf_kind(elf) != ELF_K_ELF) {
@@ -244,9 +244,9 @@ handle_elf(const char *name, int fd)
 	if (gelf_getehdr(elf, &elfhdr) == NULL) {
 		(void) elf_end(elf);
 		warnx("%s: ELF file could not be processed", name);
-		return (EX_SOFTWARE);	
+		return (EX_SOFTWARE);
 	}
-	
+
 	if (elfhdr.e_shnum == 0 && elfhdr.e_type == ET_CORE) {
 		(void) elf_end(elf);
 		return (handle_binary(name, fd));
@@ -254,7 +254,7 @@ handle_elf(const char *name, int fd)
 		scn = NULL;
 		while ((scn = elf_nextscn(elf, scn)) != NULL) {
 			if (gelf_getshdr(scn, &shdr) == NULL)
-				continue;			       
+				continue;
 			if (shdr.sh_type != SHT_NOBITS &&
 			    (shdr.sh_flags & SHF_ALLOC) != 0) {
 				rc = find_strings(name, shdr.sh_offset,
@@ -274,17 +274,17 @@ long
 getcharacter()
 {
 	long rt;
-	int i;	
+	int i;
 	char buf[4], c;
-	
+
 	rt = EOF;
 	for(i = 0; i < encoding_size; i++) {
 		c = getc(stdin);
 		if (feof(stdin))
 			return (EOF);
-		buf[i] = c;		
+		buf[i] = c;
 	}
-	
+
 	switch(encoding) {
 	case ENCODING_7BIT:
 	case ENCODING_8BIT:
@@ -299,18 +299,18 @@ getcharacter()
 	case ENCODING_32BIT_BIG:
 		rt = ((long) buf[0] << 24) | ((long) buf[1] << 16) |
            	    ((long) buf[2] << 8) | buf[3];
-           	break;	
+           	break;
 	case ENCODING_32BIT_LITTLE:
 		rt = buf[0] | ((long) buf[1] << 8) | ((long) buf[2] << 16) |
         	    ((long) buf[3] << 24);
-           	break;		
+           	break;
 	}
 	return (rt);
 }
 
 /*
- * Input stream stdin is read until the end of file is reached or until 
- * the section size is reached in case of ELF files. Contiguous 
+ * Input stream stdin is read until the end of file is reached or until
+ * the section size is reached in case of ELF files. Contiguous
  * characters of >= min_size(default 4) will be displayed.
  */
 int
@@ -326,7 +326,7 @@ find_strings(const char *name, off_t offset, off_t size)
 		     strerror(errno));
 		return (EX_SOFTWARE);
 	}
-	
+
 	(void) fseeko(stdin, offset, SEEK_SET);
 	cur_off = offset;
 	start_off = 0;
@@ -355,9 +355,9 @@ find_strings(const char *name, off_t offset, off_t size)
 	 			break;
 		 	}
 		}
-		
+
 		if (i >= min_len && ((cur_off <= offset + size) ||
-		    !(offset + size))) {			    	
+		    !(offset + size))) {
 			if (show_filename)
 				printf ("%s: ", name);
 			if (show_loc) {
@@ -375,9 +375,9 @@ find_strings(const char *name, off_t offset, off_t size)
 					    (uintmax_t)start_off);
 					break;
 				}
-			}			    	
+			}
 			printf("%s", obuf);
-			
+
 			while(1) {
 				if ((offset + size) &&
 				    (cur_off >= offset + size))
