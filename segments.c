@@ -111,6 +111,12 @@ setup_phdr(struct elfcopy *ecp)
 	if (iphnum == 0)
 		return;
 
+	/* If --only-keep-debug is specified, discard all program headers. */
+	if (ecp->strip == STRIP_NONDEBUG) {
+		ecp->ophnum = 0;
+		return;
+	}
+		
 	for (i = 0; (size_t)i < iphnum; i++) {
 		if (gelf_getphdr(ecp->ein, i, &iphdr) != &iphdr)
 			errx(EX_SOFTWARE, "gelf_getphdr failed: %s",
