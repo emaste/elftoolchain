@@ -196,7 +196,7 @@ cpp_demangle_ia64(const char *org)
 
 	limit = 0;
 	while (*ddata.cur != '\0') {
-		/* 
+		/*
 		 * Breaking at some gcc info at tail.
 		 * e.g) @@GLIBCXX_3.4
 		 */
@@ -1397,7 +1397,7 @@ cpp_demangle_read_local_name(struct cpp_demangle_data *ddata)
 		if (cpp_demangle_read_name(ddata) == 0)
 			return (0);
 	}
-	
+
 	if (*ddata->cur == '_') {
 		++ddata->cur;
 		while (isdigit(*ddata->cur) != 0)
@@ -1716,7 +1716,7 @@ cpp_demangle_read_pointer_to_member(struct cpp_demangle_data *ddata)
 	for (size_t i = p_idx; i < idx; ++i)
 		if (vector_str_pop(&ddata->output) == false)
 			goto clean1;
-	
+
 	if (vector_read_cmd_push(&ddata->cmd, READ_PTRMEM) == 0)
 		goto clean1;
 
@@ -1989,7 +1989,7 @@ cpp_demangle_read_subst_stdtmpl(struct cpp_demangle_data *ddata,
 
 	if (cpp_demangle_read_tmpl_args(ddata) == 0)
 		return (0);
-			
+
 	if ((substr = vector_str_substr(output, p_idx, output->size - 1,
 		 &substr_len)) == NULL)
 		return (0);
@@ -2194,7 +2194,7 @@ again:
 		/* signed char */
 		if (cpp_demangle_push_str(ddata, "signed char", 11) == 0)
 			goto clean;
-		
+
 		++ddata->cur;
 
 		goto rtn;
@@ -2969,7 +2969,7 @@ cpp_demangle_read_uqname(struct cpp_demangle_data *ddata)
 
 		return (1);
 	};
-	
+
 	/* vendor extened operator */
 	if (*ddata->cur == 'v' && isdigit(*(ddata->cur + 1)) != 0) {
 		if (cpp_demangle_push_str(ddata, "vendor extened operator ",
@@ -3027,7 +3027,7 @@ cpp_demangle_read_uqname(struct cpp_demangle_data *ddata)
 
 		return (1);
 	};
-	
+
 	/* source name */
 	if (isdigit(*ddata->cur) != 0)
 		return (cpp_demangle_read_sname(ddata));

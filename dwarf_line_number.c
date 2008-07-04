@@ -414,11 +414,11 @@ get_current_path(struct comp_dir_head *l, const char *cur, size_t *len,
 		SLIST_FOREACH(ep, l, entries) {
 			if (strncmp(ep->src, cur, *len) == 0) {
 				*len = *len + strlen(ep->dir) + 1;
-				
+
 				if ((*out = malloc(sizeof(char) * (*len + 1)))
 				    == NULL)
 					return (0);
-					
+
 				snprintf(*out, *len + 1, "%s/%s", ep->dir, cur);
 
 				/* move to head */
@@ -438,7 +438,7 @@ get_current_path(struct comp_dir_head *l, const char *cur, size_t *len,
 
 	if ((*out = malloc(sizeof(char) * (*len + 1))) == NULL)
 		return (0);
-			
+
 	snprintf(*out, *len + 1, "%s", cur);
 
 	return (1);
@@ -600,7 +600,7 @@ start:
 	if ((i = get_LNP_header(ptr, (unsigned char *)buf - ptr + size,
 		    &lnp_header)) == 0)
 		return (0);
-	
+
 	ptr += i;
 
 	/* include_directory */
@@ -869,7 +869,7 @@ line_info_insert(struct state_register *regi, struct vector_str *v_file,
 
 	if (regi->file - 1 > v_file->size)
 		return (0);
-	
+
 	if ((e = malloc(sizeof(struct line_info_entry))) == NULL)
 		return (0);
 

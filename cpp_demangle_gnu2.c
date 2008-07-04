@@ -220,7 +220,7 @@ cpp_demangle_gnu2(const char *org)
 		if ((arg = vector_str_substr(&d.vec, arg_begin, d.vec.size - 1,
 			    &arg_len)) == NULL)
 			goto clean;
-                
+
 		if (vector_str_push(&d.arg, arg, arg_len) == false)
 			goto clean;
 
@@ -341,7 +341,7 @@ push_CTDT(const char *s, size_t l, struct vector_str *v)
 
 	if (vector_str_push(v, s, l) == false)
 		return (false);
-		
+
 	assert(v->size > 1);
 
 	return (vector_str_push(v, v->container[v->size - 2],
@@ -474,7 +474,7 @@ read_func_name(struct demangle_data *d)
 
 	if (*d->p == '_' && *(d->p + 1) == '_') {
 		d->p += 2;
-		
+
 		/* CTOR */
 		if (*d->p == 'Q' && isdigit(*(d->p + 1))) {
 			++d->p;
@@ -482,7 +482,7 @@ read_func_name(struct demangle_data *d)
 
 			if (read_qual_name(d) == false)
 				return (false);
-			
+
 			return (vector_str_pop(&d->vec));
 		} else if (isdigit(*d->p)) {
 			d->type = ENCODE_OP_CT;
@@ -573,7 +573,7 @@ read_func_name(struct demangle_data *d)
 
 			if (read_qual_name(d) == false)
 				return (false);
-			
+
 			return (vector_str_pop(&d->vec));
 		} else if (isdigit(*d->p))
 			return (read_class(d));
@@ -589,7 +589,7 @@ read_func_name(struct demangle_data *d)
 
 			if (read_qual_name(d) == false)
 				return (false);
-			
+
 			if (vector_str_pop(&d->vec) == false)
 				return (false);
 		} else if (isdigit(*d->p)) {
@@ -992,14 +992,14 @@ read_op_user(struct demangle_data *d)
 
 		if (read_qual_name(&to) == false)
 			goto clean;
-			
+
 		/* pop last '::' */
 		if (vector_str_pop(&to.vec) == false)
 			goto clean;
 	} else {
 		if (read_class(&to) == false)
 			goto clean;
-			
+
 		/* skip '__' */
 		to.p += 2;
 	}
@@ -1142,12 +1142,12 @@ read_subst_iter(struct demangle_data *d)
 		if (vector_str_push(&d->arg, d->arg.container[idx - 1],
 			strlen(d->arg.container[idx - 1])) == false)
 			return (-1);
-				
+
 		if (i != repeat - 1 &&
 		    vector_str_push(&d->vec, ", ", 2) == false)
 			return (-1);
 	}
-			
+
 	if (*d->p == '\0')
 		return (1);
 
@@ -1183,7 +1183,7 @@ read_type(struct demangle_data *d)
 				if (vector_str_push(&d->vec, "const ", 6) ==
 				    false)
 					return (false);
-			} 
+			}
 
 			break;
 		case 'V' :
@@ -1195,7 +1195,7 @@ read_type(struct demangle_data *d)
 			break;
 		case 'S' :
 			++d->p;
-		
+
 			if (vector_str_push(&d->vec, "signed ", 7) == false)
 				return (false);
 
@@ -1254,11 +1254,11 @@ read_type(struct demangle_data *d)
 		return(vector_str_push(&d->vec, "bool", 4));
 	case 'c' :
 		++d->p;
-		
+
 		return (vector_str_push(&d->vec, "char", 4));
 	case 's' :
 		++d->p;
-		
+
 		return (vector_str_push(&d->vec, "short", 5));
 	case 'i' :
 		++d->p;
