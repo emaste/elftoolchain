@@ -5,6 +5,7 @@ all
         ^vector_str
         ^cpp_demangle
         ^cpp_demangle_arm
+        ^cpp_demangle_gnu2
         ^nm_object1
         ^nm_object2
         ^nm_archive1
@@ -29,6 +30,11 @@ cpp_demangle_arm
         "Starting cpp demangle ARM Test"
         /ts/cpp_demangle_ARM/cpp_demangle_ARM-tc
         "Complete cpp demangle ARM Test"
+
+cpp_demangle_gnu2
+        "Starting cpp demangle GNU 2 Test"
+        /ts/cpp_demangle_gnu2/cpp_demangle_gnu2-tc
+        "Complete cpp demangle GNU 2 Test"
 
 nm_object1
         "Starting nm Object Test 1"

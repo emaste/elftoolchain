@@ -1073,7 +1073,8 @@ read_qual_name(struct demangle_data *d)
 			return (false);
 	}
 
-	d->p = d->p + 2;
+	if (*d->p != '\0')
+		d->p = d->p + 2;
 
 	return (true);
 }
