@@ -874,7 +874,8 @@ read_op(struct demangle_data *d)
 		return (vector_str_push(&d->vec, "operator->", 10));
 	case SIMPLE_HASH('a', 'p') :
 		/* apl */
-		assert(*(d->p + 2) == 'l');
+		if (*(d->p + 2) != 'l')
+			return (false);
 
 		d->p += 3;
 		return (vector_str_push(&d->vec, "operator+=", 10));
@@ -897,25 +898,29 @@ read_op(struct demangle_data *d)
 		return (false);
 	case SIMPLE_HASH('a', 'l') :
 		/* als */
-		assert(*(d->p + 2) == 's');
+		if (*(d->p + 2) != 's')
+			return (false);
 
 		d->p += 3;
 		return (vector_str_push(&d->vec, "operator<<=", 11));
 	case SIMPLE_HASH('a', 'r') :
 		/* ars */
-		assert(*(d->p + 2) == 's');
+		if (*(d->p + 2) != 's')
+			return (false);
 
 		d->p += 3;
 		return (vector_str_push(&d->vec, "operator>>=", 11));
 	case SIMPLE_HASH('a', 'o') :
 		/* aor */
-		assert(*(d->p + 2) == 'r');
+		if (*(d->p + 2) != 'r')
+			return (false);
 
 		d->p += 3;
 		return (vector_str_push(&d->vec, "operator|=", 10));
 	case SIMPLE_HASH('a', 'e') :
 		/* aer */
-		assert(*(d->p + 2) == 'r');
+		if (*(d->p + 2) != 'r')
+			return (false);
 
 		d->p += 3;
 		return (vector_str_push(&d->vec, "operator^=", 10));
