@@ -46,6 +46,7 @@
 
 #include "cpp_demangle.h"
 #include "cpp_demangle_arm.h"
+#include "cpp_demangle_gnu2.h"
 #include "dwarf_line_number.h"
 
 /* symbol information list */
@@ -99,7 +100,7 @@ enum print_name {
 };
 
 enum demangle {
-	DEMANGLE_NONE, DEMANGLE_AUTO, DEMANGLE_GV3, DEMANGLE_ARM
+	DEMANGLE_NONE, DEMANGLE_AUTO, DEMANGLE_GV2, DEMANGLE_GV3, DEMANGLE_ARM
 };
 
 struct nm_prog_options {
@@ -368,6 +369,9 @@ get_demangle_type(const char *org)
 	if (is_cpp_mangled_ia64(org))
 		return (DEMANGLE_GV3);
 
+	if (is_cpp_mangled_gnu2(org))
+		return (DEMANGLE_GV2);
+
 	if (is_cpp_mangled_ARM(org))
 		return (DEMANGLE_ARM);
 
@@ -380,6 +384,9 @@ get_demangle_option(const char *opt)
 
 	if (opt == NULL)
 		return (DEMANGLE_AUTO);
+
+	if (strncasecmp(opt, "gnu-v2", 6) == 0)
+		return (DEMANGLE_GV2);
 
 	if (strncasecmp(opt, "gnu-v3", 6) == 0)
 		return (DEMANGLE_GV3);
@@ -641,6 +648,16 @@ print_demangle_name(const char *format, const char *name)
 	    get_demangle_type(name) : nm_opts.demangle_type;
 
 	switch (d) {
+	case DEMANGLE_GV2:
+		{
+			if ((demangle = cpp_demangle_gnu2(name)) == NULL)
+				demangle = cpp_demangle_ARM(name);
+
+			printf(format, demangle == NULL ? name : demangle);
+
+			free(demangle);
+		}
+		break;
 	case DEMANGLE_GV3:
 		{
 			demangle = cpp_demangle_ia64(name);
