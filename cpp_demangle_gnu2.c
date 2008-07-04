@@ -86,9 +86,6 @@ static bool	read_type(struct demangle_data *);
  * Decode GNU 2 style mangling.
  *
  * Return new allocated string or NULL.
- *
- * Todo.
- *       1.CTOR with parameters.
  */
 char *
 cpp_demangle_gnu2(const char *org)
@@ -97,9 +94,19 @@ cpp_demangle_gnu2(const char *org)
 	size_t arg_begin, arg_len;
 	unsigned int try;
 	char *rtn, *arg;
+	const char *reserved[] = { "__CTOR",
+				   "__DTOR",
+				   "__EH_FRAME",
+				   "__EXCEPTION",
+				   "__FRAME",
+				   NULL };
 
 	if (org == NULL)
 		return (NULL);
+
+	for (const char **p = reserved; *p != NULL; ++p)
+		if (memcmp(org, *p, strlen(*p)) == 0)
+			return (NULL);
 
 	if (init_demangle_data(&d) == false)
 		return (NULL);
@@ -120,9 +127,12 @@ cpp_demangle_gnu2(const char *org)
 		if (push_CTDT("::", 2, &d.vec) == false)
 			goto clean;
 
-		goto flat;
+                break;
 	case ENCODE_OP_DT :
 		if (push_CTDT("::~", 3, &d.vec) == false)
+			goto clean;
+
+		if (vector_str_push(&d.vec, "(void)", 6) == false)
 			goto clean;
 
 		goto flat;
@@ -335,9 +345,6 @@ push_CTDT(const char *s, size_t l, struct vector_str *v)
 	assert(v->size > 1);
 	if (vector_str_push(v, v->container[v->size - 2],
 		strlen(v->container[v->size - 2])) == false)
-		return (false);
-
-	if (vector_str_push(v, "()", 2) == false)
 		return (false);
 
 	return (true);
