@@ -86,6 +86,9 @@ static bool	read_type(struct demangle_data *);
  * Decode GNU 2 style mangling.
  *
  * Return new allocated string or NULL.
+ *
+ * Todo.
+ *       1.CTOR with parameters.
  */
 char *
 cpp_demangle_gnu2(const char *org)
@@ -130,15 +133,14 @@ cpp_demangle_gnu2(const char *org)
 		goto flat;
 	};
 
-	/* function type */
-	if (*d.p != 'F') {
-		/* assume void parameter function */
+	if (*d.p == 'F')
+		++d.p;
+	else if (*d.p == '\0') {
 		if (vector_str_push(&d.vec, "(void)", 6) == false)
 			goto clean;
 
 		goto flat;
 	}
-	++d.p;
 
 	/* start argument types */
 	if (vector_str_push(&d.vec, "(", 1) == false)
@@ -484,8 +486,15 @@ read_func_name(struct demangle_data *d)
 		}
 
 		d->type = ENCODE_OP;
-		if (read_op(d) == false)
-			return (false);
+		if (read_op(d) == false) {
+			/* not good condition, start function name with '__' */
+			d->type = ENCODE_FUNC;
+
+			if (vector_str_push(&d->vec, "__", 2) == false)
+				return (false);
+
+			return (read_func(d));
+		}
 
 		if (d->type == ENCODE_OP_USER ||
 		    d->type == ENCODE_OP_TF ||
@@ -494,6 +503,12 @@ read_func_name(struct demangle_data *d)
 
 		/* skip "__" */
 		d->p += 2;
+
+		if (*d->p == 'C') {
+			++d->p;
+
+			d->cnst_fn = true;
+		}
 
 		/* assume delimiter is removed */
 		if (*d->p == 'Q' && isdigit(*(d->p + 1))) {
