@@ -246,7 +246,7 @@ cmp_name(const void *l, const void *r)
 	assert(r != NULL);
 	assert(((const struct sym_entry *)l)->name != NULL);
 	assert(((const struct sym_entry *)r)->name != NULL);
-	
+
 	return (strcmp(((const struct sym_entry *)l)->name,
 		((const struct sym_entry *)r)->name));
 }
@@ -458,7 +458,7 @@ get_sym(Elf *elf, struct sym_head *headp, int shnum,
 
 					    break;
 				    }
-				
+
 				if (filter == false) {
 					if (sym_list_insert(headp, sym_name,
 						&sym) == 0)
@@ -661,7 +661,7 @@ print_demangle_name(const char *format, const char *name)
 	case DEMANGLE_GV3:
 		{
 			demangle = cpp_demangle_ia64(name);
-		
+
 			printf(format, demangle == NULL ? name : demangle);
 
 			free(demangle);
@@ -1196,7 +1196,7 @@ relocate_sec(Elf_Data *org, Elf_Data *rela, int class)
 		return (NULL);
 
 	memcpy(rtn, org->d_buf, org->d_size);
-	
+
 	i = 0;
 	while (gelf_getrela(rela, i, &ra) != NULL) {
 		if (class == ELFCLASS32) {
@@ -1625,7 +1625,7 @@ sym_list_print_each(struct sym_entry *ep, struct sym_print_data *p,
 
 		sec = p->s_table[ep->sym->st_shndx];
 	};
-	
+
 	nm_opts.elem_print_fn(type, sec, ep->sym, ep->name);
 
 	if (nm_opts.debug_line == true && line_info != NULL &&
@@ -1782,7 +1782,7 @@ usage(int exitcode)
 	printf("\n\
 \n  The default options are: output in bsd format, use a decimal radix,\
 \n  sort by symbol name, do not demangle names.\n");
-	
+
 	exit(exitcode);
 }
 
