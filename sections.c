@@ -337,11 +337,8 @@ create_scn(struct elfcopy *ecp)
 		 * change sections flags of loadable sections to SHF_NOBITS,
 		 * and the content of those sections will be ignored.
 		 */
-		if (ecp->strip == STRIP_NONDEBUG &&
-		    (ish.sh_flags & SHF_ALLOC)) {
+		if (ecp->strip == STRIP_NONDEBUG && (ish.sh_flags & SHF_ALLOC))
 			s->type = SHT_NOBITS;
-			s->loadable = 0;
-		}
 
 		/* create section header based on input object. */
 		if (strcmp(name, ".symtab") != 0 &&
