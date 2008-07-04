@@ -50,6 +50,8 @@ enum options
 
 static struct option strip_longopts[] =
 {
+	{"discard-all", no_argument, NULL, 'x'},
+	{"discard-locals", no_argument, NULL, 'X'},
 	{"help", no_argument, NULL, 'h'},
 	{"keep-symbol", required_argument, NULL, 'K'},
 	{"only-keep-debug", no_argument, NULL, ECP_ONLY_DEBUG},
@@ -66,6 +68,8 @@ static struct option strip_longopts[] =
 static struct option elfcopy_longopts[] =
 {
 	{"add-section", required_argument, NULL, ECP_ADD_SECTION},
+	{"discard-all", no_argument, NULL, 'x'},
+	{"discard-locals", no_argument, NULL, 'X'},
 	{"help", no_argument, NULL, 'h'},
 	{"keep-symbol", required_argument, NULL, 'K'},
 	{"localize-symbol", required_argument, NULL, 'L'},
