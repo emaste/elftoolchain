@@ -34,15 +34,15 @@
 .Nm
 .Op Fl afho
 .Op Fl e Ar encoding
-.Op Fl n Ar number 
+.Op Fl n Ar number
 .Op Fl t Ar radix
 .Op Ar
 .Sh DESCRIPTION
-Fo each 
-.Ar file 
+Fo each
+.Ar file
 given, the
 .Nm
-utility prints any contiguous seqeunce of printable 
+utility prints any contiguous seqeunce of printable
 characters of atleast 'n' characters long (the default is 4 characters)
 followed by an unprintable character.
 .Nm
@@ -62,8 +62,8 @@ This option instructs
 to scan the entire file. This is useful to override the default behaviour of
 scanning only initialized and loaded section of ELF objects.
 .It Fl e Ar encoding
-Select the character encoding to be used while searching for strings. 
-The encoding depends on the single character argument which speicifes 
+Select the character encoding to be used while searching for strings.
+The encoding depends on the single character argument which speicifes
 the encoding;
 .Ar s
 for single 7-bit-byte characters (ASCII, ISO 8859, etc., default).
@@ -80,8 +80,8 @@ for 32-bit bigendian.
 .It Fl f
 Print the name of the file before each string.
 .It Fl t Ar radix
-Print the offset from the start of the file before each string. The 
-format depends on the single character argument which specifies the 
+Print the offset from the start of the file before each string. The
+format depends on the single character argument which specifies the
 radix of the offset;
 .Ar d
 for decimal,
