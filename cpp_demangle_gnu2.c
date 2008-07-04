@@ -343,11 +343,9 @@ push_CTDT(const char *s, size_t l, struct vector_str *v)
 		return (false);
 		
 	assert(v->size > 1);
-	if (vector_str_push(v, v->container[v->size - 2],
-		strlen(v->container[v->size - 2])) == false)
-		return (false);
 
-	return (true);
+	return (vector_str_push(v, v->container[v->size - 2],
+		strlen(v->container[v->size - 2])));
 }
 
 static bool
@@ -759,10 +757,8 @@ read_memptr(struct demangle_data *d)
 
 		if (read_qual_name(&mptr) == false)
 			goto clean;
-	} else {
-		if (read_class(&mptr) == false)
+	} else if (read_class(&mptr) == false)
 			goto clean;
-	}	 
 
 	d->p = mptr.p;
 
@@ -1021,10 +1017,8 @@ read_op_user(struct demangle_data *d)
 		/* pop last '::' */
 		if (vector_str_pop(&from.vec) == false)
 			goto clean;
-	} else {
-		if (read_class(&from) == false)
+	} else if (read_class(&from) == false)
 			goto clean;
-	}
 
 	if ((from_str = vector_str_get_flat(&from.vec, &from_len)) == NULL)
 		goto clean;
@@ -1033,7 +1027,7 @@ read_op_user(struct demangle_data *d)
 		goto clean;
 
 	if (vector_str_push(&d->vec, "::operator ", 11) == false)
-		return (false);
+		goto clean;
 
 	if (vector_str_push(&d->vec, to_str, to_len) == false)
 		goto clean;
