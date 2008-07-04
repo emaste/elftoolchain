@@ -1779,10 +1779,10 @@ usage(int exitcode)
 \n    -x                        Write numeric values in hexadecimal.\
 \n                              Equivalent to specifying \"-t x\".",
 	    nm_info.name);
-	printf("\
+	printf("\n\
 \n  The default options are: output in bsd format, use a decimal radix,\
 \n  sort by symbol name, do not demangle names.\n");
-
+	
 	exit(exitcode);
 }
 
