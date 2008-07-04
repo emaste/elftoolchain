@@ -365,7 +365,7 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 	FILE *fp;
 	int opt, len;
 
-	while ((opt = getopt_long(argc, argv, "j:K:N:R:sSdg",
+	while ((opt = getopt_long(argc, argv, "j:K:N:R:sSdgxX",
 	    elfcopy_longopts, NULL)) != -1) {
 		switch(opt) {
 		case 'R':
@@ -399,6 +399,10 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			add_to_strip_list(ecp, optarg);
 			break;
 		case 'p':
+			break;
+		case 'x':
+		case 'X':
+			ecp->flags |= DISCARD_LOCAL;
 			break;
 		case ECP_ADD_SECTION:
 			if ((s = strchr(optarg, '=')) == NULL)
@@ -542,7 +546,7 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 	int i;
 
 	outfile = NULL;
-	while ((opt = getopt_long(argc, argv, "K:N:R:o:sSdg",
+	while ((opt = getopt_long(argc, argv, "K:N:R:o:sSdgxX",
 	    strip_longopts, NULL)) != -1) {
 		switch(opt) {
 		case 'R':
@@ -568,6 +572,10 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 			outfile = optarg;
 			break;
 		case 'p':
+			break;
+		case 'x':
+		case 'X':
+			ecp->flags |= DISCARD_LOCAL;
 			break;
 		case ECP_ONLY_DEBUG:
 			ecp->strip = STRIP_NONDEBUG;

@@ -124,6 +124,9 @@ is_remove_symbol(struct elfcopy *ecp, size_t sc, int i, GElf_Sym *s,
 	if (ecp->strip == STRIP_UNNEEDED)
 		return (1);
 
+	if ((ecp->flags & DISCARD_LOCAL) && is_local_symbol(s))
+		return (1);
+
 	if (ecp->strip == STRIP_DEBUG && is_debug_symbol(s))
 		return (1);
 
