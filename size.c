@@ -76,7 +76,7 @@ enum output_style {
 enum radix_style {
 	RADIX_OCTAL,
 	RADIX_DECIMAL,
-	RADIX_HEX 
+	RADIX_HEX
 };
 
 size_t sec_name_len;
@@ -148,12 +148,11 @@ main(int argc, char *argv[])
 
 	if (!*argv) {
 		exit_code = handle_elf(default_name);
-		if (exit_code == EX_SOFTWARE || exit_code == EX_DATAERR) 
+		if (exit_code == EX_SOFTWARE || exit_code == EX_DATAERR)
 			warnx("%s: File format not recognized", default_name);
 		if (exit_code == EX_NOINPUT)
 			warnx("'%s': No such file", default_name);
-	}
-	else while (*argv) {
+	} else while (*argv) {
 		exit_code = handle_elf(*argv);
 		if (exit_code == EX_SOFTWARE || exit_code == EX_DATAERR)
 			warnx("%s: File format not recognized", *argv);
@@ -179,7 +178,7 @@ xlatetom(Elf *elf, GElf_Ehdr *elfhdr, void *_src, void *_dst,
 	dst.d_buf = _dst;
 	dst.d_version = elfhdr->e_version;
 	dst.d_size = size;
-	return gelf_xlatetom(elf, &dst, &src, elfhdr->e_ident[EI_DATA]);
+	return (gelf_xlatetom(elf, &dst, &src, elfhdr->e_ident[EI_DATA]));
 }
 
 #define NOTE_OFFSET_32(nhdr, namesz, offset) 			\
@@ -200,9 +199,9 @@ xlatetom(Elf *elf, GElf_Ehdr *elfhdr, void *_src, void *_dst,
 
 #define NEXT_NOTE(elfhdr, descsz, namesz, offset) do {		\
 	if (elfhdr->e_ident[EI_CLASS] == ELFCLASS32) { 		\
-		offset += ELF_ALIGN((int32_t)descsz, 4) + 	\
+		offset += ELF_ALIGN((int32_t)descsz, 4) +	\
 		    sizeof(Elf32_Nhdr) + 			\
-		        ELF_ALIGN((int32_t)namesz, 4); 		\
+			ELF_ALIGN((int32_t)namesz, 4); 		\
 	} else {						\
 		offset += ELF_ALIGN((int32_t)descsz, 8) + 	\
 		    sizeof(Elf32_Nhdr) + 			\
@@ -221,14 +220,14 @@ handle_core_note(Elf *elf, GElf_Ehdr *elfhdr, GElf_Phdr *phdr,
 	uint64_t raw_size;
 	GElf_Off offset;
 	static pid_t pid;
-	uintptr_t ver;			
+	uintptr_t ver;
 	Elf32_Nhdr *nhdr, nhdr_l;
 	static int reg_pseudo = 0, reg2_pseudo = 0, regxfp_pseudo = 0;
 	char buf[BUF_SIZE], *data, *name;
 
  	if (elf == NULL || elfhdr == NULL || phdr == NULL)
 		return;
-	
+
 	data = elf_rawfile(elf, &max_size);
 	offset = phdr->p_offset;
 	while (data != NULL && offset < phdr->p_offset + phdr->p_filesz) {
@@ -251,7 +250,7 @@ handle_core_note(Elf *elf, GElf_Ehdr *elfhdr, GElf_Phdr *phdr,
 			    !strcmp(name,"FreeBSD")) {
 				if (elfhdr->e_ident[EI_CLASS] == ELFCLASS32) {
 					raw_size = (uint64_t)*((uint32_t *)
-					    (uintptr_t)(name + 
+					    (uintptr_t)(name +
 						ELF_ALIGN((int32_t)
 						nhdr_l.n_namesz, 4) + 8));
 					ver = (uintptr_t)NOTE_OFFSET_32(nhdr,
@@ -274,7 +273,7 @@ handle_core_note(Elf *elf, GElf_Ehdr *elfhdr, GElf_Phdr *phdr,
 				xlatetom(elf, elfhdr, &pid, &pid, ELF_T_WORD,
 				    sizeof(pid_t));
 			}
-			
+
 			if (raw_size != 0 && style == STYLE_SYSV) {
 				(void) snprintf(buf, BUF_SIZE, "%s/%d",
 				    ".reg", pid);
@@ -290,11 +289,11 @@ handle_core_note(Elf *elf, GElf_Ehdr *elfhdr, GElf_Phdr *phdr,
 					print_number(10, (uint32_t)0, radix,
 					    '\n');
 					reg_pseudo = 1;
-					text_size_total += raw_size;	
-				}				
+					text_size_total += raw_size;
+				}
 				text_size_total += raw_size;
-			}			
-		}	
+			}
+		}
 		break;
 		case NT_PRFPREG: /* same as NT_FPREGSET */
 			if (style == STYLE_SYSV) {
@@ -372,7 +371,7 @@ handle_core_note(Elf *elf, GElf_Ehdr *elfhdr, GElf_Phdr *phdr,
 				*s = 0;
 			}
 			break;
-		}			
+		}
 		case NT_PSTATUS:
 		case NT_LWPSTATUS:
 		default:
@@ -383,24 +382,24 @@ handle_core_note(Elf *elf, GElf_Ehdr *elfhdr, GElf_Phdr *phdr,
 }
 
 /*
- * Handles program headers except for PT_NOTE, when sysv output stlye is 
- * choosen, prints out the segment name and length. For berkely output 
+ * Handles program headers except for PT_NOTE, when sysv output stlye is
+ * choosen, prints out the segment name and length. For berkely output
  * style only PT_LOAD segments are handled, and text,
  * data, bss size is calculated for them.
  */
 void
 handle_phdr(Elf *elf, GElf_Ehdr *elfhdr, GElf_Phdr *phdr,
     uint32_t idx, const char *name)
-{	
+{
 	uint32_t addr, size;
 	int split;
-	char buf[BUF_SIZE];	
+	char buf[BUF_SIZE];
 
 	if (elf == NULL || elfhdr == NULL || phdr == NULL)
 		return;
 
 	size = addr = 0;
-	split = (phdr->p_memsz > 0) && 	(phdr->p_filesz > 0) && 
+	split = (phdr->p_memsz > 0) && 	(phdr->p_filesz > 0) &&
 	    (phdr->p_memsz > phdr->p_filesz);
 
 	if (style == STYLE_SYSV) {
@@ -442,7 +441,7 @@ int
 handle_core(char const *name, Elf *elf, GElf_Ehdr *elfhdr)
 {
 	GElf_Phdr phdr;
-	uint32_t i;	
+	uint32_t i;
 	char *core_cmdline;
 	const char *seg_name;
 
@@ -450,7 +449,7 @@ handle_core(char const *name, Elf *elf, GElf_Ehdr *elfhdr)
 		return (EX_DATAERR);
 	if  (elfhdr->e_shnum != 0 || elfhdr->e_type != ET_CORE)
 		return (EX_DATAERR);
-	
+
 	seg_name = core_cmdline = NULL;
 	if (style == STYLE_SYSV)
 		sysv_header(name, NULL);
@@ -518,7 +517,7 @@ handle_core(char const *name, Elf *elf, GElf_Ehdr *elfhdr)
 }
 
 /*
- * Given an elf object,ar(1) filename, and based on the output style 
+ * Given an elf object,ar(1) filename, and based on the output style
  * and radix format the various sections and their length will be printed
  * or the size of the text, data, bss sections will be printed out.
  */
@@ -649,7 +648,7 @@ sysv_calc(Elf *elf, GElf_Ehdr *elfhdr, GElf_Shdr *shdr, int dry_run)
 	if (!dry_run) {
 		if ((shdr->sh_type == SHT_SYMTAB ||
 		    shdr->sh_type == SHT_STRTAB || shdr->sh_type == SHT_RELA ||
-		    shdr->sh_type == SHT_REL) && shdr->sh_addr == 0) 
+		    shdr->sh_type == SHT_REL) && shdr->sh_addr == 0)
 			return;
 		(void) printf("%-*s", (int)sec_name_len, section_name);
 		print_number(10, (uint32_t)shdr->sh_size, radix, ' ');
@@ -658,7 +657,7 @@ sysv_calc(Elf *elf, GElf_Ehdr *elfhdr, GElf_Shdr *shdr, int dry_run)
 	} else {
 		if (sec_name_len < strlen(section_name))
 			sec_name_len = strlen(section_name) + 3;
-	} 
+	}
 }
 
 void
@@ -682,13 +681,13 @@ void
 berkeley_calc(GElf_Shdr *shdr)
 {
 	if (shdr != NULL) {
-		if (!(shdr->sh_flags & SHF_ALLOC)) 
+		if (!(shdr->sh_flags & SHF_ALLOC))
 			return;
-		if ((shdr->sh_flags & SHF_ALLOC) && 
+		if ((shdr->sh_flags & SHF_ALLOC) &&
 		    ((shdr->sh_flags & SHF_EXECINSTR) ||
 		    !(shdr->sh_flags & SHF_WRITE)))
 			text_size += shdr->sh_size;
-		else if ((shdr->sh_flags & SHF_ALLOC) && 
+		else if ((shdr->sh_flags & SHF_ALLOC) &&
 		    (shdr->sh_flags & SHF_WRITE) &&
 		    (shdr->sh_type != SHT_NOBITS))
 			data_size += shdr->sh_size;
