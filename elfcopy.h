@@ -153,6 +153,7 @@ struct elfcopy {
 #define	RELOCATABLE	0x0004
 #define	SYMTAB_EXIST	0x0010
 #define	SYMTAB_INTACT	0x0020
+#define DISCARD_LOCAL	0x0040
 
 	int flags;
 
