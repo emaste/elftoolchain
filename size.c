@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__RCSID("$Id$");
 
 #include <err.h>
 #include <fcntl.h>
@@ -40,32 +40,40 @@ __FBSDID("$FreeBSD$");
 #include <libelf.h>
 #include <gelf.h>
 
-#define BUF_SIZE	40
-#define ELF_ALIGN(val,x) (((val)+(x)-1) & ~((x)-1))
+#define	BUF_SIZE			40
+#define	DEFAULT_SECTION_NAME_LENGTH	19
+#define	ELF_ALIGN(val,x) (((val)+(x)-1) & ~((x)-1))
+#define	SIZE_VERSION_STRING		"size 1.0"
 
-#ifndef NT_AUXV
-#define NT_AUXV 6
+#ifndef	NT_AUXV
+#define	NT_AUXV			6
 #endif
-#ifndef NT_LWPSTATUS
-#define NT_LWPSTATUS 16
+#ifndef	NT_LWPSTATUS
+#define	NT_LWPSTATUS		16
 #endif
-#ifndef NT_PRFPREG
-#define NT_PRFPREG 2
+#ifndef	NT_PRFPREG
+#define	NT_PRFPREG		2
 #endif
-#ifndef NT_PSTATUS
-#define NT_PSTATUS 10
+#ifndef	NT_PRPSINFO
+#define	NT_PRPSINFO		3
 #endif
-#ifndef NT_PSINFO
-#define NT_PSINFO 13
+#ifndef	NT_PRSTATUS
+#define	NT_PRSTATUS		1
 #endif
-#ifndef NT_PRXFPREG
-#define NT_PRXFPREG 0x46e62b7f
+#ifndef	NT_PRXFPREG
+#define	NT_PRXFPREG		0x46e62b7f
 #endif
-#ifndef PT_GNU_EH_FRAME
-#define PT_GNU_EH_FRAME	(PT_LOOS + 0x474e550)
+#ifndef	NT_PSINFO
+#define	NT_PSINFO		13
 #endif
-#ifndef PT_GNU_STACK
-#define PT_GNU_STACK (PT_LOOS + 0x474e551)
+#ifndef	NT_PSTATUS
+#define	NT_PSTATUS		10
+#endif
+#ifndef	PT_GNU_EH_FRAME
+#define	PT_GNU_EH_FRAME		(PT_LOOS + 0x474e550)
+#endif
+#ifndef	PT_GNU_STACK
+#define	PT_GNU_STACK		(PT_LOOS + 0x474e551)
 #endif
 
 enum output_style {
@@ -79,28 +87,48 @@ enum radix_style {
 	RADIX_HEX
 };
 
-size_t sec_name_len;
-uint32_t bss_size_total, data_size_total, text_size_total;
 uint32_t bss_size, data_size, text_size, total_size;
-int show_totals;
-enum radix_style radix;
-enum output_style style;
-const char default_name[] = "a.out";
+uint32_t bss_size_total, data_size_total, text_size_total;
 
-int	handle_elf(char const *);
+int show_totals;
+
+size_t sec_name_len	= DEFAULT_SECTION_NAME_LENGTH;
+enum radix_style radix	= RADIX_DECIMAL;
+enum output_style style = STYLE_BERKELEY;
+
+const char *default_args[2] = { "a.out", NULL };
+
+enum {
+	OPT_FORMAT,
+	OPT_RADIX
+};
+
+int	size_option;
+
+static struct option size_longopts[] = {
+	{ "format",	required_argument, &size_option, OPT_FORMAT },
+	{ "help",	no_argument,	NULL,	'h' },
+	{ "radix",	required_argument, &size_option, OPT_RADIX },
+	{ "totals",	no_argument,	NULL,	't' },
+	{ "version",	no_argument,	NULL,	'v' },
+	{ NULL, 0, NULL, 0 }  
+};
+
+void	berkeley_calc(GElf_Shdr *);
+void	berkeley_footer(const char *, const char *, const char *);
+void	berkeley_header(void);
+void	berkeley_totals(void);
 int	handle_core(char const *, Elf *elf, GElf_Ehdr *);
 void	handle_core_note(Elf *, GElf_Ehdr *, GElf_Phdr *, char **);
+int	handle_elf(char const *);
 void	handle_phdr(Elf *, GElf_Ehdr *, GElf_Phdr *, uint32_t,
     	    const char *);
-void	usage(void);
 void	print_number(int, uint32_t, enum radix_style, char);
-void	berkeley_header(void);
-void	berkeley_footer(const char *, const char *, const char *);
-void	berkeley_calc(GElf_Shdr *);
-void	berkeley_totals(void);
+void	show_version(void);
 void	sysv_header(const char *, Elf_Arhdr *);
 void	sysv_footer(void);
 void	sysv_calc(Elf *, GElf_Ehdr *, GElf_Shdr *, int);
+void	usage(void);
 
 /*
  * size utility using elf(3) and gelf(3) API to list section sizes and
@@ -108,34 +136,72 @@ void	sysv_calc(Elf *, GElf_Ehdr *, GElf_Shdr *, int);
  * included) that can be opened by libelf, other formats are not supported.
  */
 int
-main(int argc, char *argv[])
+main(int argc, char **argv)
 {
-	int ch, exit_code;
+	int ch, exitcode, r;
+	const char **files, *fn;
 
-	sec_name_len = 19;
-	exit_code = EX_OK;
-	style = STYLE_BERKELEY;
-	radix = RADIX_DECIMAL;
+	exitcode = EX_OK;
+
 	if (elf_version(EV_CURRENT) == EV_NONE)
 		errx(EX_SOFTWARE, "ELF library initialization failed: %s",
 		    elf_errmsg(-1));
 
-	while ((ch = getopt(argc, argv, "Adhotx")) != -1)
+	while ((ch = getopt_long(argc, argv, "AVdhotx", size_longopts,
+	    NULL)) != -1)
 		switch((char)ch) {
 		case 'A':
 			style = STYLE_SYSV;
 			break;
+		case 'B':
+			style = STYLE_BERKELEY;
+			break;
+		case 'V':
+			show_version();
+			break;
 		case 'd':
 			radix = RADIX_DECIMAL;
-			break;
-		case 't':
-			show_totals = 1;
 			break;
 		case 'o':
 			radix = RADIX_OCTAL;
 			break;
+		case 't':
+			show_totals = 1;
+			break;
 		case 'x':
 			radix = RADIX_HEX;
+			break;
+		case 0:
+			switch (size_option) {
+			case OPT_FORMAT:
+				if (*optarg == 's' || *optarg == 'S')
+					style = STYLE_SYSV;
+				else if (*optarg == 'b' || *optarg == 'B')
+					style = STYLE_BERKELEY;
+				else {
+					warnx("unrecognized format \"%s\".",
+					      optarg);
+					usage();
+				}
+				break;
+			case OPT_RADIX:
+				r = strtol(optarg, NULL, 10);
+				if (r == 8)
+					radix = RADIX_OCTAL;
+				else if (r == 10)
+					radix = RADIX_DECIMAL;
+				else if (r == 16)
+					radix = RADIX_HEX;
+				else {
+					warnx("unsupported radix \"%s\".",
+					      optarg);
+					usage();
+				}
+				break;
+			default:
+				err(EX_SOFTWARE, "Error in option handling.");
+				/*NOTREACHED*/
+			}
 			break;
 		case 'h':
 		case '?':
@@ -146,23 +212,19 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (!*argv) {
-		exit_code = handle_elf(default_name);
-		if (exit_code == EX_SOFTWARE || exit_code == EX_DATAERR)
-			warnx("%s: File format not recognized", default_name);
-		if (exit_code == EX_NOINPUT)
-			warnx("'%s': No such file", default_name);
-	} else while (*argv) {
-		exit_code = handle_elf(*argv);
-		if (exit_code == EX_SOFTWARE || exit_code == EX_DATAERR)
-			warnx("%s: File format not recognized", *argv);
-		if (exit_code == EX_NOINPUT)
-			warnx("'%s': No such file", *argv);
-		argv++;
+	files = (argc == 0) ? default_args : (const char **) argv;
+
+	while ((fn = *files) != NULL) {
+		exitcode = handle_elf(fn);
+		if (exitcode != EX_OK)
+			warnx(exitcode == EX_NOINPUT ?
+			      "'%s': No such file" :
+			      "%s: File format not recognized", fn);
+		files++;
 	}
-	if (style == STYLE_BERKELEY)
+	if (style == STYLE_BERKELEY && show_totals)
 		berkeley_totals();
-        return (exit_code);
+        return (exitcode);
 }
 
 static Elf_Data *
@@ -701,18 +763,15 @@ berkeley_totals(void)
 {
 	long unsigned int grand_total;
 
-	if (show_totals) {
-		grand_total = text_size_total + data_size_total +
-		    bss_size_total;
-		print_number(10, text_size_total, radix, ' ');
-		print_number(10, data_size_total, radix, ' ');
-		print_number(10, bss_size_total, radix, ' ');
-		if (radix == RADIX_OCTAL)
-			print_number(10, grand_total, RADIX_OCTAL, ' ');
-		else
-			print_number(10, grand_total, RADIX_DECIMAL, ' ');
-		(void) printf("%-10lx (TOTALS)\n", grand_total);
-	}
+	grand_total = text_size_total + data_size_total + bss_size_total;
+	print_number(10, text_size_total, radix, ' ');
+	print_number(10, data_size_total, radix, ' ');
+	print_number(10, bss_size_total, radix, ' ');
+	if (radix == RADIX_OCTAL)
+		print_number(10, grand_total, RADIX_OCTAL, ' ');
+	else
+		print_number(10, grand_total, RADIX_DECIMAL, ' ');
+	(void) printf("%-10lx (TOTALS)\n", grand_total);
 }
 
 void
@@ -757,4 +816,11 @@ usage()
 {
 	(void) fprintf(stderr, "usage: size [-Adhotx] file ...\n");
 	exit(EX_USAGE);
+}
+
+void
+show_version()
+{
+	(void) fprintf(stderr, SIZE_VERSION_STRING "\n");
+	exit(EX_OK);
 }
