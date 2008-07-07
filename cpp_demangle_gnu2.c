@@ -53,7 +53,7 @@ struct cstring {
 };
 
 struct demangle_data {
-	bool	ptr, ref, cnst, array, cnst_fn;
+	bool	ptr, ref, cnst, array, cnst_fn, class_name;
 	struct cstring array_str;
 	const char *p;
 	enum encode_type type;
@@ -94,19 +94,9 @@ cpp_demangle_gnu2(const char *org)
 	size_t arg_begin, arg_len;
 	unsigned int try;
 	char *rtn, *arg;
-	const char *reserved[] = { "__CTOR",
-				   "__DTOR",
-				   "__EH_FRAME",
-				   "__EXCEPTION",
-				   "__FRAME",
-				   NULL };
 
 	if (org == NULL)
 		return (NULL);
-
-	for (const char **p = reserved; *p != NULL; ++p)
-		if (memcmp(org, *p, strlen(*p)) == 0)
-			return (NULL);
 
 	if (init_demangle_data(&d) == false)
 		return (NULL);
@@ -146,10 +136,13 @@ cpp_demangle_gnu2(const char *org)
 	if (*d.p == 'F')
 		++d.p;
 	else if (*d.p == '\0') {
-		if (vector_str_push(&d.vec, "(void)", 6) == false)
-			goto clean;
+		if (d.class_name == true) {
+			if (vector_str_push(&d.vec, "(void)", 6) == false)
+				goto clean;
 
-		goto flat;
+			goto flat;
+		} else
+			goto clean;
 	}
 
 	/* start argument types */
@@ -251,12 +244,76 @@ clean:
 bool
 is_cpp_mangled_gnu2(const char *org)
 {
+	char *str;
 	bool rtn = false;
 
 	if (org == NULL)
 		return (false);
 
-	rtn |= strstr(org, "__") != NULL;
+	/* search valid text to end */
+	str = strstr(org, "__");
+	while (str != NULL) {
+		if (*(str + 2) != '\0') {
+			if (*(str + 2) == 'C' ||
+			    *(str + 2) == 'F' ||
+			    *(str + 2) == 'Q' ||
+			    isdigit(*(str + 2))) {
+				rtn |= true;
+				
+				break;
+			}
+			
+			if (*(str + 3) != '\0') {
+				switch (SIMPLE_HASH(*(str + 2), *(str + 3))) {
+				case SIMPLE_HASH('m', 'l') :
+				case SIMPLE_HASH('d', 'v') :
+				case SIMPLE_HASH('m', 'd') :
+				case SIMPLE_HASH('p', 'l') :
+				case SIMPLE_HASH('m', 'i') :
+				case SIMPLE_HASH('l', 's') :
+				case SIMPLE_HASH('r', 's') :
+				case SIMPLE_HASH('e', 'q') :
+				case SIMPLE_HASH('n', 'e') :
+				case SIMPLE_HASH('l', 't') :
+				case SIMPLE_HASH('g', 't') :
+				case SIMPLE_HASH('l', 'e') :
+				case SIMPLE_HASH('g', 'e') :
+				case SIMPLE_HASH('a', 'd') :
+				case SIMPLE_HASH('o', 'r') :
+				case SIMPLE_HASH('e', 'r') :
+				case SIMPLE_HASH('a', 'a') :
+				case SIMPLE_HASH('o', 'o') :
+				case SIMPLE_HASH('n', 't') :
+				case SIMPLE_HASH('c', 'o') :
+				case SIMPLE_HASH('p', 'p') :
+				case SIMPLE_HASH('m', 'm') :
+				case SIMPLE_HASH('a', 's') :
+				case SIMPLE_HASH('r', 'f') :
+				case SIMPLE_HASH('a', 'p') :
+				case SIMPLE_HASH('a', 'm') :
+				case SIMPLE_HASH('a', 'l') :
+				case SIMPLE_HASH('a', 'r') :
+				case SIMPLE_HASH('a', 'o') :
+				case SIMPLE_HASH('a', 'e') :
+				case SIMPLE_HASH('c', 'm') :
+				case SIMPLE_HASH('r', 'm') :
+				case SIMPLE_HASH('c', 'l') :
+				case SIMPLE_HASH('v', 'c') :
+				case SIMPLE_HASH('n', 'w') :
+				case SIMPLE_HASH('d', 'l') :
+				case SIMPLE_HASH('o', 'p') :
+				case SIMPLE_HASH('t', 'f') :
+				case SIMPLE_HASH('t', 'i') :
+					rtn |= true;
+
+					break;
+				};
+			}
+		}
+
+		str = strstr(str + 2, "__");
+	}
+
 	rtn |= strstr(org, "_$_") != NULL;
 	rtn |= strstr(org, "_vt$") != NULL;
 
@@ -314,6 +371,7 @@ init_demangle_data(struct demangle_data *d)
 	d->cnst = false;
 	d->array = false;
 	d->cnst_fn = false;
+	d->class_name = false;
 
 	d->array_str.buf = NULL;
 	d->array_str.size = 0;
@@ -411,6 +469,8 @@ read_class(struct demangle_data *d)
 
 	d->p = str + len;
 
+	d->class_name = true;
+
 	return (true);
 }
 
@@ -497,7 +557,7 @@ read_func_name(struct demangle_data *d)
 
 			if (vector_str_push(&d->vec, "__", 2) == false)
 				return (false);
-
+			
 			return (read_func(d));
 		}
 
