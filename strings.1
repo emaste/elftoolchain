@@ -22,9 +22,9 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD$
+.\" $Id$
 .\"
-.Dd April 15, 2007
+.Dd July 20, 2008
 .Dt STRINGS 1
 .Os
 .Sh NAME
@@ -38,61 +38,72 @@
 .Op Fl t Ar radix
 .Op Ar
 .Sh DESCRIPTION
-Fo each
+For each
 .Ar file
-given, the
+specified, the
 .Nm
-utility prints any contiguous seqeunce of printable
-characters of atleast 'n' characters long (the default is 4 characters)
-followed by an unprintable character.
+utility prints contiguous sequences of printable
+characters that are at least
+.Va n
+characters long and are followed by an unprintable character.
+The default value of
+.Va n
+is 4.
+By default, the
 .Nm
-only scans the initialized and loaded sections of ELF objects; for other
-file types, the entire file is scanned.
+utility only scans the initialized and loaded sections of ELF objects;
+for other file types, the entire file is scanned.
 The
 .Nm
-utility is mainly useful for determining the contents of non-text files.
+utility is mainly used for determining the contents of non-text files.
 .Pp
-If no file name is specified in the input, standard input is read from.
+If no file name is specified as an argument, standard input is read.
 .Pp
 The following options are available:
 .Bl -tag -width indent
 .It Fl a
-This option instructs
-.Nm
-to scan the entire file. This is useful to override the default behaviour of
-scanning only initialized and loaded section of ELF objects.
+For ELF objects, scan the entire file for printable strings.
 .It Fl e Ar encoding
 Select the character encoding to be used while searching for strings.
-The encoding depends on the single character argument which speicifes
-the encoding;
-.Ar s
-for single 7-bit-byte characters (ASCII, ISO 8859, etc., default).
-.Ar S
+Valid values for argument
+.Ar encoding
+are:
+.Bl -tag -width indent -compact
+.It Ar s
+for single 7-bit-byte characters (ASCII, ISO 8859).
+.It Ar S
 for single 8-bit-byte characters.
-.Ar l
-for 16-bit littleendian.
-.Ar b
-for 16-bit bigendian.
-.Ar L
-for 32-bit littleendian.
-.Ar B
-for 32-bit bigendian.
+.It Ar l
+for 16-bit little-endian.
+.It Ar b
+for 16-bit big-endian.
+.It Ar L
+for 32-bit little-endian.
+.It Ar B
+for 32-bit big-endian.
+.El
+The default is to assume that characters are encoded using a single
+7-bit byte.
 .It Fl f
 Print the name of the file before each string.
 .It Fl t Ar radix
-Print the offset from the start of the file before each string. The
-format depends on the single character argument which specifies the
-radix of the offset;
-.Ar d
-for decimal,
-.Ar o
-for octal,
-.Ar x
-for hexadecimal.
+Print the offset from the start of the file before each string
+using the specified radix.
+Valid values for argument
+.Ar radix
+are:
+.Bl -tag -width indent -compact
+.It Ar d
+for decimal
+.It Ar o
+for octal
+.It Ar x
+for hexadecimal
+.El
 .It Fl n Ar number
-Print the contiguous character sequence of alteast
+Print the contiguous character sequence of at least
 .Ar number
-characters long, instead of default 4 characters.
+characters long, instead of default of 4 characters.
 .It Fl o
 This is same as -t o.
 .It Fl h
@@ -101,13 +112,19 @@ This prints a usage summary and exits.
 .Sh EXIT STATUS
 .Ex -std
 .Sh EXAMPLES
-The following are examples of typical usage
-of the
-.Nm
-command:
-.Dl ""
+To display strings in
+.Pa /bin/ls
+use:
 .Dl "$ strings /bin/ls"
+.Pp
+To display strings in all sections of
+.Pa /bin/ln
+use:
 .Dl "$ strings -a /bin/ln"
+.Pp
+To display strings in all sections of
+.Pa /bin/cat
+prefixed with the filename and the offset within the file use:
 .Dl "$ strings -a -f -t x /bin/cat"
 .Sh SEE ALSO
 .Xr ar 1 ,
@@ -128,14 +145,6 @@ when i386-only a.out format was dropped in favor of ELF.
 The
 .Nm
 utility was re-written by
-.An S.Sam Arun Raj Aq samarunraj@gmail.com
+.An S.Sam Arun Raj Aq samarunraj@gmail.com .
 This manual page was written by
-.An S.Sam Arun Raj Aq samarunraj@gmail.com
-.Sh LIMITATIONS
-Unlike the GNU
-.Nm
-this doesn't support multiple object file formats, only ELF using the
-.Xr elf 3
-and
-.Xr gelf 3
-API's.
+.An S.Sam Arun Raj Aq samarunraj@gmail.com .
