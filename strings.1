@@ -33,6 +33,7 @@
 .Sh SYNOPSIS
 .Nm
 .Op Fl afho
+.Op Fl Ar number
 .Op Fl e Ar encoding
 .Op Fl n Ar number
 .Op Fl t Ar radix
@@ -100,7 +101,10 @@ for octal
 .It Ar x
 for hexadecimal
 .El
-.It Fl n Ar number
+.It Xo
+.Fl n Ar number |
+.Fl number
+.Xc
 Print the contiguous character sequence of at least
 .Ar number
 characters long, instead of default of 4 characters.
