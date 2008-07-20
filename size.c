@@ -811,16 +811,36 @@ berkeley_footer(const char *name, const char *ar_name, const char *msg)
 		(void) printf("%s\n", name);
 }
 
+static const char *usagemsg = "\
+Usage: size [options] file ...\n\
+  Display sizes of ELF sections.\n\n\
+  Options:\n\
+  --format=format    Display output in specified format.  Supported\n\
+                     values are `berkeley' and `sysv'.\n\
+  --help             Display this help message and exit.\n\
+  --radix=radix      Display numeric values in the specified radix.\n\
+                     Supported values are: 8, 10 and 16.\n\
+  --totals           Show cumulative totals of section sizes.\n\
+  --version          Display program version and exit.\n\
+  -A                 Equivalent to `--format=sysv'.\n\
+  -B                 Equivalent to `--format=berkeley'.\n\
+  -V                 Equivalent to `--version;.\n\
+  -d                 Equivalent to `--radix=10'.\n\
+  -h                 Same as option --help.\n\
+  -o                 Equivalent to `--radix=8'.\n\
+  -t                 Equivalent to option --totals.\n\
+  -x                 Equivalent to `--radix=16'.\n";
+
 void
 usage()
 {
-	(void) fprintf(stderr, "usage: size [-Adhotx] file ...\n");
+	(void) fprintf(stderr, usagemsg);
 	exit(EX_USAGE);
 }
 
 void
 show_version()
 {
-	(void) fprintf(stderr, SIZE_VERSION_STRING "\n");
+	(void) fprintf(stdout, SIZE_VERSION_STRING "\n");
 	exit(EX_OK);
 }
