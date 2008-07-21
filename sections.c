@@ -25,7 +25,9 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+#if defined(__RCSID)
+__RCSID("$Id$");
+#endif
 
 #include <sys/param.h>
 #include <err.h>

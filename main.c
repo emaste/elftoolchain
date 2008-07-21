@@ -25,7 +25,9 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+#if defined(__RCSID)
+__RCSID("$Id$");
+#endif
 
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -39,6 +41,7 @@ __FBSDID("$FreeBSD$");
 #include <unistd.h>
 
 #include "elfcopy.h"
+#include "target.h"
 
 enum options
 {
@@ -53,9 +56,11 @@ static struct option strip_longopts[] =
 	{"discard-all", no_argument, NULL, 'x'},
 	{"discard-locals", no_argument, NULL, 'X'},
 	{"help", no_argument, NULL, 'h'},
+	{"input-target", required_argument, NULL, 'I'},
 	{"keep-symbol", required_argument, NULL, 'K'},
 	{"only-keep-debug", no_argument, NULL, ECP_ONLY_DEBUG},
 	{"output-file", required_argument, NULL, 'o'},
+	{"output-target", required_argument, NULL, 'O'},
 	{"preserve-dates", no_argument, NULL, 'p'},
 	{"remove-section", required_argument, NULL, 'R'},
 	{"strip-all", no_argument, NULL, 's'},
@@ -71,10 +76,12 @@ static struct option elfcopy_longopts[] =
 	{"discard-all", no_argument, NULL, 'x'},
 	{"discard-locals", no_argument, NULL, 'X'},
 	{"help", no_argument, NULL, 'h'},
+	{"input-target", required_argument, NULL, 'I'},
 	{"keep-symbol", required_argument, NULL, 'K'},
 	{"localize-symbol", required_argument, NULL, 'L'},
 	{"only-keep-debug", no_argument, NULL, ECP_ONLY_DEBUG},
 	{"only-section", required_argument, NULL, 'j'},
+	{"output-target", required_argument, NULL, 'O'},
 	{"preserve-dates", no_argument, NULL, 'p'},
 	{"remove-section", required_argument, NULL, 'R'},
 	{"rename-section", required_argument, NULL, ECP_RENAME_SECTION},
@@ -91,6 +98,7 @@ static void	create_file(struct elfcopy *ecp, const char *src,
 static void	create_object(struct elfcopy *ecp, int ifd, int ofd);
 static void	strip_main(struct elfcopy *ecp, int argc, char **argv);
 static void	strip_usage(void);
+static void	set_output_target(struct elfcopy *ecp, const char *target_name);
 static void	mcs_main(struct elfcopy *ecp, int argc, char **argv);
 static void	mcs_usage(void);
 static void	elfcopy_main(struct elfcopy *ecp, int argc, char **argv);
@@ -154,8 +162,8 @@ create_elf(struct elfcopy *ecp)
                 errx(EX_SOFTWARE, "getclass() failed: %s",
                     elf_errmsg(-1));
 
-	/* CHANGE to support format convert. */
-	ecp->oec = ecp->iec;
+	if (ecp->oec == ELFCLASSNONE)
+		ecp->oec = ecp->iec;
 
 	if (gelf_newehdr(ecp->eout, ecp->oec) == NULL)
 		errx(EX_SOFTWARE, "gelf_newehdr failed: %s",
@@ -165,6 +173,8 @@ create_elf(struct elfcopy *ecp)
 		    elf_errmsg(-1));
 
 	memcpy(oeh.e_ident, ieh.e_ident, sizeof(ieh.e_ident));
+	if (ecp->oed != ELFDATANONE)
+		oeh.e_ident[EI_DATA] = ecp->oed;
 	oeh.e_flags	= ieh.e_flags;
 	oeh.e_machine	= ieh.e_machine;
 	oeh.e_type	= ieh.e_type;
@@ -369,7 +379,7 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 	FILE *fp;
 	int opt, len;
 
-	while ((opt = getopt_long(argc, argv, "j:K:N:R:sSdgxX",
+	while ((opt = getopt_long(argc, argv, "I:j:K:N:O:R:sSdgxX",
 	    elfcopy_longopts, NULL)) != -1) {
 		switch(opt) {
 		case 'R':
@@ -388,6 +398,9 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 		case 'd':
 			ecp->strip = STRIP_DEBUG;
 			break;
+		case 'I':
+			/* ignored */
+			break;
 		case 'j':
 			sac = lookup_sec_act(ecp, optarg, 1);
 			if (sac->remove != 0)
@@ -401,6 +414,9 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			break;
 		case 'N':
 			add_to_strip_list(ecp, optarg);
+			break;
+		case 'O':
+			set_output_target(ecp, optarg);
 			break;
 		case 'p':
 			break;
@@ -448,8 +464,6 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 		}
 	}
 
-	if (ecp->outfmt == 0)
-		ecp->outfmt = ecp->infmt;
 	if (optind == argc || optind + 2 < argc)
 		elfcopy_usage();
 
@@ -550,7 +564,7 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 	int i;
 
 	outfile = NULL;
-	while ((opt = getopt_long(argc, argv, "K:N:R:o:sSdgxX",
+	while ((opt = getopt_long(argc, argv, "I:K:N:o:O:R:sSdgxX",
 	    strip_longopts, NULL)) != -1) {
 		switch(opt) {
 		case 'R':
@@ -566,6 +580,9 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 		case 'd':
 			ecp->strip = STRIP_DEBUG;
 			break;
+		case 'I':
+			/* ignored */
+			break;
 		case 'K':
 			add_to_keep_list(ecp, optarg);
 			break;
@@ -574,6 +591,9 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 			break;
 		case 'o':
 			outfile = optarg;
+			break;
+		case 'O':
+			set_output_target(ecp, optarg);
 			break;
 		case 'p':
 			break;
@@ -594,13 +614,22 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 
 	if (ecp->strip == 0)
 		ecp->strip = STRIP_ALL;
-	if (ecp->outfmt == 0)
-		ecp->outfmt = ecp->infmt;
 	if (optind == argc)
 		strip_usage();
 
 	for (i = optind; i < argc; i++)
 		create_file(ecp, argv[i], outfile);
+}
+
+static void
+set_output_target(struct elfcopy *ecp, const char *target_name)
+{
+	elf_target *tgt;
+
+	if ((tgt = elf_find_target(target_name)) == NULL)
+		errx(EX_USAGE, "%s: invalid target name", target_name);
+	ecp->oec = elf_target_class(tgt);
+	ecp->oed = elf_target_byteorder(tgt);
 }
 
 static void
@@ -647,9 +676,6 @@ main(int argc, char **argv)
 	STAILQ_INIT(&ecp->v_sym_strip);
 	STAILQ_INIT(&ecp->v_sym_keep);
 	TAILQ_INIT(&ecp->v_sec);
-
-	/* format convert not support yet. */
-	ecp->infmt = ecp->outfmt = 0;
 
 	if ((ecp->progname = getprogname()) == NULL)
 		ecp->progname = "elfcopy";

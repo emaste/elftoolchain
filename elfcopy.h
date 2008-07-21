@@ -112,12 +112,9 @@ struct symbuf {
 struct elfcopy {
 	const char *progname;	/* program name */
 
-	/* Format convertion not supported yet. */
-	int infmt;
-	int outfmt;
-	
 	int iec;	/* elfclass of intput object */
 	int oec;	/* elfclass of output object */
+	unsigned char oed;	/* endianess of output object */
 	Elf *ein;	/* ELF descriptor of input object */
 	Elf *eout;	/* ELF descriptor of output object */
 
