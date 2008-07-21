@@ -1,7 +1,8 @@
 PROG=	elfcopy
-NO_MAN=
+NO_MAN=				# freebsd
+MKMAN=	no			# netbsd
 VERSION=	1.0.0
-SRCS=	main.c sections.c segments.c symbols.c utils.c
+SRCS=	main.c sections.c segments.c symbols.c target.c utils.c
 WARNS?=	5
 DPADD=	${LIBELF}
 LDADD=	-lelf
