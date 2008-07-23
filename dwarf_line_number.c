@@ -141,13 +141,14 @@ struct LNP_header {
 #define	DW_LNE_lo_user			0x80
 #define	DW_LNE_hi_user			0xff
 
-static int	ULEB128_len(unsigned char *);
+static int	ULEB128_len(const unsigned char *);
 static int	comp_dir_insert(struct comp_dir_head *, const char *,
 		    const char *);
-static int	decode_LEB128(unsigned char *, int64_t *);
-static int	decode_ULEB128(unsigned char *, uint64_t *);
+static int	decode_LEB128(const unsigned char *, int64_t *);
+static int	decode_ULEB128(const unsigned char *, uint64_t *);
 static int	duplicate_str(const char *, char **);
-static int	get_LNP_header(unsigned char *, uint64_t, struct LNP_header *);
+static int	get_LNP_header(const unsigned char *, uint64_t,
+		    struct LNP_header *);
 static int	get_current_path(struct comp_dir_head *, const char *,
 		    size_t *, char **);
 static int	get_file_names(char *, struct comp_dir_head *,
@@ -177,7 +178,7 @@ static void	vector_str_reset(struct vector_str *);
  * Return 0 at fail or length of ULEB128 in bytes.
  */
 static int
-ULEB128_len(unsigned char *in)
+ULEB128_len(const unsigned char *in)
 {
 	unsigned int i;
 
@@ -256,7 +257,7 @@ comp_dir_insert(struct comp_dir_head *l, const char *s, const char *d)
  * Return 0 at fail or length of LEB128 in bytes.
  */
 static int
-decode_LEB128(unsigned char *in, int64_t *out)
+decode_LEB128(const unsigned char *in, int64_t *out)
 {
 	int64_t rst;
 	int shift, i;
@@ -298,7 +299,7 @@ decode_LEB128(unsigned char *in, int64_t *out)
  * Return 0 at fail or length of ULEB128 in bytes.
  */
 static int
-decode_ULEB128(unsigned char *in, uint64_t *out)
+decode_ULEB128(const unsigned char *in, uint64_t *out)
 {
 	uint64_t rst;
 	int i, shift;
@@ -355,7 +356,7 @@ duplicate_str(const char *orig, char **dest)
 }
 
 static int
-get_LNP_header(unsigned char *p, uint64_t size, struct LNP_header *h)
+get_LNP_header(const unsigned char *p, uint64_t size, struct LNP_header *h)
 {
 	int rtn = 0;
 
