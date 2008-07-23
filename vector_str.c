@@ -37,11 +37,11 @@
  * Resemble to std::vector<std::string> in C++.
  */
 
-static size_t	get_strlen_sum(struct vector_str *v);
+static size_t	get_strlen_sum(const struct vector_str *v);
 static bool	vector_str_grow(struct vector_str *v);
 
 static size_t
-get_strlen_sum(struct vector_str *v)
+get_strlen_sum(const struct vector_str * v)
 {
 	size_t len = 0;
 
@@ -68,7 +68,7 @@ vector_str_dest(struct vector_str *v)
 }
 
 int
-vector_str_find(struct vector_str *v, const char *o, size_t l)
+vector_str_find(const struct vector_str *v, const char *o, size_t l)
 {
 
 	if (v == NULL || o == NULL)
@@ -82,7 +82,7 @@ vector_str_find(struct vector_str *v, const char *o, size_t l)
 }
 
 char *
-vector_str_get_flat(struct vector_str *v, size_t *l)
+vector_str_get_flat(const struct vector_str *v, size_t *l)
 {
 	ssize_t elem_pos, elem_size, rtn_size;
 	char *rtn;
@@ -231,7 +231,7 @@ vector_str_push_vector_head(struct vector_str *dst, struct vector_str *org)
 }
 
 char *
-vector_str_substr(struct vector_str *v, size_t begin, size_t end,
+vector_str_substr(const struct vector_str *v, size_t begin, size_t end,
     size_t *r_len)
 {
 	size_t cur, len;

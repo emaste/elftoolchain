@@ -60,7 +60,7 @@ void	vector_str_dest(struct vector_str *);
  * @param l Length of the string.
  * @return -1 at failed, 0 at not found, 1 at found.
  */
-int	vector_str_find(struct vector_str *v, const char *o, size_t l);
+int	vector_str_find(const struct vector_str *v, const char *o, size_t l);
 
 /**
  * @brief Get new allocated flat string from vector.
@@ -70,7 +70,7 @@ int	vector_str_find(struct vector_str *v, const char *o, size_t l);
  * @param l Length of the string.
  * @return NULL at failed or NUL terminated new allocated string.
  */
-char	*vector_str_get_flat(struct vector_str *v, size_t *l);
+char	*vector_str_get_flat(const struct vector_str *v, size_t *l);
 
 /**
  * @brief Initialize vector_str.
@@ -103,7 +103,7 @@ bool	vector_str_push_vector_head(struct vector_str *dst,
  * If r_len is not NULL, string length will be returned.
  * @return NULL at failed or NUL terminated new allocated string.
  */
-char	*vector_str_substr(struct vector_str *v, size_t begin, size_t end,
+char	*vector_str_substr(const struct vector_str *v, size_t begin, size_t end,
 	    size_t *r_len);
 
 #endif /* !GUARD_VECTOR_STR_H */
