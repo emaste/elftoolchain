@@ -1796,6 +1796,8 @@ main(int argc, char *argv[])
 	int ch, rtn;
 	enum radix t;
 
+	assert(argc > 0);
+
 	global_init();
 
 	t = RADIX_DEFAULT;

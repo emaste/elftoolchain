@@ -41,12 +41,14 @@ static size_t	get_strlen_sum(const struct vector_str *v);
 static bool	vector_str_grow(struct vector_str *v);
 
 static size_t
-get_strlen_sum(const struct vector_str * v)
+get_strlen_sum(const struct vector_str *v)
 {
 	size_t len = 0;
 
 	if (v == NULL)
 		return (0);
+
+	assert(v->size > 0);
 
 	for (size_t i = 0; i < v->size; ++i)
 		len += strlen(v->container[i]);
@@ -91,7 +93,7 @@ vector_str_get_flat(const struct vector_str *v, size_t *l)
 		return (NULL);
 
 	if ((rtn_size = get_strlen_sum(v)) == 0)
-		return (0);
+		return (NULL);
 
 	if ((rtn = malloc(sizeof(char) * (rtn_size + 1))) == NULL)
 		return (NULL);
@@ -122,7 +124,11 @@ vector_str_grow(struct vector_str *v)
 	if (v == NULL)
 		return (false);
 
+	assert(v->capacity > 0);
+
 	tmp_cap = v->capacity * BUFFER_GROWFACTOR;
+
+	assert(tmp_cap > v->capacity);
 
 	if ((tmp_ctn = malloc(sizeof(char *) * tmp_cap)) == NULL)
 		return (false);
@@ -147,6 +153,8 @@ vector_str_init(struct vector_str *v)
 
 	v->size = 0;
 	v->capacity = VECTOR_DEF_CAPACITY;
+
+	assert(v->capacity > 0);
 
 	if ((v->container = malloc(sizeof(char *) * v->capacity)) == NULL)
 		return (false);
