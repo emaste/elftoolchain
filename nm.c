@@ -550,8 +550,12 @@ is_file(const char *path)
 	if (path == NULL)
 		return (false);
 
+	errno = 0;
 	if (stat(path, &sb) != 0) {
-		warnx("'%s': No such file", path);
+		if (errno == ENOENT)
+			warnx("'%s': No such file", path);
+		else
+			warn("'%s'", path);
 
 		return (false);
 	}
