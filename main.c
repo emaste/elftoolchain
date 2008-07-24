@@ -173,6 +173,7 @@ create_elf(struct elfcopy *ecp)
 		    elf_errmsg(-1));
 
 	memcpy(oeh.e_ident, ieh.e_ident, sizeof(ieh.e_ident));
+	oeh.e_ident[EI_CLASS] = ecp->oec;
 	if (ecp->oed != ELFDATANONE)
 		oeh.e_ident[EI_DATA] = ecp->oed;
 	oeh.e_flags	= ieh.e_flags;
