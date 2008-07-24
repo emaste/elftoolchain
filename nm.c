@@ -25,6 +25,8 @@
  */
 
 #include <sys/queue.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 
 #include <ar.h>
@@ -160,6 +162,7 @@ static int		get_sym(Elf *, struct sym_head *, int,
 			    const Elf_Data *, const Elf_Data *, const char *);
 static char		get_sym_type(const GElf_Sym *, const char *);
 static void		global_init(void);
+static bool		is_file(const char *);
 static bool		is_sec_data(GElf_Shdr *);
 static bool		is_sec_debug(const char *);
 static bool		is_sec_nobits(GElf_Shdr *);
@@ -540,6 +543,29 @@ global_init(void)
 }
 
 static bool
+is_file(const char *path)
+{
+	struct stat sb;
+
+	if (path == NULL)
+		return (false);
+
+	if (stat(path, &sb) != 0) {
+		warnx("'%s': No such file", path);
+
+		return (false);
+	}
+
+	if (!S_ISLNK(sb.st_mode) && !S_ISREG(sb.st_mode)) {
+		warnx("Warning: '%s' is not an ordinary file", path);
+
+		return (false);
+	}
+
+	return (true);
+}
+
+static bool
 is_sec_data(GElf_Shdr *s)
 {
 
@@ -786,6 +812,9 @@ read_elf(const char *filename)
 	void *dbg_info_buf, *dbg_str_buf, *dbg_line_buf;
 
 	assert(filename != NULL && "filename is null");
+
+	if (is_file(filename) == false)
+		return (1);
 
 	if ((fd = open(filename, O_RDONLY)) == -1) {
 		warn("'%s'", filename);
