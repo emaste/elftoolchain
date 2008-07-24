@@ -149,6 +149,10 @@ p->t_table == NULL || p->s_table == NULL || p->filename == NULL)
 #define	STAILQ_HINIT_AFTER(l)	{l.stqh_first = NULL; \
 l.stqh_last = &(l).stqh_first;}
 #define	UNUSED(p)		((void)p)
+#define	HASH_DEBUG		0x3633d 	/* .debug */
+#define	HASH_LINKONCE		0xd2e00fc1 	/* .gnu.linkonce.wi. */
+#define	HASH_LINE		0xb1d6 		/* .line */
+#define	HASH_STAB		0xb610 		/* .stab */
 
 static int		cmp_name(const void *, const void *);
 static int		cmp_none(const void *, const void *);
@@ -158,6 +162,7 @@ static void		filter_dest(void);
 static int		filter_insert(fn_filter);
 static enum demangle	get_demangle_type(const char *);
 static enum demangle	get_demangle_option(const char *);
+static uint32_t		get_strhash(const char *);
 static int		get_sym(Elf *, struct sym_head *, int,
 			    const Elf_Data *, const Elf_Data *, const char *);
 static char		get_sym_type(const GElf_Sym *, const char *);
@@ -403,6 +408,23 @@ get_demangle_option(const char *opt)
 	return (DEMANGLE_NONE);
 }
 
+static uint32_t
+get_strhash(const char *str)
+{
+	unsigned int rtn = 0;
+
+	if (str == NULL)
+		return (0);
+
+	while (*str != '\0') {
+		rtn = 5 * rtn + *str;
+
+		++str;
+	}
+
+	return (rtn);
+}
+
 /*
  * Get symbol information from elf.
  * param shnum Total section header number(ehdr.e_shnum).
@@ -581,20 +603,17 @@ is_sec_data(GElf_Shdr *s)
 static bool
 is_sec_debug(const char *shname)
 {
-	const char *dbg_sec[] = {
-		".debug",
-		".gnu.linkonce.wi.",
-		".line",
-		".stab",
-		NULL
-	};
-	const char **p;
+	unsigned int hash_shname;
 
 	assert(shname != NULL && "shname is NULL");
 
-	for(p = dbg_sec; *p; p++)
-		if (strncmp(shname, *p, strlen(*p)) == 0)
-			return (true);
+	hash_shname = get_strhash(shname);
+
+	if (hash_shname == HASH_DEBUG ||
+	    hash_shname == HASH_LINKONCE ||
+	    hash_shname == HASH_LINE ||
+	    hash_shname == HASH_STAB)
+		return (true);
 
 	return (false);
 }
