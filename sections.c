@@ -61,7 +61,7 @@ is_remove_section(struct elfcopy *ecp, const char *name)
 		return 0;
 	if (strcmp(name, ".symtab") == 0 ||
 	    strcmp(name, ".strtab") == 0) {
-		if (ecp->strip == STRIP_ALL)
+		if (ecp->strip == STRIP_ALL && STAILQ_EMPTY(&ecp->v_sym_keep))
 			return (1);
 		else
 			return (0);
