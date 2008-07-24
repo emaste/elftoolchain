@@ -150,6 +150,12 @@ p->t_table == NULL || p->s_table == NULL || p->filename == NULL)
 l.stqh_last = &(l).stqh_first;}
 #define	UNUSED(p)		((void)p)
 #define	HASH_DEBUG		0x3633d 	/* .debug */
+#define	HASH_DEBUG_INFO		0x295b9000	/* .debug_info */
+#define	HASH_RELA_DEBUG_INFO	0xf675b6ca	/* .rela.debug_info */
+#define	HASH_DEBUG_ABBREV	0x9f091d2	/* .debug_abbrev */
+#define	HASH_DEBUG_STR		0x8458441	/* .debug_str */
+#define	HASH_DEBUG_LINE		0x295b9118	/* .debug_line */
+#define	HASH_RELA_DEBUG_LINE	0xf675b7e2	/* .rela.debug_line*/
 #define	HASH_LINKONCE		0xd2e00fc1 	/* .gnu.linkonce.wi. */
 #define	HASH_LINE		0xb1d6 		/* .line */
 #define	HASH_STAB		0xb610 		/* .stab */
@@ -162,7 +168,7 @@ static void		filter_dest(void);
 static int		filter_insert(fn_filter);
 static enum demangle	get_demangle_type(const char *);
 static enum demangle	get_demangle_option(const char *);
-static uint32_t		get_strhash(const char *);
+static uint32_t		get_hash_str(const char *);
 static int		get_sym(Elf *, struct sym_head *, int,
 			    const Elf_Data *, const Elf_Data *, const char *);
 static char		get_sym_type(const GElf_Sym *, const char *);
@@ -409,7 +415,7 @@ get_demangle_option(const char *opt)
 }
 
 static uint32_t
-get_strhash(const char *str)
+get_hash_str(const char *str)
 {
 	unsigned int rtn = 0;
 
@@ -607,15 +613,18 @@ is_sec_debug(const char *shname)
 
 	assert(shname != NULL && "shname is NULL");
 
-	hash_shname = get_strhash(shname);
+	hash_shname = get_hash_str(shname);
 
-	if (hash_shname == HASH_DEBUG ||
+	return (hash_shname == HASH_DEBUG ||
+	    hash_shname == HASH_DEBUG_INFO ||
+	    hash_shname == HASH_RELA_DEBUG_INFO ||
+	    hash_shname == HASH_DEBUG_ABBREV ||
+	    hash_shname == HASH_DEBUG_STR ||
+	    hash_shname == HASH_DEBUG_LINE ||
+	    hash_shname == HASH_RELA_DEBUG_LINE ||
 	    hash_shname == HASH_LINKONCE ||
 	    hash_shname == HASH_LINE ||
-	    hash_shname == HASH_STAB)
-		return (true);
-
-	return (false);
+	    hash_shname == HASH_STAB);
 }
 
 static bool
