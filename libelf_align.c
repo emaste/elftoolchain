@@ -86,10 +86,10 @@ static struct align malign[ELF_T_NUM] = {
 #if	LIBELF_CONFIG_SYMINFO
 	[ELF_T_SYMINFO]	= MALIGN(Syminfo),
 #endif
-#if	LIBELF_CONFIG_VERDEF
+#if	LIBELF_CONFIG_VDEF
 	[ELF_T_VDEF]	= MALIGN(Verdef),
 #endif
-#if	LIBELF_CONFIG_VERNEED
+#if	LIBELF_CONFIG_VNEED
 	[ELF_T_VNEED]	= MALIGN(Verneed),
 #endif
 	[ELF_T_WORD]	= MALIGN(Word),
