@@ -46,6 +46,8 @@ __FBSDID("$FreeBSD$");
 #include <libelf.h>
 #include <gelf.h>
 
+#define	STRINGS_VERSION_STRING		"strings 1.0"
+
 enum radix_style {
 	RADIX_DECIMAL,
 	RADIX_HEX,
@@ -71,11 +73,23 @@ int encoding_size, entire_file, min_len, show_filename, show_loc;
 enum encoding_style encoding;
 enum radix_style radix;
 
+static struct option strings_longopts[] = {
+	{ "all",		no_argument,		NULL,	'a'},
+	{ "bytes",		required_argument,	NULL,	'n'},
+	{ "encoding",		required_argument,	NULL,	'e'},
+	{ "help",		no_argument,		NULL,	'h'},
+	{ "print-file-name",	no_argument,		NULL,	'f'},
+	{ "radix",		required_argument,	NULL,	't'},
+	{ "version",		no_argument,		NULL,	'v'},
+	{ NULL, 0, NULL, 0 }
+};
+
 long	getcharacter(void);
 int	handle_file(const char *);
 int	handle_elf(const char *, int);
 int	handle_binary(const char *, int);
 int	find_strings(const char *, off_t, off_t);
+void	show_version(void);
 void	usage(void);
 
 /*
@@ -94,7 +108,8 @@ main(int argc, char **argv)
 		errx(EX_SOFTWARE, "ELF library initialization failed: %s",
 		    elf_errmsg(-1));
 
-	while ((ch = getopt(argc, argv, "1234567890ae:fhn:ot:")) != -1)
+	while ((ch = getopt_long(argc, argv, "1234567890ae:fhn:ot:v",
+	    strings_longopts, NULL)) != -1)
 		switch((char)ch) {
 		case 'a':
 			entire_file = 1;
@@ -142,6 +157,9 @@ main(int argc, char **argv)
 				usage();
 			        /* NOTREACHED */
 			break;
+		case 'v':
+			show_version();
+			/* NOTREACHED */
 		case '0':
 	        case '1':
 		case '2':
@@ -409,3 +427,9 @@ usage()
 	exit(EX_USAGE);
 }
 
+void
+show_version()
+{
+        (void) fprintf(stdout, STRINGS_VERSION_STRING "\n");
+        exit(EX_OK);
+}
