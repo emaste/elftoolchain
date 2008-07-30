@@ -32,7 +32,14 @@
 .Nd "print the strings of printable characters in files"
 .Sh SYNOPSIS
 .Nm
-.Op Fl afho
+.Op Fl -all
+.Op Fl -bytes= Ns Ar number
+.Op Fl -encoding= Ns Ar encoding
+.Op Fl -help
+.Op Fl -print-file-name
+.Op Fl -radix= Ns Ar radix
+.Op Fl -version
+.Op Fl afhov
 .Op Fl Ar number
 .Op Fl e Ar encoding
 .Op Fl n Ar number
@@ -62,9 +69,9 @@ If no file name is specified as an argument, standard input is read.
 .Pp
 The following options are available:
 .Bl -tag -width indent
-.It Fl a
+.It Fl -all
 For ELF objects, scan the entire file for printable strings.
-.It Fl e Ar encoding
+.It Fl -encoding= Ns Ar encoding
 Select the character encoding to be used while searching for strings.
 Valid values for argument
 .Ar encoding
@@ -85,9 +92,9 @@ for 32-bit big-endian.
 .El
 The default is to assume that characters are encoded using a single
 7-bit byte.
-.It Fl f
+.It Fl -print-file-name
 Print the name of the file before each string.
-.It Fl t Ar radix
+.It Fl -radix= Ns Ar radix
 Print the offset from the start of the file before each string
 using the specified radix.
 Valid values for argument
@@ -102,16 +109,40 @@ for octal
 for hexadecimal
 .El
 .It Xo
-.Fl n Ar number |
+.Fl -bytes= Ns Ar number |
 .Fl number
 .Xc
 Print the contiguous character sequence of at least
 .Ar number
 characters long, instead of default of 4 characters.
-.It Fl o
-This is same as -t o.
-.It Fl h
+.It Fl -help
 This prints a usage summary and exits.
+.It Fl -version
+Display the program version and exit.
+.It Fl a
+Equivalent to specifying option
+.Fl -all .
+.It Fl e Ar encoding
+Equivalent to specifying option
+.Fl -encoding= Ns Ar encoding .
+.It Fl f
+Equivalent to specifying option
+.Fl -print-file-name .
+.It Fl h
+Equivalent to specifying option
+.Fl -help .
+.It Fl n Ar number
+Equivalent to specifying option
+.Fl -bytes= Ns Ar number .
+.It Fl o
+Equivalent to specifying option
+.Fl -radix= Ns Ar o .
+.It Fl t Ar radix
+Equivalent to specifying option
+.Fl -radix= Ns Ar radix .
+.It Fl v
+Equivalent to specifying option
+.Fl -version .
 .El
 .Sh EXIT STATUS
 .Ex -std
