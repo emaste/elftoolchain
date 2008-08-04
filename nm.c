@@ -169,9 +169,11 @@ static int		filter_insert(fn_filter);
 static enum demangle	get_demangle_type(const char *);
 static enum demangle	get_demangle_option(const char *);
 static uint32_t		get_hash_str(const char *);
+static void		get_opt(int, char **);
 static int		get_sym(Elf *, struct sym_head *, int,
 			    const Elf_Data *, const Elf_Data *, const char *);
 static char		get_sym_type(const GElf_Sym *, const char *);
+static void		global_dest(void);
 static void		global_init(void);
 static bool		is_file(const char *);
 static bool		is_sec_data(GElf_Shdr *);
@@ -184,6 +186,7 @@ static void		print_demangle_name(const char *, const char *);
 static void		print_header(const char *, const char *);
 static void		print_version(void);
 static int		read_elf(const char *);
+static int		read_files(int, char **);
 static unsigned char	*relocate_sec(Elf_Data *, Elf_Data *, int);
 static struct line_info_entry	*search_addr(struct line_info_head *, GElf_Sym *);
 static void		set_opt_value_print_fn(enum radix);
@@ -431,6 +434,201 @@ get_hash_str(const char *str)
 	return (rtn);
 }
 
+static void
+get_opt(int argc, char **argv)
+{
+	int ch;
+	enum radix t;
+
+	if (argc <= 0 || argv == NULL)
+		return;
+
+	t = RADIX_DEFAULT;
+
+	while ((ch = getopt_long(argc, argv, "ABCDSVPaefghlnoprst:uvx",
+		    nm_longopts, NULL)) != -1) {
+		switch (ch) {
+		case 'A':
+			nm_opts.print_name = PRINT_NAME_FULL;
+
+			break;
+		case 'B':
+			nm_opts.elem_print_fn = &sym_elem_print_all;
+
+			break;
+		case 'C':
+			nm_opts.demangle_type = get_demangle_option(optarg);
+
+			break;
+		case 'F':
+			/* sysv, bsd, posix */
+			switch (optarg[0]) {
+			case 'B':
+			case 'b':
+				nm_opts.elem_print_fn = &sym_elem_print_all;
+
+				break;
+			case 'P':
+			case 'p':
+				nm_opts.elem_print_fn =
+				    &sym_elem_print_all_portable;
+
+				break;
+			case 'S':
+			case 's':
+				nm_opts.elem_print_fn =
+				    &sym_elem_print_all_sysv;
+				break;
+
+			default:
+				warnx("%s: Invalid format", optarg);
+
+				usage(EX_USAGE);
+
+				/* NOTREACHED */
+			}
+
+			break;
+		case 'D':
+			nm_opts.print_symbol = PRINT_SYM_DYN;
+
+			break;
+		case 'S':
+			nm_opts.print_size = 1;
+
+			break;
+		case 'V':
+			print_version();
+
+			/* NOTREACHED */
+			break;
+		case 'P':
+			nm_opts.elem_print_fn = &sym_elem_print_all_portable;
+
+			break;
+		case 'a':
+			nm_opts.print_debug = true;
+
+			break;
+		case 'f':
+			break;
+		case 'e':
+			filter_insert(sym_elem_global_static);
+
+			break;
+		case 'g':
+			filter_insert(sym_elem_global);
+
+			break;
+		case 'o':
+			t = RADIX_OCT;
+
+			break;
+		case 'p':
+			nm_opts.sort_fn = &cmp_none;
+
+			break;
+		case 'r':
+			nm_opts.sort_reverse = true;
+
+			break;
+		case 's':
+			nm_opts.print_armap = true;
+
+			break;
+		case 't':
+			/* t require always argument to getopt_long */
+			switch (optarg[0]) {
+			case 'd':
+				t = RADIX_DEC;
+
+				break;
+			case 'o':
+				t = RADIX_OCT;
+
+				break;
+			case 'x':
+				t = RADIX_HEX;
+
+				break;
+			default:
+				warnx("%s: Invalid radix", optarg);
+
+				usage(EX_USAGE);
+
+				/* NOTREACHED */
+			}
+
+			break;
+		case 'u':
+			filter_insert(sym_elem_undef);
+			nm_opts.undef_only = true;
+
+			break;
+		case 'l':
+			nm_opts.debug_line = true;
+
+			break;
+		case 'n':
+			/* FALLTHROUGH */
+		case 'v':
+			nm_opts.sort_fn = &cmp_value;
+
+			break;
+		case 'x':
+			t = RADIX_HEX;
+
+			break;
+		case 0:
+			if (nm_opts.sort_size != 0) {
+				nm_opts.sort_fn = &cmp_size;
+
+				filter_insert(sym_elem_def);
+				filter_insert(sym_elem_nonzero_size);
+			}
+
+			if (nm_opts.def_only != 0)
+				filter_insert(sym_elem_def);
+
+			if (nm_opts.no_demangle != 0)
+				nm_opts.demangle_type = DEMANGLE_NONE;
+
+			break;
+		case 'h':
+			usage(EX_OK);
+
+			/* NOTREACHED */
+		default :
+			usage(EX_USAGE);
+
+			/* NOTREACHED */
+		}
+	}
+
+	assert(nm_opts.sort_fn != NULL && "nm_opts.sort_fn is null");
+	assert(nm_opts.elem_print_fn != NULL &&
+	    "nm_opts.elem_print_fn is null");
+	assert(nm_opts.value_print_fn != NULL &&
+	    "nm_opts.value_print_fn is null");
+
+	set_opt_value_print_fn(t);
+
+	if (nm_opts.undef_only == true) {
+		if (nm_opts.sort_fn == &cmp_size)
+			errx(EX_USAGE, "--size-sort with -u is meaningless");
+
+		if (nm_opts.def_only != 0)
+			errx(EX_USAGE,
+			    "-u with --defined-only is meaningless");
+	}
+
+	if (nm_opts.print_debug == false)
+		filter_insert(sym_elem_nondebug);
+
+	if (nm_opts.sort_reverse == true && nm_opts.sort_fn == cmp_none)
+		nm_opts.sort_reverse = false;
+}
+
 /*
  * Get symbol information from elf.
  * param shnum Total section header number(ehdr.e_shnum).
@@ -533,6 +731,13 @@ get_sym_type(const GElf_Sym *sym, const char *type_table)
 	return (is_local == true && type_table[sym->st_shndx] != 'N' ?
 	    TOLOWER(type_table[sym->st_shndx]) :
 	    type_table[sym->st_shndx]);
+}
+
+static void
+global_dest(void)
+{
+
+	filter_dest();
 }
 
 static void
@@ -1238,6 +1443,31 @@ end_read_elf:
 	return (rtn);
 }
 
+static int
+read_files(int argc, char **argv)
+{
+	int rtn = 0;
+
+	if (argc <= 0 || argv == NULL)
+		return (1);
+
+	if (argc == 0)
+		rtn |= read_elf(nm_info.def_filename);
+	else {
+		if (nm_opts.print_name == PRINT_NAME_NONE && argc > 1)
+			nm_opts.print_name = PRINT_NAME_MULTI;
+
+		while (argc > 0) {
+			rtn |= read_elf(*argv);
+
+			--argc;
+			++argv;
+		}
+	}
+
+	return (rtn);
+}
+
 static unsigned char *
 relocate_sec(Elf_Data *org, Elf_Data *rela, int class)
 {
@@ -1854,219 +2084,26 @@ usage(int exitcode)
 int
 main(int argc, char *argv[])
 {
-	int ch, rtn;
-	enum radix t;
+	int rtn = 1;
 
 	assert(argc > 0);
 
 	global_init();
 
-	t = RADIX_DEFAULT;
-
-	while ((ch = getopt_long(argc, argv, "ABCDSVPaefghlnoprst:uvx",
-		    nm_longopts, NULL)) != -1) {
-		switch (ch) {
-		case 'A':
-			nm_opts.print_name = PRINT_NAME_FULL;
-
-			break;
-		case 'B':
-			nm_opts.elem_print_fn = &sym_elem_print_all;
-
-			break;
-		case 'C':
-			nm_opts.demangle_type = get_demangle_option(optarg);
-
-			break;
-		case 'F':
-			/* sysv, bsd, posix */
-			switch (optarg[0]) {
-			case 'B':
-			case 'b':
-				nm_opts.elem_print_fn = &sym_elem_print_all;
-
-				break;
-			case 'P':
-			case 'p':
-				nm_opts.elem_print_fn =
-				    &sym_elem_print_all_portable;
-
-				break;
-			case 'S':
-			case 's':
-				nm_opts.elem_print_fn =
-				    &sym_elem_print_all_sysv;
-				break;
-
-			default:
-				warnx("%s: Invalid format", optarg);
-
-				usage(EX_USAGE);
-
-				/* NOTREACHED */
-			}
-
-			break;
-		case 'D':
-			nm_opts.print_symbol = PRINT_SYM_DYN;
-
-			break;
-		case 'S':
-			nm_opts.print_size = 1;
-
-			break;
-		case 'V':
-			print_version();
-
-			/* NOTREACHED */
-			break;
-		case 'P':
-			nm_opts.elem_print_fn = &sym_elem_print_all_portable;
-
-			break;
-		case 'a':
-			nm_opts.print_debug = true;
-
-			break;
-		case 'f':
-			break;
-		case 'e':
-			filter_insert(sym_elem_global_static);
-
-			break;
-		case 'g':
-			filter_insert(sym_elem_global);
-
-			break;
-		case 'o':
-			t = RADIX_OCT;
-
-			break;
-		case 'p':
-			nm_opts.sort_fn = &cmp_none;
-
-			break;
-		case 'r':
-			nm_opts.sort_reverse = true;
-
-			break;
-		case 's':
-			nm_opts.print_armap = true;
-
-			break;
-		case 't':
-			/* t require always argument to getopt_long */
-			switch (optarg[0]) {
-			case 'd':
-				t = RADIX_DEC;
-
-				break;
-			case 'o':
-				t = RADIX_OCT;
-
-				break;
-			case 'x':
-				t = RADIX_HEX;
-
-				break;
-			default:
-				warnx("%s: Invalid radix", optarg);
-
-				usage(EX_USAGE);
-
-				/* NOTREACHED */
-			}
-
-			break;
-		case 'u':
-			filter_insert(sym_elem_undef);
-			nm_opts.undef_only = true;
-
-			break;
-		case 'l':
-			nm_opts.debug_line = true;
-
-			break;
-		case 'n':
-			/* FALLTHROUGH */
-		case 'v':
-			nm_opts.sort_fn = &cmp_value;
-
-			break;
-		case 'x':
-			t = RADIX_HEX;
-
-			break;
-		case 0:
-			if (nm_opts.sort_size != 0) {
-				nm_opts.sort_fn = &cmp_size;
-
-				filter_insert(sym_elem_def);
-				filter_insert(sym_elem_nonzero_size);
-			}
-
-			if (nm_opts.def_only != 0)
-				filter_insert(sym_elem_def);
-
-			if (nm_opts.no_demangle != 0)
-				nm_opts.demangle_type = DEMANGLE_NONE;
-
-			break;
-		case 'h':
-			usage(EX_OK);
-
-			/* NOTREACHED */
-		default :
-			usage(EX_USAGE);
-
-			/* NOTREACHED */
-		}
-	}
-
-	argc -= optind;
-	argv += optind;
-
 	assert(nm_info.name != NULL && "nm_info.name is null");
 	assert(nm_info.def_filename != NULL && "nm_info.def_filename is null");
+
+	get_opt(argc, argv);
+
 	assert(nm_opts.sort_fn != NULL && "nm_opts.sort_fn is null");
 	assert(nm_opts.elem_print_fn != NULL &&
 	    "nm_opts.elem_print_fn is null");
 	assert(nm_opts.value_print_fn != NULL &&
 	    "nm_opts.value_print_fn is null");
 
-	set_opt_value_print_fn(t);
+	rtn = read_files(argc - optind, argv + optind);
 
-	if (nm_opts.undef_only == true) {
-		if (nm_opts.sort_fn == &cmp_size)
-			errx(EX_USAGE, "--size-sort with -u is meaningless");
-
-		if (nm_opts.def_only != 0)
-			errx(EX_USAGE,
-			    "-u with --defined-only is meaningless");
-	}
-
-	if (nm_opts.print_debug == false)
-		filter_insert(sym_elem_nondebug);
-
-	if (nm_opts.sort_reverse == true && nm_opts.sort_fn == cmp_none)
-		nm_opts.sort_reverse = false;
-
-	rtn = 0;
-	if (argc == 0)
-		rtn |= read_elf(nm_info.def_filename);
-	else {
-		if (nm_opts.print_name == PRINT_NAME_NONE && argc > 1)
-			nm_opts.print_name = PRINT_NAME_MULTI;
-
-		while (argc > 0) {
-			rtn |= read_elf(*argv);
-
-			--argc;
-			++argv;
-		}
-	}
-
-	filter_dest();
+	global_dest();
 
 	return (rtn);
 }
