@@ -37,7 +37,8 @@
 #include <sys/elf64.h>
 #elif defined(__NetBSD__)
 #include <sys/exec_elf.h>
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__GNU__) || defined(__GLIBC__)
+#include <elf.h>
 #endif
 
 /* Library private data structures */
