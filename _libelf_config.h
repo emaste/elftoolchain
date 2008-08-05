@@ -111,7 +111,7 @@
 
 #define	LIBELF_VCSID(ID)	__RCSID(ID)
 
-#ifndef SLIST_FOREACH_SAFE
+#ifndef STAILQ_FOREACH_SAFE
 #define STAILQ_FOREACH_SAFE(var, head, field, tvar)            \
        for ((var) = STAILQ_FIRST((head));                      \
             (var) && ((tvar) = STAILQ_NEXT((var), field), 1);  \
