@@ -213,41 +213,11 @@
  * Supply macros missing from <sys/queue.h>
  */
 
-#ifndef	STAILQ_EMPTY
-#define STAILQ_EMPTY(head)      ((head)->stqh_first == NULL)
-#endif
-
-#ifndef	STAILQ_FIRST
-#define STAILQ_FIRST(head)      ((head)->stqh_first)
-#endif
-
-#ifndef	STAILQ_FOREACH
-#define STAILQ_FOREACH(var, head, field)                                \
-        for((var) = STAILQ_FIRST((head));                               \
-           (var);                                                       \
-           (var) = STAILQ_NEXT((var), field))
-#endif
-
-#ifndef	SLIST_FOREACH_SAFE
+#ifndef	STAILQ_FOREACH_SAFE
 #define STAILQ_FOREACH_SAFE(var, head, field, tvar)            \
        for ((var) = STAILQ_FIRST((head));                      \
             (var) && ((tvar) = STAILQ_NEXT((var), field), 1);  \
             (var) = (tvar))
-#endif
-
-#ifndef	STAILQ_INIT
-#define STAILQ_INIT(head) do {                                          \
-        STAILQ_FIRST((head)) = NULL;                                    \
-        (head)->stqh_last = &STAILQ_FIRST((head));                      \
-} while (0)
-#endif
-
-#ifndef	STAILQ_INSERT_TAIL
-#define STAILQ_INSERT_TAIL(head, elm, field) do {                       \
-        STAILQ_NEXT((elm), field) = NULL;                               \
-        *(head)->stqh_last = (elm);                                     \
-        (head)->stqh_last = &STAILQ_NEXT((elm), field);                 \
-} while (0)
 #endif
 
 #ifndef	STAILQ_LAST
