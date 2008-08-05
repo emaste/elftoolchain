@@ -29,6 +29,10 @@
 #include <sys/limits.h>
 #include <machine/elf.h>
 
+#if __FreeBSD_version >= 330000
+#define	LIBELF_CONFIG_STRL_FUNCTIONS	1
+#endif
+
 #if __FreeBSD_version >= 600102
 #define	LIBELF_CONFIG_ADDR	1
 #define	LIBELF_CONFIG_BYTE	1
@@ -68,10 +72,13 @@
 
 #endif  /* __FreeBSD__ */
 
+
 #ifdef __NetBSD__
 
 #include <sys/exec_elf.h>
 #include <machine/elf_machdep.h>
+
+#define	LIBELF_CONFIG_STRL_FUNCTIONS	1
 
 #define	LIBELF_CONFIG_ADDR	1
 #define	LIBELF_CONFIG_BYTE	1
@@ -134,6 +141,125 @@
 #endif
 
 #endif	/* __NetBSD__ */
+
+/*
+ * GNU & Linux compatibility.
+ *
+ * `__linux__' is defined in an environment runs the Linux kernel and glibc.
+ * `__GNU__' is defined in an environment runs a GNU kernel (Hurd) and glibc.
+ * `__GLIBC__' is defined for an environment that runs glibc over a non-GNU
+ *     kernel such as GNU/kFreeBSD.
+ */
+
+#if defined(__linux__) || defined(__GNU__) || defined(__GLIBC__)
+
+#if defined(__linux__)
+
+/*
+ * We include <asm/elf.h> in order to access the symbols `ELF_ARCH',
+ * `ELF_DATA' and `ELF_CLASS'.  However, a few symbols in this
+ * file will collide with those in <elf.h> so these need to be
+ * explicitly #undef'ed.
+ */
+
+#undef R_386_NUM
+#undef R_X86_64_NUM
+
+#include <asm/elf.h>
+
+#define	LIBELF_ARCH		ELF_ARCH
+#define	LIBELF_BYTEORDER	ELF_DATA
+#define	LIBELF_CLASS		ELF_CLASS
+
+#endif	/* defined(__linux__) */
+
+/*
+ * Common configuration for the GNU environment.
+ */
+
+#define	LIBELF_CONFIG_ADDR	1
+#define	LIBELF_CONFIG_BYTE	1
+#define	LIBELF_CONFIG_DYN	1
+#define	LIBELF_CONFIG_EHDR	1
+#define	LIBELF_CONFIG_HALF	1
+#define	LIBELF_CONFIG_MOVEP	1
+#define	LIBELF_CONFIG_NOTE	1
+#define	LIBELF_CONFIG_OFF	1
+#define	LIBELF_CONFIG_PHDR	1
+#define	LIBELF_CONFIG_REL	1
+#define	LIBELF_CONFIG_RELA	1
+#define	LIBELF_CONFIG_SHDR	1
+#define	LIBELF_CONFIG_SWORD	1
+#define	LIBELF_CONFIG_SXWORD	1
+#define	LIBELF_CONFIG_SYM	1
+#define	LIBELF_CONFIG_VDEF	1
+#define	LIBELF_CONFIG_VNEED	1
+#define	LIBELF_CONFIG_WORD	1
+#define	LIBELF_CONFIG_XWORD	1
+
+#define	LIBELF_VCSID(ID)
+
+#if	LIBELF_CLASS == ELFCLASS32
+#define	Elf_Note		Elf32_Nhdr
+#elif   LIBELF_CLASS == ELFCLASS64
+#define	Elf_Note		Elf64_Nhdr
+#else
+#error  LIBELF_CLASS needs to be one of ELFCLASS32 or ELFCLASS64
+#endif
+
+#define	roundup2	roundup
+
+/*
+ * Supply macros missing from <sys/queue.h>
+ */
+
+#ifndef	STAILQ_EMPTY
+#define STAILQ_EMPTY(head)      ((head)->stqh_first == NULL)
+#endif
+
+#ifndef	STAILQ_FIRST
+#define STAILQ_FIRST(head)      ((head)->stqh_first)
+#endif
+
+#ifndef	STAILQ_FOREACH
+#define STAILQ_FOREACH(var, head, field)                                \
+        for((var) = STAILQ_FIRST((head));                               \
+           (var);                                                       \
+           (var) = STAILQ_NEXT((var), field))
+#endif
+
+#ifndef	SLIST_FOREACH_SAFE
+#define STAILQ_FOREACH_SAFE(var, head, field, tvar)            \
+       for ((var) = STAILQ_FIRST((head));                      \
+            (var) && ((tvar) = STAILQ_NEXT((var), field), 1);  \
+            (var) = (tvar))
+#endif
+
+#ifndef	STAILQ_INIT
+#define STAILQ_INIT(head) do {                                          \
+        STAILQ_FIRST((head)) = NULL;                                    \
+        (head)->stqh_last = &STAILQ_FIRST((head));                      \
+} while (0)
+#endif
+
+#ifndef	STAILQ_INSERT_TAIL
+#define STAILQ_INSERT_TAIL(head, elm, field) do {                       \
+        STAILQ_NEXT((elm), field) = NULL;                               \
+        *(head)->stqh_last = (elm);                                     \
+        (head)->stqh_last = &STAILQ_NEXT((elm), field);                 \
+} while (0)
+#endif
+
+#ifndef	STAILQ_LAST
+#define STAILQ_LAST(head, type, field)                                  \
+        (STAILQ_EMPTY((head)) ?                                         \
+                NULL :                                                  \
+                ((struct type *)(void *)                                \
+                ((char *)((head)->stqh_last) - offsetof(struct type, field))))
+#endif
+
+
+#endif /* defined(__linux__) || defined(__GNU__) || defined(__GLIBC__) */
 
 /*
  * Symbols that are sometimes missing in system headers.
