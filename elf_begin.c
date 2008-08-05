@@ -35,6 +35,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <libelf.h>
+#include <unistd.h>
 
 #include "_libelf.h"
 
