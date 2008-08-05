@@ -31,6 +31,26 @@ To support cross building:
   "_libelf_config.h".
 
 
+: OS Specific Configuration :
+
+:: Ubuntu ::
+
+The following packages are needed for the build:
+- `build-essentials'
+- `m4'
+- `freebsd5-buildutils'
+
+You would need to use `freebsd-make' instead of GNU make to build
+the tools.
+
+:: FreeBSD ::
+
+libelf should build out of the box on FreeBSD versions later than 6.0.
+
+:: NetBSD ::
+
+libelf should build out of the box on NetBSD versions later than 4.0.
+
 : Porting resources on the 'net
 
 The 'predef' project [http://predef.sourceforge.net/] has a
