@@ -36,9 +36,9 @@ To support cross building:
 :: Debian ::
 
 The following packages are needed for the build:
-- `build-essentials'
+- `build-essential'
 - `m4'
-- `freebsd5-buildutils'
+- `freebsd-buildutils' or `freebsd5-buildutils'
 
 You would need to use `freebsd-make' instead of GNU make to build
 the tools.  You would also need to place /usr/lib/freebsd in the
