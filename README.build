@@ -33,7 +33,7 @@ To support cross building:
 
 : OS Specific Configuration :
 
-:: Ubuntu ::
+:: Debian ::
 
 The following packages are needed for the build:
 - `build-essentials'
@@ -41,7 +41,8 @@ The following packages are needed for the build:
 - `freebsd5-buildutils'
 
 You would need to use `freebsd-make' instead of GNU make to build
-the tools.
+the tools.  You would also need to place /usr/lib/freebsd in the
+shell's `PATH', preferably at the beginning.
 
 :: FreeBSD ::
 
@@ -50,6 +51,11 @@ libelf should build out of the box on FreeBSD versions later than 6.0.
 :: NetBSD ::
 
 libelf should build out of the box on NetBSD versions later than 4.0.
+
+:: Ubuntu ::
+
+See the section on 'Debian' above.
+
 
 : Porting resources on the 'net
 
