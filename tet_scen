@@ -11,6 +11,7 @@ all
 	^elf_errmsg
 	^elf_errno
 	^elf_fill
+	^elf_flagarhdr
 	^elf_flagdata
 	^elf_flagehdr
 	^elf_flagelf
@@ -72,6 +73,9 @@ elf_errno
 
 elf_fill
 	/tset/elf_fill/tc_elf_fill
+
+elf_flagarhdr
+	/tset/elf_flagarhdr/tc_elf_flagarhdr
 
 elf_flagdata
 	/tset/elf_flagdata/tc_elf_flagdata
