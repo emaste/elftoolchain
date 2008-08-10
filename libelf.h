@@ -139,6 +139,11 @@ typedef struct {
 	char		*ar_rawname;	/* 'raw' member name */
 	size_t		ar_size;
 	uid_t		ar_uid;
+
+	/*
+	 * Members that are not part of the public API.
+	 */
+	int		ar_flags;
 } Elf_Arhdr;
 
 /*
@@ -181,6 +186,10 @@ enum Elf_Error {
 #define	ELF_F_LAYOUT	0x001U	/* application will layout the file */
 #define	ELF_F_DIRTY	0x002U	/* a section or ELF file is dirty */
 
+/* ELF(3) API extensions. */
+#define	ELF_F_ARCHIVE	   0x100U /* archive creation */
+#define	ELF_F_ARCHIVE_SYSV 0x200U /* SYSV style archive */
+
 __BEGIN_DECLS
 Elf		*elf_begin(int _fd, Elf_Cmd _cmd, Elf *_elf);
 int		elf_cntl(Elf *_elf, Elf_Cmd _cmd);
@@ -188,7 +197,10 @@ int		elf_end(Elf *_elf);
 const char	*elf_errmsg(int _error);
 int		elf_errno(void);
 void		elf_fill(int _fill);
-unsigned int	elf_flagdata(Elf_Data *_data, Elf_Cmd _cmd, unsigned int _flags);
+unsigned int	elf_flagarhdr(Elf_Arhdr *_arh, Elf_Cmd _cmd,
+			unsigned int _flags);
+unsigned int	elf_flagdata(Elf_Data *_data, Elf_Cmd _cmd,
+			unsigned int _flags);
 unsigned int	elf_flagehdr(Elf *_elf, Elf_Cmd _cmd, unsigned int _flags);
 unsigned int	elf_flagelf(Elf *_elf, Elf_Cmd _cmd, unsigned int _flags);
 unsigned int	elf_flagphdr(Elf *_elf, Elf_Cmd _cmd, unsigned int _flags);
