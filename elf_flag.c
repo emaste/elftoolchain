@@ -33,6 +33,28 @@
 LIBELF_VCSID("$Id$");
 
 unsigned int
+elf_flagarhdr(Elf_Arhdr *a, Elf_Cmd c, unsigned int flags)
+{
+	unsigned int r;
+
+	if (a == NULL)
+		return (0);
+
+	if ((c != ELF_C_SET && c != ELF_C_CLR) ||
+	    (flags & ~ELF_F_DIRTY) != 0) {
+		LIBELF_SET_ERROR(ARGUMENT, 0);
+		return (0);
+	}
+
+	if (c == ELF_C_SET)
+		r = a->ar_flags |= flags;
+	else
+		r = a->ar_flags &= ~flags;
+
+	return (r);
+}
+
+unsigned int
 elf_flagdata(Elf_Data *d, Elf_Cmd c, unsigned int flags)
 {
 	Elf *e;
@@ -96,8 +118,19 @@ elf_flagelf(Elf *e, Elf_Cmd c, unsigned int flags)
 
 	if ((c != ELF_C_SET && c != ELF_C_CLR) ||
 	    (e->e_kind != ELF_K_ELF) ||
-	    (flags & ~(ELF_F_DIRTY|ELF_F_LAYOUT)) != 0) {
+	    (flags & ~(ELF_F_ARCHIVE | ELF_F_ARCHIVE_SYSV |
+	    ELF_F_DIRTY | ELF_F_LAYOUT)) != 0) {
 		LIBELF_SET_ERROR(ARGUMENT, 0);
+		return (0);
+	}
+
+	if ((flags & ELF_F_ARCHIVE_SYSV) && (flags & ELF_F_ARCHIVE) == 0) {
+		LIBELF_SET_ERROR(ARGUMENT, 0);
+		return (0);
+	}
+
+	if ((flags & ELF_F_ARCHIVE) && e->e_cmd != ELF_C_WRITE) {
+		LIBELF_SET_ERROR(MODE, 0);
 		return (0);
 	}
 
