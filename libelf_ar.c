@@ -265,6 +265,8 @@ _libelf_ar_gethdr(Elf *e)
 		 sizeof(arh->ar_name), 1)) == NULL)
 		goto error;
 
+	eh->ar_flags = 0;
+
 	return (eh);
 
  error:
