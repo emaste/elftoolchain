@@ -108,6 +108,7 @@ MAN=	elf.3							\
 
 MLINKS+= \
 	elf_errmsg.3 elf_errno.3		\
+	elf_flagdata.3 elf_flagarhdr.3		\
 	elf_flagdata.3 elf_flagehdr.3		\
 	elf_flagdata.3 elf_flagelf.3		\
 	elf_flagdata.3 elf_flagphdr.3		\
