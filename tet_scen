@@ -2,6 +2,8 @@
 
 # Scenario file
 
+# $Id$
+
 all
 	^elf_begin
 	^elf_cntl

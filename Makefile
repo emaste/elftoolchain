@@ -1,4 +1,4 @@
-#
+# $Id$
 
 TET_ROOT?=	/home/tmp/tet
 

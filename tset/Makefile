@@ -1,5 +1,5 @@
 #
-# 
+# $Id$
 #
 
 SUBDIR+=	common		# must be first

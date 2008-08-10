@@ -24,7 +24,7 @@ pushdef(`_DIVNUM',divnum)divert(-1)
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD$
+ * $Id$
  */
 
 /*

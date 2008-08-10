@@ -74,7 +74,7 @@
 # sections, a section index may be manually specified using a
 # 'sh_index' pseudo field.
 #
-# $FreeBSD$
+# $Id$
 
 version     = "%prog 1.0"
 usage       = "usage: %prog [options] [input-file]"
