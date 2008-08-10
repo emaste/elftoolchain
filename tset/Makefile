@@ -10,6 +10,7 @@ SUBDIR+=	elf_end
 SUBDIR+=	elf_errmsg
 SUBDIR+=	elf_errno
 SUBDIR+=	elf_fill
+SUBDIR+=	elf_flagarhdr
 SUBDIR+=	elf_flagdata
 SUBDIR+=	elf_flagehdr
 SUBDIR+=	elf_flagelf
