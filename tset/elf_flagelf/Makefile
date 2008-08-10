@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $Id$
 
 TS_SRCS=		elf.m4
 

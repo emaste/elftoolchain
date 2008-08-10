@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $Id$
 
 TS_SRCS=	begin.m4
 TS_DATA=	check_elf.msb32 check_elf.lsb32 check_elf.msb64 check_elf.lsb64 \

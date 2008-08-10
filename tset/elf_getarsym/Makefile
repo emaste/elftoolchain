@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $Id$
 
 TS_SRCS=		getarsym.m4
 

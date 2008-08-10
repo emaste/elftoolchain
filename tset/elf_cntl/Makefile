@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $Id$
 
 TS_SRCS=		cntl.m4
 TS_DATA=		a.ar

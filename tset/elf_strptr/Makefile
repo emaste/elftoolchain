@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $Id$
 
 TS_SRCS=		strptr.m4
 TS_DATA=		xscn-2.lsb32 xscn-2.lsb64 xscn-2.msb32 xscn-2.msb64 \
