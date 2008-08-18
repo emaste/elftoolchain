@@ -39,6 +39,7 @@ __RCSID("$Id$");
 #include "elfcopy.h"
 
 static void	add_to_shstrtab(struct elfcopy *ecp, const char *name);
+static void	check_section_rename(struct elfcopy *ecp, struct section *s);
 static void	filter_reloc(struct elfcopy *ecp, struct section *s);
 static void	insert_to_sec_list(struct elfcopy *ecp, struct section *sec);
 static int	is_append_section(struct elfcopy *ecp, const char *name);
@@ -157,6 +158,16 @@ is_compress_section(struct elfcopy *ecp, const char *name)
 		return (1);
 
 	return (0);
+}
+
+static void
+check_section_rename(struct elfcopy *ecp, struct section *s)
+{
+	struct sec_action *sac;
+
+	sac = lookup_sec_act(ecp, s->name, 0);
+	if (sac != NULL && sac->rename)
+		s->name = sac->newname;
 }
 
 /*
@@ -343,6 +354,8 @@ create_scn(struct elfcopy *ecp)
 		if (ecp->strip == STRIP_NONDEBUG && (ish.sh_flags & SHF_ALLOC))
 			s->type = SHT_NOBITS;
 
+		check_section_rename(ecp, s);
+
 		/* create section header based on input object. */
 		if (strcmp(name, ".symtab") != 0 &&
 		    strcmp(name, ".strtab") != 0 &&
@@ -424,8 +437,6 @@ copy_content(struct elfcopy *ecp)
 		if (ecp->strip == STRIP_ALL &&
 		    (s->type == SHT_REL || s->type == SHT_RELA))
 			filter_reloc(ecp, s);
-
-		/* Add check for whether change section name here */
 
 		if (is_modify_section(ecp, s->name))
 			modify_section(ecp, s);

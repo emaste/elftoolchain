@@ -48,6 +48,7 @@ enum options
 	ECP_ADD_SECTION,
 	ECP_ONLY_DEBUG,
 	ECP_RENAME_SECTION,
+	ECP_SET_SEC_FLAGS,
 	ECP_STRIP_UNNEEDED
 };
 
@@ -85,6 +86,7 @@ static struct option elfcopy_longopts[] =
 	{"preserve-dates", no_argument, NULL, 'p'},
 	{"remove-section", required_argument, NULL, 'R'},
 	{"rename-section", required_argument, NULL, ECP_RENAME_SECTION},
+	{"set-section-flags", required_argument, NULL, ECP_SET_SEC_FLAGS},
 	{"strip-all", no_argument, NULL, 'S'},
 	{"strip-debug", no_argument, 0, 'g'},
 	{"strip-symbol", required_argument, NULL, 'N'},
@@ -96,6 +98,7 @@ static void	create_elf(struct elfcopy *ecp);
 static void	create_file(struct elfcopy *ecp, const char *src,
     const char *dst);
 static void	create_object(struct elfcopy *ecp, int ifd, int ofd);
+static void	parse_sec_flags(struct sec_action *sac, char *s);
 static void	strip_main(struct elfcopy *ecp, int argc, char **argv);
 static void	strip_usage(void);
 static void	set_output_target(struct elfcopy *ecp, const char *target_name);
@@ -376,7 +379,8 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 	struct sec_action *sac;
 	struct sec_add *sa;
 	struct stat sb;
-	const char *infile, *outfile, *s, *fn;
+	const char *infile, *outfile;
+	char *fn, *s;
 	FILE *fp;
 	int opt, len;
 
@@ -456,6 +460,33 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			break;
 		case ECP_ONLY_DEBUG:
 			ecp->strip = STRIP_NONDEBUG;
+			break;
+		case ECP_RENAME_SECTION:
+			if ((fn = strchr(optarg, '=')) == NULL)
+				errx(EX_USAGE,
+				    "illegal format for --rename-section");
+			*fn++ = '\0';
+
+			/* Check for optional flags. */
+			if ((s = strchr(fn, ',')) != NULL) {
+				*s++ = '\0';
+				printf("s=%s\n", s);
+			}
+				
+			sac = lookup_sec_act(ecp, optarg, 1);
+			sac->rename = 1;
+			sac->newname = fn;
+			printf("sac->newname=%s\n", sac->newname);
+			if (s != NULL)
+				parse_sec_flags(sac, s);
+			break;
+		case ECP_SET_SEC_FLAGS:
+			if ((s = strchr(optarg, '=')) == NULL)
+				errx(EX_USAGE,
+				    "illegal format for --set-section-flags");
+			*s++ = '\0';
+			sac = lookup_sec_act(ecp, optarg, 1);
+			parse_sec_flags(sac, s);
 			break;
 		case ECP_STRIP_UNNEEDED:
 			ecp->strip = STRIP_UNNEEDED;
@@ -620,6 +651,44 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 
 	for (i = optind; i < argc; i++)
 		create_file(ecp, argv[i], outfile);
+}
+
+static struct {
+	const char *name;
+	int value;
+} sec_flags[] = {
+	{"alloc", SF_ALLOC},
+	{"load", SF_LOAD},
+	{"noload", SF_NOLOAD},
+	{"readonly", SF_READONLY},
+	{"debug", SF_DEBUG},
+	{"code", SF_CODE},
+	{"data", SF_DATA},
+	{"rom", SF_ROM},
+	{"share", SF_SHARED},
+	{"contents", SF_CONTENTS},
+	{NULL, 0}
+};
+
+static void
+parse_sec_flags(struct sec_action *sac, char *s)
+{
+	const char *flag;
+	int found, i;
+
+	for (flag = strtok(s, ","); flag; flag = strtok(NULL, ",")) {
+		found = 0;
+		for (i = 0; sec_flags[i].name != NULL; i++)
+			if (strcasecmp(sec_flags[i].name, flag) == 0) {
+				sac->flags |= sec_flags[i].value;
+				found = 1;
+				break;
+			}
+		if (!found)
+			errx(EX_USAGE, "unrecognized section flag %s", flag);
+	}
+
+	printf("sec->flags = 0x%4x\n",sac->flags);
 }
 
 static void

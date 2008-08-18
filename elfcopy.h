@@ -43,6 +43,19 @@ struct sec_action {
 	const char *newname;
 	const char *string;
 
+#define	SF_ALLOC	0x0001
+#define	SF_LOAD		0x0002
+#define	SF_NOLOAD	0x0004
+#define	SF_READONLY	0x0008
+#define	SF_DEBUG	0x0010
+#define	SF_CODE		0x0020
+#define	SF_DATA		0x0040
+#define	SF_ROM		0x0080
+#define	SF_SHARED	0X0100
+#define	SF_CONTENTS	0x0200
+
+	int flags;
+
 	int add;
 	int append;
 	int compress;
@@ -50,6 +63,7 @@ struct sec_action {
 	int print;
 	int remove;
 	int rename;
+	int setflags;
 
 	STAILQ_ENTRY(sec_action) sac_list;
 };
