@@ -468,15 +468,12 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			*fn++ = '\0';
 
 			/* Check for optional flags. */
-			if ((s = strchr(fn, ',')) != NULL) {
+			if ((s = strchr(fn, ',')) != NULL)
 				*s++ = '\0';
-				printf("s=%s\n", s);
-			}
 				
 			sac = lookup_sec_act(ecp, optarg, 1);
 			sac->rename = 1;
 			sac->newname = fn;
-			printf("sac->newname=%s\n", sac->newname);
 			if (s != NULL)
 				parse_sec_flags(sac, s);
 			break;
