@@ -30,19 +30,19 @@ recstate() {
 
 	# uuencode if required.
 	if [ "${USE_UUENCODE}" = yes ]; then
-	    cd ${WORKDIR} || exit 1
-	    for f in *; do
-		uuencode ${f} ${f} > ${WORKDIR}.uu.${1}/${f}.uu
-	    done
+	    cp -R ${WORKDIR}/* ${WORKDIR}.uu.${1}
+	    cd ${WORKDIR}.uu.${1} || exit 1
+	    find . -type f | xargs -I % uuencode -o %.uu % %
+	    find . -type f ! -name '*.uu' -delete
 	fi
 
 	# Pack them up using shar if required, or just copy.
 	mkdir -p ${OPATH}/${1} || exit 1
 	if [ "${USE_SHAR}" = yes ]; then
 	    cd ${WORKDIR}.uu.${1} || exit 1
-	    shar * > ${OPATH}/${1}/$TC.${1}.shar
+	    shar `find . -print` > ${OPATH}/${1}/$TC.${1}.shar
 	elif [ "${USE_UUENCODE}" = yes ]; then
-	    cp ${WORKDIR}.uu.${1}/* ${OPATH}/${1}
+	    cp -R ${WORKDIR}.uu.${1}/* ${OPATH}/${1}
 	else
 	    cp -R ${WORKDIR}/* ${OPATH}/${1}
 	fi
@@ -142,8 +142,18 @@ recstate "in"
 
 # Execute the cmd, record stdout, stderr and exit value.
 #
+redirin=`echo ${GCMD} | cut -f 2- -d '<'`
+if [ "${redirin}" != "${GCMD}" ]; then
+    GCMD=`echo ${GCMD} | cut -f 1 -d '<'`
+    redirin=`echo ${redirin} | sed 's/^ *\(.*\) *$/\1/'`
+fi
+
 cd ${WORKDIR} || exit 1
-${GCMD} > ${OPATH}/$TC.out 2> ${OPATH}/$TC.err
+if [ "${redirin}" != "${GCMD}" ]; then
+    ${GCMD} < ${redirin} > ${OPATH}/$TC.out 2> ${OPATH}/$TC.err
+else
+    ${GCMD} > ${OPATH}/$TC.out 2> ${OPATH}/$TC.err
+fi
 echo $? > ${OPATH}/$TC.eval
 
 # Keep a record of output state.

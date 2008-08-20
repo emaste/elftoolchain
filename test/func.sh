@@ -68,10 +68,8 @@ udecode() {
     fi
 
     cd $1 || exit 1
-    for f in *.uu; do
-	uudecode $f || exit 1
-	rm -rf $f
-    done
+    find . -type f -execdir uudecode {} \;
+    find . -type f -name '*.uu' -delete
 }
 
 # `runcmd' runs `cmd' on the work/result dir.
@@ -83,7 +81,7 @@ udecode() {
 #
 runcmd() {
     if [ $# -ne 3 ]; then
-	echo "usage: dotest cmd loc rec"
+	echo "usage: runcmd cmd loc rec"
 	exit 1
     fi
 
@@ -93,6 +91,11 @@ runcmd() {
     cd ${THISDIR}
     absolpath=`cd ${relapath} && /bin/pwd`
     newcmd=${absolpath}/`basename ${executable}`" "`echo $1 | cut -f 2- -d ' '`
+    redirin=`echo $newcmd | cut -f 2- -d '<'`
+    if [ "$redirin" != "$newcmd" ]; then
+	newcmd=`echo $newcmd | cut -f 1 -d '<'`
+	redirin=`echo ${redirin} | sed 's/^ *\(.*\) *$/\1/'`
+    fi
 
     if [ "$2" = work ]; then
 	cd ${TESTDIR} || exit 1
@@ -104,10 +107,18 @@ runcmd() {
     fi
 
     if [ "$3" = true ]; then
-	${newcmd} > ${OUTDIR}/${TC}.out 2> ${OUTDIR}/${TC}.err
+	if [ "$redirin" != "$newcmd" ]; then
+	    ${newcmd} < ${redirin} > ${OUTDIR}/${TC}.out 2> ${OUTDIR}/${TC}.err
+	else
+	    ${newcmd} > ${OUTDIR}/${TC}.out 2> ${OUTDIR}/${TC}.err
+	fi
 	echo $? > ${OUTDIR}/${TC}.eval
     elif [ "$3" = false ]; then
-	${newcmd}
+	if [ "$redirin" != "$newcmd" ]; then
+	    ${newcmd} < ${redirin}
+	else
+	    ${newcmd}
+	fi
     else
 	echo "rec must be true of false."
 	exit 1
