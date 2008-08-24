@@ -273,8 +273,10 @@ main(int argc, char **argv)
 	if (bsdar->options & AR_U)
 		only_mode(bsdar, "-u", "qrx");
 
-	if (bsdar->mode == 'M')
+	if (bsdar->mode == 'M') {
 		ar_mode_script(bsdar);
+		exit(EX_OK);
+	}
 
 	if ((bsdar->filename = *argv) == NULL)
 		bsdar_usage();
