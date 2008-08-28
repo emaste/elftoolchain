@@ -142,13 +142,8 @@ cmd_list
 	| cmd_list rawcmd
 	;
 
-newline
-	: EOL { arscp_prompt(); }
-	;
-
 rawcmd
-	: cmd newline
-	| newline
+	: cmd EOL { arscp_prompt(); }
 	;
 
 cmd
@@ -165,7 +160,9 @@ cmd
 	| replace_cmd
 	| verbose_cmd
 	| save_cmd
-	| FNAME { yyerror(NULL); }
+	| invalid_cmd
+	| empty_cmd
+	| error
 	;
 
 addlib_cmd
@@ -222,6 +219,15 @@ save_cmd
 verbose_cmd
 	: VERBOSE { verbose = !verbose; }
 	;
+
+empty_cmd
+	:
+	;
+
+invalid_cmd
+	: FNAME { yyerror(NULL); }
+	;
+
 %%
 
 /* ARGSUSED */
