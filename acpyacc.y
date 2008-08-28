@@ -66,7 +66,7 @@ static void	arscp_delete(struct list *list);
 static void	arscp_delete_dir(const char *dir);
 static void	arscp_dir(char *archive, struct list *list, char *rlt);
 static void	arscp_dir2argv(const char *dir);
-static void	arscp_end(void);
+static void	arscp_end(int eval);
 static void	arscp_extract(struct list *list);
 static void	arscp_free_argv(void);
 static void	arscp_free_mlist(struct list *list);
@@ -195,7 +195,7 @@ directory_cmd
 	;
 
 end_cmd
-	: END { arscp_end(); }
+	: END { arscp_end(EX_OK); }
 	;
 
 extract_cmd
@@ -576,7 +576,7 @@ arscp_clear()
  * before exit.
  */
 static void
-arscp_end()
+arscp_end(int eval)
 {
 
 	if (target)
@@ -588,7 +588,7 @@ arscp_end()
 		free(tmpac);
 	}
 
-	exit(EX_OK);
+	exit(eval);
 }
 
 /*
@@ -807,6 +807,9 @@ ar_mode_script(struct bsdar *ar)
 	interactive = isatty(fileno(stdin));
 	while(yyparse()) {
 		if (!interactive)
-			exit(1);
+			arscp_end(1);
 	}
+
+	/* Script ends without END */
+	arscp_end(EX_OK);
 }
