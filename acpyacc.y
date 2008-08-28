@@ -190,7 +190,8 @@ delete_cmd
 	;
 
 directory_cmd
-	: DIRECTORY FNAME LP mod_list RP { arscp_dir($2, $4, NULL); }
+	: DIRECTORY FNAME { arscp_dir($2, NULL, NULL); }
+	| DIRECTORY FNAME LP mod_list RP { arscp_dir($2, $4, NULL); }
 	| DIRECTORY FNAME LP mod_list RP FNAME { arscp_dir($2, $4, $6); }
 	;
 
@@ -497,7 +498,12 @@ arscp_dir(char *archive, struct list *list, char *rlt)
 	}
 
 	bsdar->filename = archive;
-	arscp_mlist2argv(list);
+	if (list)
+		arscp_mlist2argv(list);
+	else {
+		bsdar->argc = 0;
+		bsdar->argv = NULL;
+	}
 	if (verbose)
 		bsdar->options |= AR_V;
 	ar_mode_t(bsdar);
