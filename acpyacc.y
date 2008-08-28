@@ -782,10 +782,7 @@ arscp_strcat(const char *path, const char *name)
 	if (str == NULL)
 		bsdar_errc(bsdar, EX_SOFTWARE, errno, "malloc failed");
 
-	str[0] = '\0';
-	strncat(str, path, strlen(path));
-	strncat(str, "/", 1);
-	strncat(str, name, strlen(name));
+	snprintf(str, slen, "%s/%s", path, name);
 
 	return (str);
 }
