@@ -1448,7 +1448,7 @@ read_files(int argc, char **argv)
 {
 	int rtn = 0;
 
-	if (argc <= 0 || argv == NULL)
+	if (argc < 0 || argv == NULL)
 		return (1);
 
 	if (argc == 0)
