@@ -395,15 +395,14 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			sac->remove = 1;
 			ecp->sections_to_remove = 1;
 			break;
-		case 's':
+		case 'S':
 			ecp->strip = STRIP_ALL;
 			break;
-		case 'S':
 		case 'g':
-		case 'd':
 			ecp->strip = STRIP_DEBUG;
 			break;
 		case 'I':
+		case 's':
 			/* ignored */
 			break;
 		case 'j':
