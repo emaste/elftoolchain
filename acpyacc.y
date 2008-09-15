@@ -560,26 +560,19 @@ arscp_save()
 }
 
 /*
- * Discard changes since last SAVE. This is simulated by executing
- * OPEN or CREATE command on the same target one more time.
+ * Discard all the contents of current archive. This is achieved by
+ * invoking CREATE cmd on current archive.
  */
 static void
 arscp_clear()
 {
-	struct stat	 sb;
 	char		*new_target;
 
 	if (target) {
 		new_target = strdup(target);
 		if (new_target == NULL)
 			bsdar_errc(bsdar, EX_SOFTWARE, errno, "strdup failed");
-		if (stat(tmpac, &sb) != 0) {
-			if (errno != ENOENT)
-				bsdar_errc(bsdar, EX_IOERR, errno,
-				    "stat %s failed", target);
-			arscp_create(NULL, new_target);
-		} else
-			arscp_open(new_target);
+		arscp_create(NULL, new_target);
 	}
 }
 
