@@ -546,10 +546,19 @@ arscp_replace(struct list *list)
 static void
 arscp_save()
 {
+	mode_t mask;
 
 	if (target) {
 		if (rename(tmpac, target) < 0)
 			bsdar_errc(bsdar, EX_IOERR, errno, "rename failed");
+		/*
+		 * mkstemp creates temp files with mode 0600, here we
+		 * set target archive mode per process umask.
+		 */
+		mask = umask(0);
+		umask(mask);
+		if (chmod(target, 0666 & ~mask) < 0)
+			bsdar_errc(bsdar, EX_IOERR, errno, "chmod failed");
 		free(tmpac);
 		free(target);
 		tmpac = NULL;
