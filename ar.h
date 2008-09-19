@@ -78,6 +78,7 @@ struct ar_obj {
  */
 struct bsdar {
 	const char	 *filename;	/* archive name. */
+	const char	 *addlib;	/* target of ADDLIB. */
 	const char	 *posarg;	/* position arg for modifiers -a, -b. */
 	char		  mode;		/* program mode */
 	char		  compression;	/* compression mode */
@@ -120,4 +121,5 @@ void	ar_mode_r(struct bsdar *bsdar);
 void	ar_mode_s(struct bsdar *bsdar);
 void	ar_mode_t(struct bsdar *bsdar);
 void	ar_mode_x(struct bsdar *bsdar);
+void	ar_mode_A(struct bsdar *bsdar);
 void	ar_mode_script(struct bsdar *ar);
