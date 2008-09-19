@@ -63,9 +63,7 @@ static void	arscp_clear(void);
 static int	arscp_copy(int ifd, int ofd);
 static void	arscp_create(char *in, char *out);
 static void	arscp_delete(struct list *list);
-static void	arscp_delete_dir(const char *dir);
 static void	arscp_dir(char *archive, struct list *list, char *rlt);
-static void	arscp_dir2argv(const char *dir);
 static void	arscp_end(int eval);
 static void	arscp_extract(struct list *list);
 static void	arscp_free_argv(void);
@@ -78,7 +76,6 @@ static void	arscp_open(char *fname);
 static void	arscp_prompt(void);
 static void	arscp_replace(struct list *list);
 static void	arscp_save(void);
-static char	*arscp_strcat(const char *path, const char *name);
 static int	arscp_target_exist(void);
 
 extern int		 lineno;
@@ -359,8 +356,6 @@ arscp_copy(int ifd, int ofd)
 	return (0);
 }
 
-
-
 /*
  * Add all modules of archive to current archive, if list != NULL,
  * only those modules speicifed in 'list' will be added.
@@ -368,70 +363,14 @@ arscp_copy(int ifd, int ofd)
 static void
 arscp_addlib(char *archive, struct list *list)
 {
-	const char	 *tmpdir;
-	char		 *cwd, *dir, *path_ac, *path_tmpac;
 
-	/*
-	 * ADDLIB cmd is simulated by firstly extracting all members of
-	 * archive into a temporary directory and inserting all or part
-	 * of those into current archive later.
-	 */
-
-	/* Get absolute pathnames for 'archive' and 'tmpac'. */
-	if ((cwd = getcwd(NULL, 0)) == NULL)
-		bsdar_errc(bsdar, EX_IOERR, errno, "getcwd failed");
-	path_ac = arscp_strcat(cwd, archive);
-	path_tmpac = arscp_strcat(cwd, tmpac);
-
-	/* Respect TMPDIR environment variable. */
-	tmpdir = getenv("TMPDIR");
-	if (tmpdir == NULL || *tmpdir == '\0')
-		tmpdir = ".";
-	if (chdir(tmpdir) == -1)
-		bsdar_errc(bsdar, EX_IOERR, errno, "chdir %s failed", tmpdir);
-
-	dir = strdup(TEMPLATE);
-	if (dir == NULL)
-		bsdar_errc(bsdar, EX_SOFTWARE, errno, "strdup failed");
-	if ((dir = mkdtemp(dir)) == NULL)
-		bsdar_errc(bsdar, EX_IOERR, errno, "mkdtemp failed");
-	if (chdir(dir) == -1)
-		bsdar_errc(bsdar, EX_IOERR, errno, "chdir %s failed", dir);
-
-	/* Extract 'archive'. */
-	bsdar->filename = path_ac;
-	bsdar->argc = 0;
-	bsdar->argv = NULL;
-	ar_mode_x(bsdar);
-
-	/*
-	 * Build argv. If 'list' == NULL, all modules under dir will be
-	 * added. If 'list' != NULL, only modules specified by 'list'
-	 * will be added.
-	 */
-	bsdar->filename = path_tmpac;
-	if (list)
-		arscp_mlist2argv(list);
-	else
-		arscp_dir2argv(".");
-	ar_mode_q(bsdar);
+	if (!arscp_target_exist())
+		return;
+	arscp_mlist2argv(list);
+	bsdar->addlib = archive;
+	ar_mode_A(bsdar);
 	arscp_free_argv();
-
-	/* Cleanup */
-	if (chdir("..") == -1)
-		bsdar_errc(bsdar, EX_IOERR, errno, "chdir %s failed", tmpdir);
-	arscp_delete_dir(dir);
-	if (chdir(cwd) == -1)
-		bsdar_errc(bsdar, EX_IOERR, errno,
-		    "return to working dir failed");
-	free(dir);
-	free(path_ac);
-	free(path_tmpac);
-	free(cwd);
-	free(archive);
-	if (list)
-		arscp_free_mlist(list);
-	bsdar->filename = tmpac;
+	arscp_free_mlist(list);
 }
 
 /* Add modules into current archive. */
@@ -683,54 +622,6 @@ arscp_mlist2argv(struct list *list)
 	bsdar->argv = argv;
 }
 
-/* Build argv from entries under 'dir'. */
-static void
-arscp_dir2argv(const char *dir)
-{
-	struct dirent	 *dp;
-	struct stat	  sb;
-	DIR		 *dirp;
-	char		**argv;
-	int		  dfd, i, n;
-
-	dirp = opendir(dir);
-	if (dirp == NULL)
-		bsdar_errc(bsdar, EX_IOERR, errno, "opendir %s failed", dir);
-
-	dfd = dirfd(dirp);
-	if (fstat(dfd, &sb) == -1)
-		bsdar_errc(bsdar, EX_IOERR, errno, "fstat %s failed", dir);
-
-	/* estimate array size */
-	n = sb.st_size / 24;
-	argv = malloc(n * sizeof(*argv));
-	if (argv == NULL)
-		bsdar_errc(bsdar, EX_SOFTWARE, errno, "malloc failed");
-
-	i = 0;
-	while ((dp = readdir(dirp)) != NULL) {
-		if (strcmp(dp->d_name, ".") == 0 ||
-		    strcmp(dp->d_name, "..") == 0)
-			continue;
-		if (i >= n) {
-			n += 10;
-			argv = realloc(argv, n * sizeof(*argv));
-			if (argv == NULL)
-				bsdar_errc(bsdar, EX_SOFTWARE, errno,
-				    "realloc failed");
-		}
-		argv[i] = strdup(dp->d_name);
-		if (argv[i] == NULL)
-			bsdar_errc(bsdar, EX_SOFTWARE, errno, "strdup failed");
-		i++;
-	}
-	if (closedir(dirp) == -1)
-		bsdar_errc(bsdar, EX_IOERR, errno, "closedir %s failed", dir);
-
-	bsdar->argc = i;
-	bsdar->argv = argv;
-}
-
 /* Free space allocated for argv array and its elements. */
 static void
 arscp_free_argv()
@@ -741,64 +632,6 @@ arscp_free_argv()
 		free(bsdar->argv[i]);
 
 	free(bsdar->argv);
-}
-
-/*
- * Remove contents of 'dir' and 'dir' itself, assuming that 'dir'
- * only contains regular files.
- */
-static void
-arscp_delete_dir(const char *dir)
-{
-	struct dirent	*dp;
-	DIR		*dirp;
-	int		 cur;
-
-	if ((cur = open(".", O_RDONLY)) == -1)
-		bsdar_errc(bsdar, EX_IOERR, errno, "open working dir failed");
-
-	if (chdir(dir) == -1)
-		bsdar_errc(bsdar, EX_IOERR, errno, "chdir %s failed", dir);
-
-	dirp = opendir(".");
-	if (dirp == NULL)
-		bsdar_errc(bsdar, EX_IOERR, errno, "opendir %s failed", dir);
-
-	while ((dp = readdir(dirp)) != NULL) {
-		if (strcmp(dp->d_name, ".") == 0 ||
-		    strcmp(dp->d_name, "..") == 0)
-			continue;
-		if (unlink(dp->d_name) == -1)
-			bsdar_errc(bsdar, EX_IOERR, errno, "unlink %s failed",
-			    dp->d_name);
-	}
-	if (closedir(dirp) == -1)
-		bsdar_errc(bsdar, EX_IOERR, errno, "closedir %s failed", dir);
-
-	if (fchdir(cur) == -1)
-		bsdar_errc(bsdar, EX_IOERR, errno,
-		    "return to working dir failed");
-	close(cur);
-
-	if (rmdir(dir) == -1)
-		bsdar_errc(bsdar, EX_IOERR, errno, "rmdir %s failed", dir);
-}
-
-/* Concat two strings with "/". */
-static char *
-arscp_strcat(const char *path, const char *name)
-{
-	char	*str;
-	size_t	 slen;
-
-	slen = strlen(path) + strlen(name) + 2;
-	str = malloc(slen);
-	if (str == NULL)
-		bsdar_errc(bsdar, EX_SOFTWARE, errno, "malloc failed");
-
-	snprintf(str, slen, "%s/%s", path, name);
-
-	return (str);
 }
 
 /* Show a prompt if we are in interactive mode */
