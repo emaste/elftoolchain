@@ -60,7 +60,8 @@ static void	create_symtab_entry(struct bsdar *bsdar, void *maddr,
 		    size_t size);
 static void	insert_obj(struct bsdar *bsdar, struct ar_obj *obj,
 		    struct ar_obj *pos);
-static void	read_objs(struct bsdar *bsdar, const char *archive, int addlib);
+static void	read_objs(struct bsdar *bsdar, const char *archive,
+		    int checkargv);
 static void	write_archive(struct bsdar *bsdar, char mode);
 static void	write_cleanup(struct bsdar *bsdar);
 static void	write_data(struct bsdar *bsdar, struct archive *a,
@@ -226,13 +227,13 @@ tail:
 }
 
 /*
- * Read objects from archive into v_obj list. Note that addlib is
+ * Read objects from archive into v_obj list. Note that checkargv is
  * set when read_objs is used to read objects from the target of
  * ADDLIB command (ar script mode), in this case argv array possibly
  * specifies the members ADDLIB want.
  */
 static void
-read_objs(struct bsdar *bsdar, const char *archive, int addlib)
+read_objs(struct bsdar *bsdar, const char *archive, int checkargv)
 {
 	struct archive		 *a;
 	struct archive_entry	 *entry;
@@ -279,10 +280,10 @@ read_objs(struct bsdar *bsdar, const char *archive, int addlib)
 			continue;
 
 		/*
-		 * If addlib is set, only read those members specified
+		 * If checkargv is set, only read those members specified
 		 * in argv.
 		 */
-		if (addlib && bsdar->argc > 0) {
+		if (checkargv && bsdar->argc > 0) {
 			find = 0;
 			for(i = 0; i < bsdar->argc; i++) {
 				av = &bsdar->argv[i];
