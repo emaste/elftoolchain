@@ -60,6 +60,7 @@ static void	create_symtab_entry(struct bsdar *bsdar, void *maddr,
 		    size_t size);
 static void	insert_obj(struct bsdar *bsdar, struct ar_obj *obj,
 		    struct ar_obj *pos);
+static void	read_objs(struct bsdar *bsdar, const char *archive, int addlib);
 static void	write_archive(struct bsdar *bsdar, char mode);
 static void	write_cleanup(struct bsdar *bsdar);
 static void	write_data(struct bsdar *bsdar, struct archive *a,
