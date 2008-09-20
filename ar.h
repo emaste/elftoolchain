@@ -26,7 +26,7 @@
  * $FreeBSD: src/usr.bin/ar/ar.h,v 1.3 2008/03/11 18:35:51 kaiw Exp $
  */
 
-#define	BSDAR_VERSION	"1.0.2"
+#define	BSDAR_VERSION	"1.1.0"
 
 /*
  * ar(1) options.
