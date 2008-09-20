@@ -23,7 +23,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $FreeBSD: src/usr.bin/ar/ar.h,v 1.3 2008/03/11 18:35:51 kaiw Exp $
+ * $FreeBSD$
  */
 
 #define	BSDAR_VERSION	"1.1.0"
@@ -54,7 +54,7 @@
 		bsdar_errc(bsdar, EX_SOFTWARE, 0, "%s",	\
 		    archive_error_string(a));		\
 } while (0)
-	
+
 /*
  * In-memory representation of archive member(object).
  */
@@ -74,7 +74,7 @@ struct ar_obj {
 };
 
 /*
- * Structure encapsulates the "global" data for "ar" program. 
+ * Structure encapsulates the "global" data for "ar" program.
  */
 struct bsdar {
 	const char	 *filename;	/* archive name. */
