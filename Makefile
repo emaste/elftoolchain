@@ -1,4 +1,4 @@
-# $FreeBSD: src/usr.bin/ar/Makefile,v 1.20 2008/02/25 16:16:17 ru Exp $
+# $FreeBSD$
 
 PROG=	ar
 SRCS=	ar.c acplex.l acpyacc.y read.c util.c write.c y.tab.h

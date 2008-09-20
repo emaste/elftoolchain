@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/ar/write.c,v 1.5 2008/03/11 18:35:51 kaiw Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/endian.h>
 #include <sys/mman.h>
@@ -365,7 +365,7 @@ write_archive(struct bsdar *bsdar, char mode)
 
 	/*
 	 * Test if the specified archive exists, to figure out
-         * whether we are creating one here.
+	 * whether we are creating one here.
 	 */
 	if (stat(bsdar->filename, &sb) != 0) {
 		if (errno != ENOENT) {
