@@ -165,6 +165,7 @@ struct elfcopy {
 #define	SYMTAB_EXIST	0x0010
 #define	SYMTAB_INTACT	0x0020
 #define DISCARD_LOCAL	0x0040
+#define PRESERVE_DATE	0x1000
 
 	int flags;
 
