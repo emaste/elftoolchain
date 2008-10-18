@@ -321,6 +321,8 @@ create_object(struct elfcopy *ecp, int ifd, int ofd)
 static void
 create_file(struct elfcopy *ecp, const char *src, const char *dst)
 {
+	struct stat sb;
+	struct timeval tv[2];
 	const char *tmpdir;
 	char *cp, *tmpf;
 	size_t tlen, plen;
@@ -330,6 +332,11 @@ create_file(struct elfcopy *ecp, const char *src, const char *dst)
 		errx(EX_SOFTWARE, "internal: src == NULL");
 	if ((ifd = open(src, O_RDONLY)) == -1)
 		err(EX_IOERR, "open %s failed", src);
+
+	if (ecp->flags & PRESERVE_DATE) {
+		if (fstat(ifd, &sb) == -1)
+			err(EX_IOERR, "fstat %s failed", src);
+	}
 
 	tmpf = NULL;
 	if (dst == NULL) {
@@ -369,6 +376,15 @@ create_file(struct elfcopy *ecp, const char *src, const char *dst)
 		free(tmpf);
 	}
 
+	if (ecp->flags & PRESERVE_DATE) {
+		tv[0].tv_sec = sb.st_atime;
+		tv[0].tv_usec = 0;
+		tv[1].tv_sec = sb.st_mtime;
+		tv[1].tv_usec = 0;
+		if (futimes(ofd, tv) == -1)
+			err(EX_IOERR, "futimes failed");
+	}
+
 	close(ifd);
 	close(ofd);
 }
@@ -384,7 +400,7 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 	FILE *fp;
 	int opt, len;
 
-	while ((opt = getopt_long(argc, argv, "I:j:K:N:O:R:sSdgxX",
+	while ((opt = getopt_long(argc, argv, "I:j:K:N:O:pR:sSdgxX",
 	    elfcopy_longopts, NULL)) != -1) {
 		switch(opt) {
 		case 'R':
@@ -423,6 +439,7 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			set_output_target(ecp, optarg);
 			break;
 		case 'p':
+			ecp->flags |= PRESERVE_DATE;
 			break;
 		case 'x':
 		case 'X':
@@ -592,7 +609,7 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 	int i;
 
 	outfile = NULL;
-	while ((opt = getopt_long(argc, argv, "I:K:N:o:O:R:sSdgxX",
+	while ((opt = getopt_long(argc, argv, "I:K:N:o:O:pR:sSdgxX",
 	    strip_longopts, NULL)) != -1) {
 		switch(opt) {
 		case 'R':
@@ -624,6 +641,7 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 			set_output_target(ecp, optarg);
 			break;
 		case 'p':
+			ecp->flags |= PRESERVE_DATE;
 			break;
 		case 'x':
 		case 'X':
