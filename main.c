@@ -208,8 +208,7 @@ create_elf(struct elfcopy *ecp)
 	/* FIXME */
 	if (ecp->strip == STRIP_DEBUG ||
 	    ecp->strip == STRIP_UNNEEDED ||
-	    !STAILQ_EMPTY(&ecp->v_sym_keep) ||
-	    !STAILQ_EMPTY(&ecp->v_sym_strip))
+	    !STAILQ_EMPTY(&ecp->v_symop))
 		ecp->flags &= ~SYMTAB_INTACT;
 
 	if (ecp->sections_to_add != 0)
@@ -430,10 +429,10 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			ecp->sections_to_copy = 1;
 			break;
 		case 'K':
-			add_to_keep_list(ecp, optarg);
+			add_to_sym_op_list(ecp, optarg, SYMOP_KEEP);
 			break;
 		case 'N':
-			add_to_strip_list(ecp, optarg);
+			add_to_sym_op_list(ecp, optarg, SYMOP_STRIP);
 			break;
 		case 'O':
 			set_output_target(ecp, optarg);
@@ -629,10 +628,10 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 			/* ignored */
 			break;
 		case 'K':
-			add_to_keep_list(ecp, optarg);
+			add_to_sym_op_list(ecp, optarg, SYMOP_KEEP);
 			break;
 		case 'N':
-			add_to_strip_list(ecp, optarg);
+			add_to_sym_op_list(ecp, optarg, SYMOP_STRIP);
 			break;
 		case 'o':
 			outfile = optarg;
@@ -757,8 +756,7 @@ main(int argc, char **argv)
 	STAILQ_INIT(&ecp->v_seg);
 	STAILQ_INIT(&ecp->v_sac);
 	STAILQ_INIT(&ecp->v_sadd);
-	STAILQ_INIT(&ecp->v_sym_strip);
-	STAILQ_INIT(&ecp->v_sym_keep);
+	STAILQ_INIT(&ecp->v_symop);
 	TAILQ_INIT(&ecp->v_sec);
 
 	if ((ecp->progname = getprogname()) == NULL)
