@@ -37,7 +37,6 @@ __RCSID("$Id$");
 
 #include "elfcopy.h"
 
-static uint32_t	calc_nonlocal(struct section *s);
 static int	is_debug_symbol(GElf_Sym *s);
 static int	is_global_symbol(GElf_Sym *s);
 static int	is_needed_symbol(struct elfcopy *ecp, int i, GElf_Sym *s);
@@ -646,7 +645,7 @@ create_symtab(struct elfcopy *ecp)
 	 * the symbol table index of the last local symbol(binding
 	 * STB_LOCAL).
 	 */
-	shy.sh_info		= calc_nonlocal(sy);
+	shy.sh_info		= sy_buf->nls;
 
 	sht.sh_addr		= 0;
 	sht.sh_addralign	= 1;
@@ -663,39 +662,6 @@ create_symtab(struct elfcopy *ecp)
 	if (!gelf_update_shdr(st->os, &sht))
 		errx(EX_SOFTWARE, "gelf_update_shdr() failed: %s",
 		    elf_errmsg(-1));
-}
-
-static uint32_t
-calc_nonlocal(struct section *s)
-{
-	GElf_Shdr osh;
-	GElf_Sym sym;
-	Elf_Data* od;
-	uint32_t nonlocal;
-	size_t sc;
-	int elferr, i;
-
-	if (gelf_getshdr(s->os, &osh) != &osh)
-		errx(EX_SOFTWARE, "elf_getshdr failed: %s",
-		    elf_errmsg(-1));
-	nonlocal = 0;
-	od = NULL;
-	while ((od = elf_getdata(s->os, od)) != NULL) {
-		sc = od->d_size / osh.sh_entsize;
-		for (i = 0; (size_t)i < sc; i++) {
-			if (gelf_getsym(od, i, &sym) != &sym)
-				errx(EX_SOFTWARE, "gelf_getsym failed: %s",
-				     elf_errmsg(-1));
-			if (GELF_ST_BIND(sym.st_info) == STB_LOCAL)
-				nonlocal = i + 1;
-		}
-	}
-	elferr = elf_errno();
-	if (elferr != 0)
-		errx(EX_SOFTWARE, "elf_getdata failed: %s",
-		     elf_errmsg(elferr));
-
-	return (nonlocal);
 }
 
 void
