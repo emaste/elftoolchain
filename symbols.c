@@ -48,6 +48,7 @@ static int	generate_symbols(struct elfcopy *ecp);
 static int	lookup_strip_symlist(struct elfcopy *ecp, const char *name);
 static void	mark_symbols(struct elfcopy *ecp, size_t sc);
 
+/* Convenient bit vector operation macros. */
 #define BIT_SET(v, n) (v[(n)>>3] |= 1U << ((n) & 7))
 #define BIT_CLR(v, n) (v[(n)>>3] &= ~(1U << ((n) & 7)))
 #define BIT_ISSET(v, n) (v[(n)>>3] & (1U << ((n) & 7)))
@@ -273,6 +274,7 @@ generate_symbols(struct elfcopy *ecp)
 		errx(EX_SOFTWARE, "gelf_getclass failed: %s",
 		    elf_errmsg(-1));
 
+	/* Create buffers for .symtab and .strtab. */
 	if ((sy_buf = calloc(sizeof(*sy_buf), 1)) == 0)
 		err(EX_SOFTWARE, "calloc failed");
 	nsyms = 0;
@@ -282,10 +284,16 @@ generate_symbols(struct elfcopy *ecp)
 		err(EX_SOFTWARE, "malloc failed");
 	st_buf[0] = '\0';
 	st_sz = 1;
+
+	/*
+	 * Create bit vector v_secsym, which is used to mark sections
+	 * that already have corresponding STT_SECTION symbols.
+	 */
 	ecp->v_secsym = calloc((ecp->nos + 7) / 8, 1);
 	if (ecp->v_secsym == NULL)
 		err(EX_SOFTWARE, "calloc failed");
 
+	/* Locate .strtab of input object. */
 	symndx = 0;
 	name = NULL;
 	is = NULL;
@@ -310,6 +318,7 @@ generate_symbols(struct elfcopy *ecp)
 	if (symndx == 0)
 		errx(EX_DATAERR, "can't find .strtab section");
 
+	/* Locate .symtab of input object. */
 	is = NULL;
 	while ((is = elf_nextscn(ecp->ein, is)) != NULL) {
 		if (gelf_getshdr(is, &ish) != &ish)
@@ -329,6 +338,12 @@ generate_symbols(struct elfcopy *ecp)
 	if (is == NULL)
 		errx(EX_DATAERR, "can't find .strtab section");
 
+	/*
+	 * Convenient macro for copying global/local 32/64 bit symbols
+	 * from input object to the buffer created for output object.
+	 * It handles buffer growing, st_name calculating and st_shndx
+	 * updating for symbols with non-special section index.
+	 */
 #define	COPYSYM(B, SZ) do {					\
 	if (sy_buf->B##SZ == NULL) {				\
 		sy_buf->B##SZ = malloc(B##sy_cap *		\
@@ -360,6 +375,12 @@ generate_symbols(struct elfcopy *ecp)
 	sy_buf->n##B##s++;					\
 } while (0)
 
+	/*
+	 * Create bit vector gsym to mark global symbols, and symndx
+	 * to keep track of symbol index changes from input object to
+	 * output object, it is used by update_reloc() later to update
+	 * relocation information.
+	 */
 	gsym = NULL;
 	sc = ish.sh_size / ish.sh_entsize;
 	if (sc > 0) {
@@ -379,6 +400,7 @@ generate_symbols(struct elfcopy *ecp)
 	} else
 		return (0);
 
+	/* Copy/Filter each symbol. */
 	for (i = 0; (size_t)i < sc; i++) {
 		if (gelf_getsym(id, i, &sym) != &sym)
 			errx(EX_SOFTWARE, "gelf_getsym failed: %s",
@@ -388,11 +410,11 @@ generate_symbols(struct elfcopy *ecp)
 			errx(EX_SOFTWARE, "elf_strptr failed: %s",
 			    elf_errmsg(-1));
 
-		/* symbol filtering. */
+		/* Symbol filtering. */
 		if (is_remove_symbol(ecp, sc, i, &sym, name) != 0)
 			continue;
 
-		/* Copy symbol. */
+		/* Copy symbol, mark global symbol and add to index map. */
 		if (is_global_symbol(&sym)) {
 			BIT_SET(gsym, i);
 			ecp->symndx[i] = sy_buf->ngs;
@@ -411,12 +433,13 @@ generate_symbols(struct elfcopy *ecp)
 		}
 
 		/*
-		 * Mark the section the symbol points to, if
-		 * this is a STT_SECTION symbol.
+		 * If the symbol is a STT_SECTION symbol, mark the section
+		 * it points to.
 		 */
 		if (GELF_ST_TYPE(sym.st_info) == STT_SECTION)
 			BIT_SET(ecp->v_secsym, ecp->secndx[sym.st_shndx]);
 
+		/* Copy symbol name string, grow strtab if need. */
 		if (*name == '\0')
 			continue;
 		while (st_sz + strlen(name) >= st_cap - 1) {
@@ -459,7 +482,7 @@ generate_symbols(struct elfcopy *ecp)
 			sym.st_value	= s->vma;
 			sym.st_size	= 0;
 			sym.st_info	= GELF_ST_INFO(STB_LOCAL, STT_SECTION);
-			/* Use input sec index since COPYSYM will translate. */
+			/* COPYSYM will handle st_shndx updating. */
 			sym.st_shndx	= elf_ndxscn(s->is);
 			if (ec == ELFCLASS32)
 				COPYSYM(l, 32);
@@ -468,7 +491,10 @@ generate_symbols(struct elfcopy *ecp)
 		}
 	}
 
-	/* Update index translation for global symbols. */
+	/*
+	 * Update index map for global symbols. Note that global symbols are
+	 * put after local symbols in the symbol table.
+	 */
 	if (gsym != NULL) {
 		for(i = 0; (size_t)i < sc; i++)
 			if (BIT_ISSET(gsym, i))
@@ -476,6 +502,10 @@ generate_symbols(struct elfcopy *ecp)
 		free(gsym);
 	}
 
+	/* 
+	 * Store symtab and strtab buffers in the global ecp structure for
+	 * later use.
+	 */
 	ecp->symtab->sz = (sy_buf->nls + sy_buf->ngs) *
 	    (ec == ELFCLASS32 ? sizeof(Elf32_Sym) : sizeof(Elf64_Sym));
 	ecp->symtab->buf = sy_buf;
@@ -493,6 +523,12 @@ create_symtab(struct elfcopy *ecp)
 	Elf_Data *gsydata, *lsydata, *stdata;
 	GElf_Shdr shy, sht;
 
+	/*
+	 * Generate symbols for output object if SYMTAB_INTACT is not set.
+	 * If there is no symbol in the input object or all the symbols are
+	 * stripped, then free all the resouces allotted for symbol table,
+	 * and clear SYMTAB_EXIST flag.
+	 */
 	if (((ecp->flags & SYMTAB_INTACT) == 0) && !generate_symbols(ecp)) {
 		TAILQ_REMOVE(&ecp->v_sec, ecp->symtab, sec_list);
 		TAILQ_REMOVE(&ecp->v_sec, ecp->strtab, sec_list);
@@ -505,6 +541,7 @@ create_symtab(struct elfcopy *ecp)
 	sy = ecp->symtab;
 	st = ecp->strtab;
 
+	/* Create output Elf_Scn for .symtab and .strtab. */
 	if ((sy->os = elf_newscn(ecp->eout)) == NULL ||
 	    (st->os = elf_newscn(ecp->eout)) == NULL)
 		errx(EX_SOFTWARE, "elf_newscn failed: %s",
@@ -512,6 +549,10 @@ create_symtab(struct elfcopy *ecp)
 	ecp->secndx[elf_ndxscn(sy->is)] = elf_ndxscn(sy->os);
 	ecp->secndx[elf_ndxscn(st->is)] = elf_ndxscn(st->os);
 
+	/*
+	 * Copy .symtab and .strtab section headers from input to output
+	 * object to start with, these will be overridden later if need.
+	 */
 	copy_shdr(ecp, sy, ".symtab", 1);
 	copy_shdr(ecp, st, ".strtab", 1);
 
@@ -522,12 +563,18 @@ create_symtab(struct elfcopy *ecp)
 		errx(EX_SOFTWARE, "gelf_getshdr() failed: %s",
 		    elf_errmsg(-1));
 
+	/* Copy verbatim if symbol table is intact. */
 	if (ecp->flags & SYMTAB_INTACT) {
 		copy_data(sy);
 		copy_data(st);
 		return;
 	}
 
+	/*
+	 * Create two Elf_Data for .symtab section of output object, one
+	 * for local symbols and another for global symbols. Note that
+	 * local symbols appear first in the .symtab.
+	 */
 	sy_buf = sy->buf;
 	if (sy_buf->nls > 0) {
 		if ((lsydata = elf_newdata(sy->os)) == NULL)
@@ -576,6 +623,7 @@ create_symtab(struct elfcopy *ecp)
 		}
 	}
 
+	/* Create Elf_Data for .strtab. */
 	if ((stdata = elf_newdata(st->os)) == NULL)
 		errx(EX_SOFTWARE, "elf_newdata() failed: %s.",
 		    elf_errmsg(-1));
