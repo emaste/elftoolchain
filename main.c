@@ -46,6 +46,7 @@ __RCSID("$Id$");
 enum options
 {
 	ECP_ADD_SECTION,
+	ECP_GLOBALIZE_SYMBOL,
 	ECP_ONLY_DEBUG,
 	ECP_RENAME_SECTION,
 	ECP_SET_SEC_FLAGS,
@@ -76,6 +77,7 @@ static struct option elfcopy_longopts[] =
 	{"add-section", required_argument, NULL, ECP_ADD_SECTION},
 	{"discard-all", no_argument, NULL, 'x'},
 	{"discard-locals", no_argument, NULL, 'X'},
+	{"globalize-symbol", required_argument, NULL, ECP_GLOBALIZE_SYMBOL},
 	{"help", no_argument, NULL, 'h'},
 	{"input-target", required_argument, NULL, 'I'},
 	{"keep-symbol", required_argument, NULL, 'K'},
@@ -399,7 +401,7 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 	FILE *fp;
 	int opt, len;
 
-	while ((opt = getopt_long(argc, argv, "I:j:K:N:O:pR:sSdgxX",
+	while ((opt = getopt_long(argc, argv, "I:j:K:L:N:O:pR:sSdgxX",
 	    elfcopy_longopts, NULL)) != -1) {
 		switch(opt) {
 		case 'R':
@@ -430,6 +432,9 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			break;
 		case 'K':
 			add_to_sym_op_list(ecp, optarg, SYMOP_KEEP);
+			break;
+		case 'L':
+			add_to_sym_op_list(ecp, optarg, SYMOP_LOCALIZE);
 			break;
 		case 'N':
 			add_to_sym_op_list(ecp, optarg, SYMOP_STRIP);
@@ -472,6 +477,9 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 
 			STAILQ_INSERT_TAIL(&ecp->v_sadd, sa, sadd_list);
 			ecp->sections_to_add = 1;
+			break;
+		case ECP_GLOBALIZE_SYMBOL:
+			add_to_sym_op_list(ecp, optarg, SYMOP_GLOBALIZE);
 			break;
 		case ECP_ONLY_DEBUG:
 			ecp->strip = STRIP_NONDEBUG;
