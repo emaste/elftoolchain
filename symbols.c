@@ -31,6 +31,7 @@ __RCSID("$Id$");
 
 #include <sys/param.h>
 #include <err.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
@@ -254,6 +255,7 @@ generate_symbols(struct elfcopy *ecp)
 {
 	struct section *s;
 	struct symbuf *sy_buf;
+	struct strbuf *st_buf;
 	unsigned char *gsym;
 	GElf_Shdr ish;
 	GElf_Sym sym;
@@ -261,8 +263,8 @@ generate_symbols(struct elfcopy *ecp)
 	Elf_Scn *is;
 	size_t ishstrndx, ndx, nsyms, sc, symndx;
 	size_t gsy_cap, lsy_cap;
-	size_t st_sz, st_cap;
-	char *name, *st_buf;
+	size_t gst_cap, lst_cap;
+	char *name;
 	int ec, elferr, i;
 
 	if (elf_getshstrndx(ecp->ein, &ishstrndx) == 0)
@@ -273,15 +275,16 @@ generate_symbols(struct elfcopy *ecp)
 		    elf_errmsg(-1));
 
 	/* Create buffers for .symtab and .strtab. */
-	if ((sy_buf = calloc(sizeof(*sy_buf), 1)) == 0)
+	if ((sy_buf = calloc(1, sizeof(*sy_buf))) == NULL)
+		err(EX_SOFTWARE, "calloc failed");
+	if ((st_buf = calloc(1, sizeof(*st_buf))) == NULL)
 		err(EX_SOFTWARE, "calloc failed");
 	nsyms = 0;
 	gsy_cap = lsy_cap = 64;
-	st_cap = 512;
-	if ((st_buf = malloc(st_cap)) == NULL)
-		err(EX_SOFTWARE, "malloc failed");
-	st_buf[0] = '\0';
-	st_sz = 1;
+	gst_cap = 256;
+	lst_cap = 64;
+	st_buf->lsz = 1;	/* '\0' at start. */
+	st_buf->gsz = 0;
 
 	/*
 	 * Create bit vector v_secsym, which is used to mark sections
@@ -342,35 +345,49 @@ generate_symbols(struct elfcopy *ecp)
 	 * It handles buffer growing, st_name calculating and st_shndx
 	 * updating for symbols with non-special section index.
 	 */
-#define	COPYSYM(B, SZ) do {					\
-	if (sy_buf->B##SZ == NULL) {				\
-		sy_buf->B##SZ = malloc(B##sy_cap *		\
-		    sizeof(Elf##SZ##_Sym));			\
-		if (sy_buf->B##SZ == NULL)			\
-			err(EX_SOFTWARE, "malloc failed");	\
-	} else if (sy_buf->n##B##s >= B##sy_cap) {		\
-		B##sy_cap *= 2;					\
-		sy_buf->B##SZ = realloc(sy_buf->B##SZ,		\
-		    B##sy_cap * sizeof(Elf##SZ##_Sym));		\
-		if (sy_buf->B##SZ == NULL)			\
-			err(EX_SOFTWARE, "realloc failed");	\
-	}							\
-	if (sym.st_name == 0 || *name == '\0')			\
-		sy_buf->B##SZ[sy_buf->n##B##s].st_name = 0;	\
-	else							\
-		sy_buf->B##SZ[sy_buf->n##B##s].st_name = st_sz;	\
-	sy_buf->B##SZ[sy_buf->n##B##s].st_info	= sym.st_info;	\
-	sy_buf->B##SZ[sy_buf->n##B##s].st_other	= sym.st_other;	\
-	sy_buf->B##SZ[sy_buf->n##B##s].st_value	= sym.st_value;	\
-	sy_buf->B##SZ[sy_buf->n##B##s].st_size	= sym.st_size;	\
-	if (sym.st_shndx == SHN_UNDEF ||			\
-	    sym.st_shndx >= SHN_LORESERVE)			\
-		sy_buf->B##SZ[sy_buf->n##B##s].st_shndx =	\
-		    sym.st_shndx;				\
-	else							\
-		sy_buf->B##SZ[sy_buf->n##B##s].st_shndx	=	\
-		    ecp->secndx[sym.st_shndx];			\
-	sy_buf->n##B##s++;					\
+#define	COPYSYM(B, SZ) do {						\
+	if (sy_buf->B##SZ == NULL) {					\
+		sy_buf->B##SZ = malloc(B##sy_cap *			\
+		    sizeof(Elf##SZ##_Sym));				\
+		if (sy_buf->B##SZ == NULL)				\
+			err(EX_SOFTWARE, "malloc failed");		\
+	} else if (sy_buf->n##B##s >= B##sy_cap) {			\
+		B##sy_cap *= 2;						\
+		sy_buf->B##SZ = realloc(sy_buf->B##SZ, B##sy_cap *	\
+		    sizeof(Elf##SZ##_Sym));				\
+		if (sy_buf->B##SZ == NULL)				\
+			err(EX_SOFTWARE, "realloc failed");		\
+	}								\
+	if (sym.st_name == 0 || *name == '\0')				\
+		sy_buf->B##SZ[sy_buf->n##B##s].st_name = 0;		\
+	else								\
+		sy_buf->B##SZ[sy_buf->n##B##s].st_name = st_buf->B##sz;	\
+	sy_buf->B##SZ[sy_buf->n##B##s].st_info	= sym.st_info;		\
+	sy_buf->B##SZ[sy_buf->n##B##s].st_other	= sym.st_other;		\
+	sy_buf->B##SZ[sy_buf->n##B##s].st_value	= sym.st_value;		\
+	sy_buf->B##SZ[sy_buf->n##B##s].st_size	= sym.st_size;		\
+	if (sym.st_shndx == SHN_UNDEF || sym.st_shndx >= SHN_LORESERVE)	\
+		sy_buf->B##SZ[sy_buf->n##B##s].st_shndx = sym.st_shndx;	\
+	else								\
+		sy_buf->B##SZ[sy_buf->n##B##s].st_shndx	=		\
+		    ecp->secndx[sym.st_shndx];				\
+	sy_buf->n##B##s++;						\
+	if (st_buf->B == NULL) {					\
+		st_buf->B = calloc(B##st_cap, sizeof(*st_buf->B));	\
+		if (st_buf->B == NULL)					\
+			err(EX_SOFTWARE, "malloc failed");		\
+	}								\
+	if (sym.st_name != 0 && *name != '\0') {			\
+		while (st_buf->B##sz + strlen(name) >= B##st_cap - 1) {	\
+			B##st_cap *= 2;					\
+			st_buf->B = realloc(st_buf->B, B##st_cap);	\
+			if (st_buf->B == NULL)				\
+				err(EX_SOFTWARE, "realloc failed");	\
+		}							\
+		strncpy(&st_buf->B[st_buf->B##sz], name, strlen(name));	\
+		st_buf->B[st_buf->B##sz + strlen(name)] = '\0';		\
+		st_buf->B##sz += strlen(name) + 1;			\
+	}								\
 } while (0)
 
 	/*
@@ -412,13 +429,16 @@ generate_symbols(struct elfcopy *ecp)
 		if (is_remove_symbol(ecp, sc, i, &sym, name) != 0)
 			continue;
 
-		/* Check if need to globalize/localize symbol. */
+		/*
+		 * Check if need to globalize/localize symbol. FIXME
+		 * localize weak symbol?
+		 */
 		if (is_global_symbol(&sym)) {
 			if (lookup_sym_op_list(ecp, name,
 			    SYMOP_LOCALIZE) != NULL)
 				sym.st_info = GELF_ST_INFO(STB_LOCAL,
 				    GELF_ST_TYPE(sym.st_info));
-			
+
 		} else {
 			/* local symbol */
 			if (lookup_sym_op_list(ecp, name,
@@ -427,9 +447,8 @@ generate_symbols(struct elfcopy *ecp)
 				    GELF_ST_TYPE(sym.st_info));
 		}
 
-
-		/* Copy symbol, mark global symbol and add to index map. */
-		if (is_global_symbol(&sym)) {
+		/* Copy symbol, mark global/weak symbol and add to index map. */
+		if (is_global_symbol(&sym) || is_weak_symbol(&sym)) {
 			BIT_SET(gsym, i);
 			ecp->symndx[i] = sy_buf->ngs;
 		} else
@@ -452,19 +471,6 @@ generate_symbols(struct elfcopy *ecp)
 		 */
 		if (GELF_ST_TYPE(sym.st_info) == STT_SECTION)
 			BIT_SET(ecp->v_secsym, ecp->secndx[sym.st_shndx]);
-
-		/* Copy symbol name string, grow strtab if need. */
-		if (*name == '\0')
-			continue;
-		while (st_sz + strlen(name) >= st_cap - 1) {
-			st_cap *= 2;
-			st_buf = realloc(st_buf, st_cap);
-			if (st_buf == NULL)
-				err(EX_SOFTWARE, "realloc failed");
-		}
-		strncpy(&st_buf[st_sz], name, strlen(name));
-		st_buf[st_sz + strlen(name)] = '\0';
-		st_sz += strlen(name) + 1;
 	}
 
 
@@ -506,24 +512,34 @@ generate_symbols(struct elfcopy *ecp)
 	}
 
 	/*
-	 * Update index map for global symbols. Note that global symbols are
-	 * put after local symbols in the symbol table.
+	 * Update st_name and index map for global/weak symbols. Note that
+	 * global/weak symbols are put after local symbols.
 	 */
 	if (gsym != NULL) {
-		for(i = 0; (size_t)i < sc; i++)
-			if (BIT_ISSET(gsym, i))
-				ecp->symndx[i] += sy_buf->nls;
+		for(i = 0; (size_t)i < sc; i++) {
+			if (!BIT_ISSET(gsym, i))
+				continue;
+
+			/* Update st_name. */
+			if (ec == ELFCLASS32)
+				sy_buf->g32[ecp->symndx[i]].st_name += st_buf->lsz;
+			else
+				sy_buf->g64[ecp->symndx[i]].st_name += st_buf->lsz;
+
+			/* Update index map. */
+			ecp->symndx[i] += sy_buf->nls;
+		}
 		free(gsym);
 	}
 
-	/* 
+	/*
 	 * Store symtab and strtab buffers in the global ecp structure for
 	 * later use.
 	 */
 	ecp->symtab->sz = (sy_buf->nls + sy_buf->ngs) *
 	    (ec == ELFCLASS32 ? sizeof(Elf32_Sym) : sizeof(Elf64_Sym));
 	ecp->symtab->buf = sy_buf;
-	ecp->strtab->sz = st_sz;
+	ecp->strtab->sz = st_buf->lsz + st_buf->gsz;
 	ecp->strtab->buf = st_buf;
 
 	return (1);
@@ -534,7 +550,8 @@ create_symtab(struct elfcopy *ecp)
 {
 	struct section *sy, *st;
 	struct symbuf *sy_buf;
-	Elf_Data *gsydata, *lsydata, *stdata;
+	struct strbuf *st_buf;
+	Elf_Data *gsydata, *lsydata, *gstdata, *lstdata;
 	GElf_Shdr shy, sht;
 
 	/*
@@ -551,7 +568,7 @@ create_symtab(struct elfcopy *ecp)
 		ecp->flags &= ~SYMTAB_EXIST;
 		return;
 	}
-		
+
 	sy = ecp->symtab;
 	st = ecp->strtab;
 
@@ -637,16 +654,33 @@ create_symtab(struct elfcopy *ecp)
 		}
 	}
 
-	/* Create Elf_Data for .strtab. */
-	if ((stdata = elf_newdata(st->os)) == NULL)
+	/*
+	 * Create two Elf_Data for .strtab, one for local symbol name
+	 * and another for globals. Same as .symtab, local symbol names
+	 * appear first.
+	 */
+	st_buf = st->buf;
+	if ((lstdata = elf_newdata(st->os)) == NULL)
 		errx(EX_SOFTWARE, "elf_newdata() failed: %s.",
 		    elf_errmsg(-1));
-	stdata->d_align		= 1;
-	stdata->d_off		= 0;
-	stdata->d_buf		= st->buf;
-	stdata->d_size		= st->sz;
-	stdata->d_type		= ELF_T_BYTE;
-	stdata->d_version	= EV_CURRENT;
+	lstdata->d_align	= 1;
+	lstdata->d_off		= 0;
+	lstdata->d_buf		= st_buf->l;
+	lstdata->d_size		= st_buf->lsz;
+	lstdata->d_type		= ELF_T_BYTE;
+	lstdata->d_version	= EV_CURRENT;
+
+	if (st_buf->gsz > 0) {
+		if ((gstdata = elf_newdata(st->os)) == NULL)
+			errx(EX_SOFTWARE, "elf_newdata() failed: %s.",
+			    elf_errmsg(-1));
+		gstdata->d_align	= 1;
+		gstdata->d_off		= lstdata->d_size;
+		gstdata->d_buf		= st_buf->g;
+		gstdata->d_size		= st_buf->gsz;
+		gstdata->d_type		= ELF_T_BYTE;
+		gstdata->d_version	= EV_CURRENT;
+	}
 
 	shy.sh_addr		= 0;
 	shy.sh_addralign	= (ecp->oec == ELFCLASS32 ? 4 : 8);
