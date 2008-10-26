@@ -29,11 +29,31 @@
 #include <sys/queue.h>
 #include <gelf.h>
 
-/* List of user specified symbols. */
-struct symlist {
+/*
+ * User specified symbol operation (strip, keep, localize, globalize,
+ * weaken, etc).
+ */
+struct sym_op {
 	const char *name;
 
-	STAILQ_ENTRY(symlist) sym_list;
+#define SYMOP_KEEP	0x0001U
+#define SYMOP_STRIP	0x0002U
+#define SYMOP_GLOBALIZE	0x0004U
+#define SYMOP_LOCALIZE	0x0008U
+#define SYMOP_GKEEP	0x0010U
+#define SYMOP_WEAKEN	0x0020U
+
+	unsigned int op;
+
+	STAILQ_ENTRY(sym_op) symop_list;
+};
+
+/* Symbol rename operation. */
+struct sym_redef {
+	const char *old;
+	const char *new;
+
+	STAILQ_ENTRY(sym_redef) redef_list;
 };
 
 /* Sections to copy/remove/rename/... */
@@ -184,17 +204,15 @@ struct elfcopy {
 	STAILQ_HEAD(, segment) v_seg;
 	STAILQ_HEAD(, sec_action) v_sac;
 	STAILQ_HEAD(, sec_add) v_sadd;
-	/* list of symbols to strip */
-	STAILQ_HEAD(, symlist) v_sym_strip;
-	/* list of symbols to keep */
-	STAILQ_HEAD(, symlist) v_sym_keep;
+	/* list of symbols operations. */
+	STAILQ_HEAD(, sym_op) v_symop;
 	/* list of internal section structure */
 	TAILQ_HEAD(, section) v_sec;
 };
 
 void	add_unloadables(struct elfcopy *ecp);
-void	add_to_keep_list(struct elfcopy *ecp, const char *name);
-void	add_to_strip_list(struct elfcopy *ecp, const char *name);
+void	add_to_sym_op_list(struct elfcopy *ecp, const char *name,
+    unsigned int op);
 int	add_to_inseg_list(struct elfcopy *ecp, struct section *sec);
 void	copy_content(struct elfcopy *ecp);
 void	copy_data(struct section *s);
@@ -209,7 +227,8 @@ int	is_remove_reloc_sec(struct elfcopy *ecp, uint32_t sh_info);
 int	is_remove_section(struct elfcopy *ecp, const char *name);
 struct sec_action *lookup_sec_act(struct elfcopy *ecp,
     const char *name, int add);
-int	lookup_keep_symlist(struct elfcopy *ecp, const char *name);
+struct sym_op *lookup_sym_op_list(struct elfcopy *ecp, const char *name,
+    unsigned int op);
 int	lookup_string(struct section *t, const char *s);
 void	resync_sections(struct elfcopy *ecp);
 void	set_shstrtab(struct elfcopy *ecp);

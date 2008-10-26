@@ -44,7 +44,6 @@ static int	is_remove_symbol(struct elfcopy *ecp, size_t sc, int i,
 		    GElf_Sym *s, const char *name);
 static int	is_weak_symbol(GElf_Sym *s);
 static int	generate_symbols(struct elfcopy *ecp);
-static int	lookup_strip_symlist(struct elfcopy *ecp, const char *name);
 static void	mark_symbols(struct elfcopy *ecp, size_t sc);
 
 /* Convenient bit vector operation macros. */
@@ -96,10 +95,10 @@ is_remove_symbol(struct elfcopy *ecp, size_t sc, int i, GElf_Sym *s,
 		SHN_UNDEF,	/* st_shndx */
 	};
 
-	if (lookup_keep_symlist(ecp, name) != 0)
+	if (lookup_sym_op_list(ecp, name, SYMOP_KEEP) != NULL)
 		return (0);
 
-	if (lookup_strip_symlist(ecp, name) != 0)
+	if (lookup_sym_op_list(ecp, name, SYMOP_STRIP) != NULL)
 		return (1);
 
 	/*
@@ -665,51 +664,30 @@ create_symtab(struct elfcopy *ecp)
 }
 
 void
-add_to_keep_list(struct elfcopy *ecp, const char *name)
+add_to_sym_op_list(struct elfcopy *ecp, const char *name, unsigned int op)
 {
-	struct symlist *s;
+	struct sym_op *s;
 
-	if ((s = malloc(sizeof(*s))) == NULL)
-		errx(EX_SOFTWARE, "not enough memory");
-	memset(s, 0, sizeof(*s));
-	s->name = name;
-	STAILQ_INSERT_TAIL(&ecp->v_sym_keep, s, sym_list);
-}
-
-void
-add_to_strip_list(struct elfcopy *ecp, const char *name)
-{
-	struct symlist *s;
-
-	if ((s = malloc(sizeof(*s))) == NULL)
-		errx(EX_SOFTWARE, "not enough memory");
-	memset(s, 0, sizeof(*s));
-	s->name = name;
-	STAILQ_INSERT_TAIL(&ecp->v_sym_strip, s, sym_list);
-}
-
-int
-lookup_keep_symlist(struct elfcopy *ecp, const char *name)
-{
-	struct symlist *s;
-
-	STAILQ_FOREACH(s, &ecp->v_sym_keep, sym_list) {
-		if (strcmp(name, s->name) == 0)
-			return (1);
+	if ((s = lookup_sym_op_list(ecp, name, ~0U)) == NULL) {
+		if ((s = calloc(1, sizeof(*s))) == NULL)
+			errx(EX_SOFTWARE, "not enough memory");
+		s->name = name;
 	}
 
-	return (0);
+	s->op |= op;
+	STAILQ_INSERT_TAIL(&ecp->v_symop, s, symop_list);
 }
 
-static int
-lookup_strip_symlist(struct elfcopy *ecp, const char *name)
+struct sym_op *
+lookup_sym_op_list(struct elfcopy *ecp, const char *name, unsigned int op)
 {
-	struct symlist *s;
+	struct sym_op *s;
 
-	STAILQ_FOREACH(s, &ecp->v_sym_strip, sym_list) {
-		if (strcmp(name, s->name) == 0)
-			return (1);
+	STAILQ_FOREACH(s, &ecp->v_symop, symop_list) {
+		if (name == NULL || strcmp(name, s->name) == 0)
+			if ((s->op & op) != 0)
+				return (s);
 	}
 
-	return (0);
+	return (NULL);
 }
