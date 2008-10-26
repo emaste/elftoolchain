@@ -1,5 +1,7 @@
 #include <sys/cdefs.h>
-#if defined(__RCSID)
+#if defined(__FBSDID)
+__FBSDID("$FreeBSD$");
+#elif defined(__RCSID)
 __RCSID("$Id$");
 #endif
 
