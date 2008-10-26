@@ -412,6 +412,22 @@ generate_symbols(struct elfcopy *ecp)
 		if (is_remove_symbol(ecp, sc, i, &sym, name) != 0)
 			continue;
 
+		/* Check if need to globalize/localize symbol. */
+		if (is_global_symbol(&sym)) {
+			if (lookup_sym_op_list(ecp, name,
+			    SYMOP_LOCALIZE) != NULL)
+				sym.st_info = GELF_ST_INFO(STB_LOCAL,
+				    GELF_ST_TYPE(sym.st_info));
+			
+		} else {
+			/* local symbol */
+			if (lookup_sym_op_list(ecp, name,
+			    SYMOP_GLOBALIZE) != NULL)
+				sym.st_info = GELF_ST_INFO(STB_GLOBAL,
+				    GELF_ST_TYPE(sym.st_info));
+		}
+
+
 		/* Copy symbol, mark global symbol and add to index map. */
 		if (is_global_symbol(&sym)) {
 			BIT_SET(gsym, i);
