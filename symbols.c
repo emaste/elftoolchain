@@ -283,7 +283,7 @@ generate_symbols(struct elfcopy *ecp)
 	size_t gsy_cap, lsy_cap;
 	size_t gst_cap, lst_cap;
 	char *name;
-	int ec, elferr, i;
+	int ec, elferr, i, pos;
 
 	if (elf_getshstrndx(ecp->ein, &ishstrndx) == 0)
 		errx(EX_SOFTWARE, "elf_getshstrndx failed: %s",
@@ -376,10 +376,6 @@ generate_symbols(struct elfcopy *ecp)
 		if (sy_buf->B##SZ == NULL)				\
 			err(EX_SOFTWARE, "realloc failed");		\
 	}								\
-	if (sym.st_name == 0 || *name == '\0')				\
-		sy_buf->B##SZ[sy_buf->n##B##s].st_name = 0;		\
-	else								\
-		sy_buf->B##SZ[sy_buf->n##B##s].st_name = st_buf->B##sz;	\
 	sy_buf->B##SZ[sy_buf->n##B##s].st_info	= sym.st_info;		\
 	sy_buf->B##SZ[sy_buf->n##B##s].st_other	= sym.st_other;		\
 	sy_buf->B##SZ[sy_buf->n##B##s].st_value	= sym.st_value;		\
@@ -389,23 +385,36 @@ generate_symbols(struct elfcopy *ecp)
 	else								\
 		sy_buf->B##SZ[sy_buf->n##B##s].st_shndx	=		\
 		    ecp->secndx[sym.st_shndx];				\
-	sy_buf->n##B##s++;						\
 	if (st_buf->B == NULL) {					\
 		st_buf->B = calloc(B##st_cap, sizeof(*st_buf->B));	\
 		if (st_buf->B == NULL)					\
 			err(EX_SOFTWARE, "malloc failed");		\
 	}								\
 	if (sym.st_name != 0 && *name != '\0') {			\
-		while (st_buf->B##sz + strlen(name) >= B##st_cap - 1) {	\
-			B##st_cap *= 2;					\
-			st_buf->B = realloc(st_buf->B, B##st_cap);	\
-			if (st_buf->B == NULL)				\
-				err(EX_SOFTWARE, "realloc failed");	\
+		pos = lookup_exact_string(st_buf->B,			\
+		    st_buf->B##sz, name);				\
+		if (pos != -1)						\
+			sy_buf->B##SZ[sy_buf->n##B##s].st_name = pos;	\
+		else {							\
+			sy_buf->B##SZ[sy_buf->n##B##s].st_name =	\
+				st_buf->B##sz;				\
+			while (st_buf->B##sz + strlen(name) >=		\
+			    B##st_cap - 1) {				\
+				B##st_cap *= 2;				\
+				st_buf->B = realloc(st_buf->B,		\
+				    B##st_cap);				\
+				if (st_buf->B == NULL)			\
+					err(EX_SOFTWARE,		\
+					    "realloc failed");		\
+			}						\
+			strncpy(&st_buf->B[st_buf->B##sz], name,	\
+			    strlen(name));				\
+			st_buf->B[st_buf->B##sz + strlen(name)] = '\0';	\
+			st_buf->B##sz += strlen(name) + 1;		\
 		}							\
-		strncpy(&st_buf->B[st_buf->B##sz], name, strlen(name));	\
-		st_buf->B[st_buf->B##sz + strlen(name)] = '\0';		\
-		st_buf->B##sz += strlen(name) + 1;			\
-	}								\
+	} else								\
+		sy_buf->B##SZ[sy_buf->n##B##s].st_name = 0;		\
+	sy_buf->n##B##s++;						\
 } while (0)
 
 	/*
