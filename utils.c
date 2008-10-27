@@ -106,3 +106,20 @@ lookup_string(struct section *t, const char *s)
 
 	return (-1);
 }
+
+int
+lookup_exact_string(const char *buf, size_t sz, const char *s)
+{
+	const char *b;
+	size_t slen;
+
+	slen = strlen(s);
+	for (b = buf; b < buf + sz; b += strlen(b) + 1) {
+		if (strlen(b) != slen)
+			continue;
+		if (!strcmp(b, s))
+			return (b - buf);
+	}
+
+	return (-1);
+}
