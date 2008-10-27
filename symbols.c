@@ -551,9 +551,11 @@ generate_symbols(struct elfcopy *ecp)
 
 			/* Update st_name. */
 			if (ec == ELFCLASS32)
-				sy_buf->g32[ecp->symndx[i]].st_name += st_buf->lsz;
+				sy_buf->g32[ecp->symndx[i]].st_name +=
+				    st_buf->lsz;
 			else
-				sy_buf->g64[ecp->symndx[i]].st_name += st_buf->lsz;
+				sy_buf->g64[ecp->symndx[i]].st_name +=
+				    st_buf->lsz;
 
 			/* Update index map. */
 			ecp->symndx[i] += sy_buf->nls;
