@@ -124,7 +124,6 @@ struct segment {
 	uint64_t msz;		/* memory size */
 	uint64_t type;
 
-
 	int remove;
 
 	TAILQ_HEAD(sec_head, section) v_sec;

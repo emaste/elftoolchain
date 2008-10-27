@@ -340,11 +340,11 @@ create_scn(struct elfcopy *ecp)
 				errx(EX_SOFTWARE, "elf_newscn failed: %s",
 				    elf_errmsg(-1));
 			if ((newndx = elf_ndxscn(s->os)) == SHN_UNDEF)
-				errx(EX_SOFTWARE, "elf_scnndx failed: %s",
+				errx(EX_SOFTWARE, "elf_ndxscn failed: %s",
 				    elf_errmsg(-1));
 		}
 		if ((oldndx = elf_ndxscn(is)) == SHN_UNDEF)
-			errx(EX_SOFTWARE, "elf_scnndx failed: %s",
+			errx(EX_SOFTWARE, "elf_ndxscn failed: %s",
 			    elf_errmsg(-1));
 		if (oldndx != SHN_UNDEF && newndx != SHN_UNDEF)
 			ecp->secndx[oldndx] = newndx;

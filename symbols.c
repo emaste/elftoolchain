@@ -33,7 +33,6 @@ __RCSID("$Id$");
 
 #include <sys/param.h>
 #include <err.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
@@ -461,15 +460,15 @@ generate_symbols(struct elfcopy *ecp)
 		 * localize weak symbol?
 		 */
 		if (is_global_symbol(&sym)) {
-			if (lookup_sym_op_list(ecp, name,
-			    SYMOP_LOCALIZE) != NULL)
+			if (lookup_sym_op_list(ecp, name, SYMOP_LOCALIZE) !=
+			    NULL)
 				sym.st_info = GELF_ST_INFO(STB_LOCAL,
 				    GELF_ST_TYPE(sym.st_info));
 
 		} else {
 			/* local symbol */
-			if (lookup_sym_op_list(ecp, name,
-			    SYMOP_GLOBALIZE) != NULL)
+			if (lookup_sym_op_list(ecp, name, SYMOP_GLOBALIZE) !=
+			    NULL)
 				sym.st_info = GELF_ST_INFO(STB_GLOBAL,
 				    GELF_ST_TYPE(sym.st_info));
 		}
@@ -523,7 +522,10 @@ generate_symbols(struct elfcopy *ecp)
 		    ((s->type == SHT_REL) || (s->type == SHT_RELA)))
 			continue;
 
-		ndx = elf_ndxscn(s->os);
+		if ((ndx = elf_ndxscn(s->os)) == SHN_UNDEF)
+			errx(EX_SOFTWARE, "elf_ndxscn failed: %s",
+			    elf_errmsg(-1));
+		
 		if (!BIT_ISSET(ecp->v_secsym, ndx)) {
 			sym.st_name	= 0;
 			sym.st_value	= s->vma;
@@ -575,12 +577,37 @@ generate_symbols(struct elfcopy *ecp)
 void
 create_symtab(struct elfcopy *ecp)
 {
-	struct section *sy, *st;
+	struct section *s, *sy, *st;
 	struct symbuf *sy_buf;
 	struct strbuf *st_buf;
 	Elf_Data *gsydata, *lsydata, *gstdata, *lstdata;
 	GElf_Shdr shy, sht;
+	size_t maxndx, ndx;
 
+	sy = ecp->symtab;
+	st = ecp->strtab;
+
+	/*
+	 * Set section index map for .symtab and .strtab. We need to set
+	 * these map because otherwise symbols which refer to .symtab and
+	 * .strtab will be removed by symbol filtering unconditionally. 
+	 * And we have to figure out scn index this way (instead of calling
+	 * elf_ndxscn) because we can not create Elf_Scn before we're certain
+	 * that .symtab and .strtab will exist in the output object.
+	 */
+	maxndx = 0;
+	TAILQ_FOREACH(s, &ecp->v_sec, sec_list) {
+		if (s->os == NULL)
+			continue;
+		if ((ndx = elf_ndxscn(s->os)) == SHN_UNDEF)
+			errx(EX_SOFTWARE, "elf_ndxscn failed: %s",
+			    elf_errmsg(-1));
+		if (ndx > maxndx)
+			maxndx = ndx;
+	}
+	ecp->secndx[elf_ndxscn(sy->is)] = maxndx + 1;
+	ecp->secndx[elf_ndxscn(st->is)] = maxndx + 2;
+	
 	/*
 	 * Generate symbols for output object if SYMTAB_INTACT is not set.
 	 * If there is no symbol in the input object or all the symbols are
@@ -596,14 +623,12 @@ create_symtab(struct elfcopy *ecp)
 		return;
 	}
 
-	sy = ecp->symtab;
-	st = ecp->strtab;
-
 	/* Create output Elf_Scn for .symtab and .strtab. */
 	if ((sy->os = elf_newscn(ecp->eout)) == NULL ||
 	    (st->os = elf_newscn(ecp->eout)) == NULL)
 		errx(EX_SOFTWARE, "elf_newscn failed: %s",
 		    elf_errmsg(-1));
+	/* Update secndx anyway. */
 	ecp->secndx[elf_ndxscn(sy->is)] = elf_ndxscn(sy->os);
 	ecp->secndx[elf_ndxscn(st->is)] = elf_ndxscn(st->os);
 
