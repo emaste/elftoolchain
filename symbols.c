@@ -113,10 +113,10 @@ is_remove_symbol(struct elfcopy *ecp, size_t sc, int i, GElf_Sym *s,
 		SHN_UNDEF,	/* st_shndx */
 	};
 
-	if (lookup_sym_op_list(ecp, name, SYMOP_KEEP) != NULL)
+	if (lookup_symop_list(ecp, name, SYMOP_KEEP) != NULL)
 		return (0);
 
-	if (lookup_sym_op_list(ecp, name, SYMOP_STRIP) != NULL)
+	if (lookup_symop_list(ecp, name, SYMOP_STRIP) != NULL)
 		return (1);
 
 	/*
@@ -460,14 +460,14 @@ generate_symbols(struct elfcopy *ecp)
 		 * localize weak symbol?
 		 */
 		if (is_global_symbol(&sym)) {
-			if (lookup_sym_op_list(ecp, name, SYMOP_LOCALIZE) !=
+			if (lookup_symop_list(ecp, name, SYMOP_LOCALIZE) !=
 			    NULL)
 				sym.st_info = GELF_ST_INFO(STB_LOCAL,
 				    GELF_ST_TYPE(sym.st_info));
 
 		} else {
 			/* local symbol */
-			if (lookup_sym_op_list(ecp, name, SYMOP_GLOBALIZE) !=
+			if (lookup_symop_list(ecp, name, SYMOP_GLOBALIZE) !=
 			    NULL)
 				sym.st_info = GELF_ST_INFO(STB_GLOBAL,
 				    GELF_ST_TYPE(sym.st_info));
@@ -768,11 +768,11 @@ create_symtab(struct elfcopy *ecp)
 }
 
 void
-add_to_sym_op_list(struct elfcopy *ecp, const char *name, unsigned int op)
+add_to_symop_list(struct elfcopy *ecp, const char *name, unsigned int op)
 {
-	struct sym_op *s;
+	struct symop *s;
 
-	if ((s = lookup_sym_op_list(ecp, name, ~0U)) == NULL) {
+	if ((s = lookup_symop_list(ecp, name, ~0U)) == NULL) {
 		if ((s = calloc(1, sizeof(*s))) == NULL)
 			errx(EX_SOFTWARE, "not enough memory");
 		s->name = name;
@@ -782,10 +782,10 @@ add_to_sym_op_list(struct elfcopy *ecp, const char *name, unsigned int op)
 	STAILQ_INSERT_TAIL(&ecp->v_symop, s, symop_list);
 }
 
-struct sym_op *
-lookup_sym_op_list(struct elfcopy *ecp, const char *name, unsigned int op)
+struct symop *
+lookup_symop_list(struct elfcopy *ecp, const char *name, unsigned int op)
 {
-	struct sym_op *s;
+	struct symop *s;
 
 	STAILQ_FOREACH(s, &ecp->v_symop, symop_list) {
 		if (name == NULL || strcmp(name, s->name) == 0)

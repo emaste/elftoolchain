@@ -64,7 +64,7 @@ is_remove_section(struct elfcopy *ecp, const char *name)
 		return 0;
 	if (strcmp(name, ".symtab") == 0 ||
 	    strcmp(name, ".strtab") == 0) {
-		if (ecp->strip == STRIP_ALL && lookup_sym_op_list(
+		if (ecp->strip == STRIP_ALL && lookup_symop_list(
 		    ecp, NULL, SYMOP_KEEP) == NULL)
 			return (1);
 		else
@@ -544,7 +544,7 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 		if (name == NULL)
 			errx(EX_SOFTWARE, "elf_strptr failed: %s",
 			    elf_errmsg(-1));
-		if (lookup_sym_op_list(ecp, name, SYMOP_KEEP) != NULL) {
+		if (lookup_symop_list(ecp, name, SYMOP_KEEP) != NULL) {
 			if (ecp->oec == ELFCLASS32) {
 				if (s->type == SHT_REL)
 					COPYREL(rel, 32);
