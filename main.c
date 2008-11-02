@@ -349,7 +349,7 @@ create_object(struct elfcopy *ecp, int ifd, int ofd)
 	elf_end(ecp->ein);
 }
 
-#define	TEMPLATE "ecp.XXXXXXXX"
+#define	TEMPLATE "/tmp/ecp.XXXXXXXX"
 
 static void
 create_file(struct elfcopy *ecp, const char *src, const char *dst)
