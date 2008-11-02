@@ -50,6 +50,7 @@ enum options
 	ECP_ADD_SECTION,
 	ECP_GLOBALIZE_SYMBOL,
 	ECP_GLOBALIZE_SYMBOLS,
+	ECP_LOCALIZE_SYMBOLS,
 	ECP_ONLY_DEBUG,
 	ECP_RENAME_SECTION,
 	ECP_SET_SEC_FLAGS,
@@ -86,6 +87,7 @@ static struct option elfcopy_longopts[] =
 	{"input-target", required_argument, NULL, 'I'},
 	{"keep-symbol", required_argument, NULL, 'K'},
 	{"localize-symbol", required_argument, NULL, 'L'},
+	{"localize-symbols", required_argument, NULL, ECP_LOCALIZE_SYMBOLS},
 	{"only-keep-debug", no_argument, NULL, ECP_ONLY_DEBUG},
 	{"only-section", required_argument, NULL, 'j'},
 	{"output-target", required_argument, NULL, 'O'},
@@ -506,6 +508,9 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			break;
 		case ECP_GLOBALIZE_SYMBOLS:
 			parse_symlist_file(ecp, optarg, SYMOP_GLOBALIZE);
+			break;
+		case ECP_LOCALIZE_SYMBOLS:
+			parse_symlist_file(ecp, optarg, SYMOP_LOCALIZE);
 			break;
 		case ECP_ONLY_DEBUG:
 			ecp->strip = STRIP_NONDEBUG;
