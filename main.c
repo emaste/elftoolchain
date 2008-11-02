@@ -58,6 +58,7 @@ enum options
 	ECP_SET_SEC_FLAGS,
 	ECP_STRIP_SYMBOLS,
 	ECP_STRIP_UNNEEDED,
+	ECP_WEAKEN_ALL,
 	ECP_WEAKEN_SYMBOLS
 };
 
@@ -107,6 +108,7 @@ static struct option elfcopy_longopts[] =
 	{"strip-symbol", required_argument, NULL, 'N'},
 	{"strip-symbols", required_argument, NULL, ECP_STRIP_SYMBOLS},
 	{"strip-unneeded", no_argument, NULL, ECP_STRIP_UNNEEDED},
+	{"weaken", no_argument, NULL, ECP_WEAKEN_ALL},
 	{"weaken-symbol", required_argument, NULL, 'W'},
 	{"weaken-symbols", required_argument, NULL, ECP_WEAKEN_SYMBOLS},
 	{NULL, 0, NULL, 0}
@@ -245,6 +247,8 @@ create_elf(struct elfcopy *ecp)
 	/* FIXME */
 	if (ecp->strip == STRIP_DEBUG ||
 	    ecp->strip == STRIP_UNNEEDED ||
+	    ecp->flags & WEAKEN_ALL ||
+	    ecp->flags & DISCARD_LOCAL ||
 	    !STAILQ_EMPTY(&ecp->v_symop))
 		ecp->flags &= ~SYMTAB_INTACT;
 
@@ -567,6 +571,9 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			break;
 		case ECP_STRIP_UNNEEDED:
 			ecp->strip = STRIP_UNNEEDED;
+			break;
+		case ECP_WEAKEN_ALL:
+			ecp->flags |= WEAKEN_ALL;
 			break;
 		case ECP_WEAKEN_SYMBOLS:
 			parse_symlist_file(ecp, optarg, SYMOP_WEAKEN);
