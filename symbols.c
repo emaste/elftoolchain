@@ -458,12 +458,18 @@ generate_symbols(struct elfcopy *ecp)
 		/*
 		 * Check if need to change the binding of symbol.
 		 */
-		if (is_global_symbol(&sym)) {
-			if (lookup_symop_list(ecp, name, SYMOP_WEAKEN) !=
-			    NULL)
+		if (is_global_symbol(&sym) || is_weak_symbol(&sym)) {
+			/*
+			 * XXX Binutils objcopy does not weaken certain
+			 * symbols.
+			 */
+			if (ecp->flags & WEAKEN_ALL ||
+			    lookup_symop_list(ecp, name, SYMOP_WEAKEN) != NULL)
 				sym.st_info = GELF_ST_INFO(STB_WEAK,
 				    GELF_ST_TYPE(sym.st_info));
-			if (lookup_symop_list(ecp, name, SYMOP_LOCALIZE) !=
+			/* Do not localize undefined symbols. */
+			if (sym.st_shndx != SHN_UNDEF &&
+			    lookup_symop_list(ecp, name, SYMOP_LOCALIZE) !=
 			    NULL)
 				sym.st_info = GELF_ST_INFO(STB_LOCAL,
 				    GELF_ST_TYPE(sym.st_info));
@@ -473,7 +479,7 @@ generate_symbols(struct elfcopy *ecp)
 				sym.st_info = GELF_ST_INFO(STB_LOCAL,
 				    GELF_ST_TYPE(sym.st_info));
 		} else {
-			/* local or weak symbol */
+			/* STB_LOCAL binding. */
 			if (lookup_symop_list(ecp, name, SYMOP_GLOBALIZE) !=
 			    NULL)
 				sym.st_info = GELF_ST_INFO(STB_GLOBAL,

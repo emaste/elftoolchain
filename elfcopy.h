@@ -182,6 +182,7 @@ struct elfcopy {
 #define	SYMTAB_INTACT	0x0020
 #define KEEP_GLOBAL	0x0040
 #define DISCARD_LOCAL	0x0080
+#define WEAKEN_ALL	0x0100
 #define PRESERVE_DATE	0x1000
 
 	int flags;
