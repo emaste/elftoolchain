@@ -49,6 +49,7 @@ enum options
 {
 	ECP_ADD_SECTION,
 	ECP_GLOBALIZE_SYMBOL,
+	ECP_GLOBALIZE_SYMBOLS,
 	ECP_ONLY_DEBUG,
 	ECP_RENAME_SECTION,
 	ECP_SET_SEC_FLAGS,
@@ -80,6 +81,7 @@ static struct option elfcopy_longopts[] =
 	{"discard-all", no_argument, NULL, 'x'},
 	{"discard-locals", no_argument, NULL, 'X'},
 	{"globalize-symbol", required_argument, NULL, ECP_GLOBALIZE_SYMBOL},
+	{"globalize-symbols", required_argument, NULL, ECP_GLOBALIZE_SYMBOLS},
 	{"help", no_argument, NULL, 'h'},
 	{"input-target", required_argument, NULL, 'I'},
 	{"keep-symbol", required_argument, NULL, 'K'},
@@ -98,11 +100,30 @@ static struct option elfcopy_longopts[] =
 	{NULL, 0, NULL, 0}
 };
 
+static struct {
+	const char *name;
+	int value;
+} sec_flags[] = {
+	{"alloc", SF_ALLOC},
+	{"load", SF_LOAD},
+	{"noload", SF_NOLOAD},
+	{"readonly", SF_READONLY},
+	{"debug", SF_DEBUG},
+	{"code", SF_CODE},
+	{"data", SF_DATA},
+	{"rom", SF_ROM},
+	{"share", SF_SHARED},
+	{"contents", SF_CONTENTS},
+	{NULL, 0}
+};
+
 static void	create_elf(struct elfcopy *ecp);
 static void	create_file(struct elfcopy *ecp, const char *src,
     const char *dst);
 static void	create_object(struct elfcopy *ecp, int ifd, int ofd);
 static void	parse_sec_flags(struct sec_action *sac, char *s);
+static void	parse_symlist_file(struct elfcopy *ecp, const char *fn,
+    unsigned int op);
 static void	strip_main(struct elfcopy *ecp, int argc, char **argv);
 static void	strip_usage(void);
 static void	set_output_target(struct elfcopy *ecp, const char *target_name);
@@ -433,13 +454,13 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			ecp->sections_to_copy = 1;
 			break;
 		case 'K':
-			add_to_sym_op_list(ecp, optarg, SYMOP_KEEP);
+			add_to_symop_list(ecp, optarg, SYMOP_KEEP);
 			break;
 		case 'L':
-			add_to_sym_op_list(ecp, optarg, SYMOP_LOCALIZE);
+			add_to_symop_list(ecp, optarg, SYMOP_LOCALIZE);
 			break;
 		case 'N':
-			add_to_sym_op_list(ecp, optarg, SYMOP_STRIP);
+			add_to_symop_list(ecp, optarg, SYMOP_STRIP);
 			break;
 		case 'O':
 			set_output_target(ecp, optarg);
@@ -481,7 +502,10 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			ecp->sections_to_add = 1;
 			break;
 		case ECP_GLOBALIZE_SYMBOL:
-			add_to_sym_op_list(ecp, optarg, SYMOP_GLOBALIZE);
+			add_to_symop_list(ecp, optarg, SYMOP_GLOBALIZE);
+			break;
+		case ECP_GLOBALIZE_SYMBOLS:
+			parse_symlist_file(ecp, optarg, SYMOP_GLOBALIZE);
 			break;
 		case ECP_ONLY_DEBUG:
 			ecp->strip = STRIP_NONDEBUG;
@@ -638,10 +662,10 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 			/* ignored */
 			break;
 		case 'K':
-			add_to_sym_op_list(ecp, optarg, SYMOP_KEEP);
+			add_to_symop_list(ecp, optarg, SYMOP_KEEP);
 			break;
 		case 'N':
-			add_to_sym_op_list(ecp, optarg, SYMOP_STRIP);
+			add_to_symop_list(ecp, optarg, SYMOP_STRIP);
 			break;
 		case 'o':
 			outfile = optarg;
@@ -676,23 +700,6 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 		create_file(ecp, argv[i], outfile);
 }
 
-static struct {
-	const char *name;
-	int value;
-} sec_flags[] = {
-	{"alloc", SF_ALLOC},
-	{"load", SF_LOAD},
-	{"noload", SF_NOLOAD},
-	{"readonly", SF_READONLY},
-	{"debug", SF_DEBUG},
-	{"code", SF_CODE},
-	{"data", SF_DATA},
-	{"rom", SF_ROM},
-	{"share", SF_SHARED},
-	{"contents", SF_CONTENTS},
-	{NULL, 0}
-};
-
 static void
 parse_sec_flags(struct sec_action *sac, char *s)
 {
@@ -715,6 +722,76 @@ parse_sec_flags(struct sec_action *sac, char *s)
 }
 
 static void
+parse_symlist_file(struct elfcopy *ecp, const char *fn, unsigned int op)
+{
+	struct symfile *sf;
+	struct stat sb;
+	FILE *fp;
+	char *data, *p, *line, *end, *e;
+
+	if (stat(fn, &sb) == -1)
+		err(EX_IOERR, "stat %s failed", fn);
+
+	/* Check if we already read and processed this file. */
+	STAILQ_FOREACH(sf, &ecp->v_symfile, symfile_list) {
+		if (sf->dev == sb.st_dev && sf->ino == sb.st_ino)
+			goto process_symfile;
+	}
+
+	if ((fp = fopen(fn, "r")) == NULL)
+		err(EX_IOERR, "can not open %s", fn);
+	if ((data = malloc(sb.st_size + 1)) == NULL)
+		err(EX_SOFTWARE, "malloc failed");
+	if (fread(data, 1, sb.st_size, fp) == 0 || ferror(fp))
+		err(EX_DATAERR, "fread failed");
+	fclose(fp);
+	data[sb.st_size] = '\0';
+
+	if ((sf = calloc(1, sizeof(*sf))) == NULL)
+		err(EX_SOFTWARE, "malloc failed");
+	sf->dev = sb.st_dev;
+	sf->ino = sb.st_ino;
+	sf->size = sb.st_size + 1;
+	sf->data = data;
+
+process_symfile:
+
+	/*
+	 * Basically what we do here is to convert EOL to '\0', and remove
+	 * leading and trailing whitespaces for each line.
+	 */
+
+	end = sf->data + sf->size;
+	line = NULL;
+	for(p = sf->data; p < end; p++) {
+		/* Skip leading whitespaces. */
+		if ((*p == '\t' || *p == ' ') && line == NULL)
+			continue;
+
+		if (*p == '\r' || *p == '\n' || *p == '\0') {
+			*p = '\0';
+			if (line != NULL) {
+				/* Skip comment. */
+				if (*line == '#') {
+					line = NULL;
+					continue;
+				}
+				/* Remove trailing whitespace. */
+				e = p - 1;
+				while(e != line && (*e == '\t' || *e == ' '))
+					*e-- = '\0';
+				add_to_symop_list(ecp, line, op);
+				line = NULL;
+			}
+			continue;
+		}
+
+		if (line == NULL)
+			line = p;
+	}
+}
+
+static void
 set_output_target(struct elfcopy *ecp, const char *target_name)
 {
 	elf_target *tgt;
@@ -728,6 +805,7 @@ set_output_target(struct elfcopy *ecp, const char *target_name)
 static void
 elfcopy_usage()
 {
+
 	fprintf(stderr, "usage: elfcopy\n");
 	exit(EX_USAGE);
 }
@@ -735,6 +813,7 @@ elfcopy_usage()
 static void
 mcs_usage()
 {
+
 	fprintf(stderr, "usage: mcs [-cdpVz] [-a string] [-n name] file ...\n");
 	exit(EX_USAGE);
 }
@@ -742,6 +821,7 @@ mcs_usage()
 static void
 strip_usage()
 {
+
 	fprintf(stderr, "usage: strip\n");
 	exit(EX_USAGE);
 }
@@ -767,6 +847,7 @@ main(int argc, char **argv)
 	STAILQ_INIT(&ecp->v_sac);
 	STAILQ_INIT(&ecp->v_sadd);
 	STAILQ_INIT(&ecp->v_symop);
+	STAILQ_INIT(&ecp->v_symfile);
 	TAILQ_INIT(&ecp->v_sec);
 
 	if ((ecp->progname = getprogname()) == NULL)
@@ -780,5 +861,6 @@ main(int argc, char **argv)
 		elfcopy_main(ecp, argc, argv);
 
 	free(ecp);
+
 	exit(EX_OK);
 }

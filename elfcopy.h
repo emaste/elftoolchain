@@ -31,10 +31,11 @@
 
 /*
  * User specified symbol operation (strip, keep, localize, globalize,
- * weaken, etc).
+ * weaken, rename, etc).
  */
-struct sym_op {
+struct symop {
 	const char *name;
+	const char *newname;
 
 #define SYMOP_KEEP	0x0001U
 #define SYMOP_STRIP	0x0002U
@@ -42,18 +43,22 @@ struct sym_op {
 #define SYMOP_LOCALIZE	0x0008U
 #define SYMOP_GKEEP	0x0010U
 #define SYMOP_WEAKEN	0x0020U
+#define SYMOP_REDEF	0x0040U
 
 	unsigned int op;
 
-	STAILQ_ENTRY(sym_op) symop_list;
+	STAILQ_ENTRY(symop) symop_list;
 };
 
-/* Symbol rename operation. */
-struct sym_redef {
-	const char *old;
-	const char *new;
+/* File containing symbol list. */
+struct symfile {
+	dev_t dev;
+	ino_t ino;
+	size_t size;
+	char *data;
+	unsigned int op;
 
-	STAILQ_ENTRY(sym_redef) redef_list;
+	STAILQ_ENTRY(symfile) symfile_list;
 };
 
 /* Sections to copy/remove/rename/... */
@@ -146,6 +151,7 @@ struct elfcopy {
 	int ophnum;	/* number of program headers of output object */
 
 	int nos;	/* number of sections of output object */
+
 	/*
 	 * flags indicating whether there exist sections
 	 * to add/remove/(only)copy. FIXME use bit instead.
@@ -195,13 +201,15 @@ struct elfcopy {
 	STAILQ_HEAD(, sec_action) v_sac;
 	STAILQ_HEAD(, sec_add) v_sadd;
 	/* list of symbols operations. */
-	STAILQ_HEAD(, sym_op) v_symop;
+	STAILQ_HEAD(, symop) v_symop;
+	/* list of symlist files. */
+	STAILQ_HEAD(, symfile) v_symfile;
 	/* list of internal section structure */
 	TAILQ_HEAD(, section) v_sec;
 };
 
 void	add_unloadables(struct elfcopy *ecp);
-void	add_to_sym_op_list(struct elfcopy *ecp, const char *name,
+void	add_to_symop_list(struct elfcopy *ecp, const char *name,
     unsigned int op);
 int	add_to_inseg_list(struct elfcopy *ecp, struct section *sec);
 void	copy_content(struct elfcopy *ecp);
@@ -218,7 +226,7 @@ int	is_remove_section(struct elfcopy *ecp, const char *name);
 int	lookup_exact_string(const char *buf, size_t sz, const char *s);
 struct sec_action *lookup_sec_act(struct elfcopy *ecp,
     const char *name, int add);
-struct sym_op *lookup_sym_op_list(struct elfcopy *ecp, const char *name,
+struct symop *lookup_symop_list(struct elfcopy *ecp, const char *name,
     unsigned int op);
 int	lookup_string(struct section *t, const char *s);
 void	resync_sections(struct elfcopy *ecp);
