@@ -484,6 +484,7 @@ generate_symbols(struct elfcopy *ecp)
 			    NULL)
 				sym.st_info = GELF_ST_INFO(STB_GLOBAL,
 				    GELF_ST_TYPE(sym.st_info));
+			/* XXX We should globalize weak symbol? */
 		}
 
 		/* Copy symbol, mark global/weak symbol and add to index map. */
