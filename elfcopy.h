@@ -212,7 +212,7 @@ struct elfcopy {
 
 void	add_unloadables(struct elfcopy *ecp);
 void	add_to_symop_list(struct elfcopy *ecp, const char *name,
-    unsigned int op);
+    const char *newname, unsigned int op);
 int	add_to_inseg_list(struct elfcopy *ecp, struct section *sec);
 void	copy_content(struct elfcopy *ecp);
 void	copy_data(struct section *s);

@@ -54,6 +54,8 @@ enum options
 	ECP_KEEP_GLOBAL_SYMBOLS,
 	ECP_LOCALIZE_SYMBOLS,
 	ECP_ONLY_DEBUG,
+	ECP_REDEF_SYMBOL,
+	ECP_REDEF_SYMBOLS,
 	ECP_RENAME_SECTION,
 	ECP_SET_SEC_FLAGS,
 	ECP_STRIP_SYMBOLS,
@@ -100,6 +102,8 @@ static struct option elfcopy_longopts[] =
 	{"only-section", required_argument, NULL, 'j'},
 	{"output-target", required_argument, NULL, 'O'},
 	{"preserve-dates", no_argument, NULL, 'p'},
+	{"redefine-sym", required_argument, NULL, ECP_REDEF_SYMBOL},
+	{"redefine-syms", required_argument, NULL, ECP_REDEF_SYMBOLS},
 	{"remove-section", required_argument, NULL, 'R'},
 	{"rename-section", required_argument, NULL, ECP_RENAME_SECTION},
 	{"set-section-flags", required_argument, NULL, ECP_SET_SEC_FLAGS},
@@ -459,7 +463,7 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			break;
 		case 'G':
 			ecp->flags |= KEEP_GLOBAL;
-			add_to_symop_list(ecp, optarg, SYMOP_KEEPG);
+			add_to_symop_list(ecp, optarg, NULL, SYMOP_KEEPG);
 			break;
 		case 'I':
 		case 's':
@@ -474,13 +478,13 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			ecp->sections_to_copy = 1;
 			break;
 		case 'K':
-			add_to_symop_list(ecp, optarg, SYMOP_KEEP);
+			add_to_symop_list(ecp, optarg, NULL, SYMOP_KEEP);
 			break;
 		case 'L':
-			add_to_symop_list(ecp, optarg, SYMOP_LOCALIZE);
+			add_to_symop_list(ecp, optarg, NULL, SYMOP_LOCALIZE);
 			break;
 		case 'N':
-			add_to_symop_list(ecp, optarg, SYMOP_STRIP);
+			add_to_symop_list(ecp, optarg, NULL, SYMOP_STRIP);
 			break;
 		case 'O':
 			set_output_target(ecp, optarg);
@@ -489,7 +493,7 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			ecp->flags |= PRESERVE_DATE;
 			break;
 		case 'W':
-			add_to_symop_list(ecp, optarg, SYMOP_WEAKEN);
+			add_to_symop_list(ecp, optarg, NULL, SYMOP_WEAKEN);
 			break;
 		case 'x':
 		case 'X':
@@ -525,7 +529,7 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			ecp->sections_to_add = 1;
 			break;
 		case ECP_GLOBALIZE_SYMBOL:
-			add_to_symop_list(ecp, optarg, SYMOP_GLOBALIZE);
+			add_to_symop_list(ecp, optarg, NULL, SYMOP_GLOBALIZE);
 			break;
 		case ECP_GLOBALIZE_SYMBOLS:
 			parse_symlist_file(ecp, optarg, SYMOP_GLOBALIZE);
@@ -541,6 +545,16 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			break;
 		case ECP_ONLY_DEBUG:
 			ecp->strip = STRIP_NONDEBUG;
+			break;
+		case ECP_REDEF_SYMBOL:
+			if ((s = strchr(optarg, '=')) == NULL)
+				errx(EX_USAGE,
+				    "illegal format for --redefine-sym");
+			*s++ = '\0';
+			add_to_symop_list(ecp, optarg, s, SYMOP_REDEF);
+			break;
+		case ECP_REDEF_SYMBOLS:
+			parse_symlist_file(ecp, optarg, SYMOP_REDEF);
 			break;
 		case ECP_RENAME_SECTION:
 			if ((fn = strchr(optarg, '=')) == NULL)
@@ -703,10 +717,10 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 			/* ignored */
 			break;
 		case 'K':
-			add_to_symop_list(ecp, optarg, SYMOP_KEEP);
+			add_to_symop_list(ecp, optarg, NULL, SYMOP_KEEP);
 			break;
 		case 'N':
-			add_to_symop_list(ecp, optarg, SYMOP_STRIP);
+			add_to_symop_list(ecp, optarg, NULL, SYMOP_STRIP);
 			break;
 		case 'o':
 			outfile = optarg;
@@ -768,7 +782,7 @@ parse_symlist_file(struct elfcopy *ecp, const char *fn, unsigned int op)
 	struct symfile *sf;
 	struct stat sb;
 	FILE *fp;
-	char *data, *p, *line, *end, *e;
+	char *data, *p, *line, *end, *e, *n;
 
 	if (stat(fn, &sb) == -1)
 		err(EX_IOERR, "stat %s failed", fn);
@@ -805,25 +819,43 @@ process_symfile:
 	end = sf->data + sf->size;
 	line = NULL;
 	for(p = sf->data; p < end; p++) {
-		/* Skip leading whitespaces. */
 		if ((*p == '\t' || *p == ' ') && line == NULL)
 			continue;
-
 		if (*p == '\r' || *p == '\n' || *p == '\0') {
 			*p = '\0';
-			if (line != NULL) {
-				/* Skip comment. */
-				if (*line == '#') {
-					line = NULL;
-					continue;
-				}
-				/* Remove trailing whitespace. */
-				e = p - 1;
-				while(e != line && (*e == '\t' || *e == ' '))
-					*e-- = '\0';
-				add_to_symop_list(ecp, line, op);
+			if (line == NULL)
+				continue;
+
+			/* Skip comment. */
+			if (*line == '#') {
 				line = NULL;
+				continue;
 			}
+
+			e = p - 1;
+			while(e != line && (*e == '\t' || *e == ' '))
+				*e-- = '\0';
+			if (op != SYMOP_REDEF)
+				add_to_symop_list(ecp, line, NULL, op);
+			else {
+				if (strlen(line) < 3)
+					errx(EX_USAGE,
+					    "illegal format for"
+					    " --redefine-sym");
+				for(n = line + 1; n < e; n++) {
+					if (*n == ' ' || *n == '\t') {
+						while(*n == ' ' || *n == '\t')
+							*n++ = '\0';
+						break;
+					}
+				}
+				if (n >= e)
+					errx(EX_USAGE,
+					    "illegal format for"
+					    " --redefine-sym");
+				add_to_symop_list(ecp, line, n, op);
+			}
+			line = NULL;
 			continue;
 		}
 

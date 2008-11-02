@@ -271,8 +271,10 @@ static int
 generate_symbols(struct elfcopy *ecp)
 {
 	struct section *s;
+	struct symop *sp;
 	struct symbuf *sy_buf;
 	struct strbuf *st_buf;
+	const char *name;
 	unsigned char *gsym;
 	GElf_Shdr ish;
 	GElf_Sym sym;
@@ -281,7 +283,6 @@ generate_symbols(struct elfcopy *ecp)
 	size_t ishstrndx, ndx, nsyms, sc, symndx;
 	size_t gsy_cap, lsy_cap;
 	size_t gst_cap, lst_cap;
-	char *name;
 	int ec, elferr, i, pos;
 
 	if (elf_getshstrndx(ecp->ein, &ishstrndx) == 0)
@@ -455,9 +456,7 @@ generate_symbols(struct elfcopy *ecp)
 		if (is_remove_symbol(ecp, sc, i, &sym, name) != 0)
 			continue;
 
-		/*
-		 * Check if need to change the binding of symbol.
-		 */
+		/* Check if we need to change the binding of this symbol. */
 		if (is_global_symbol(&sym) || is_weak_symbol(&sym)) {
 			/*
 			 * XXX Binutils objcopy does not weaken certain
@@ -486,6 +485,10 @@ generate_symbols(struct elfcopy *ecp)
 				    GELF_ST_TYPE(sym.st_info));
 			/* XXX We should globalize weak symbol? */
 		}
+
+		/* Check if we need to rename this symbol. */
+		if ((sp = lookup_symop_list(ecp, name, SYMOP_REDEF)) != NULL)
+			name = sp->newname;
 
 		/* Copy symbol, mark global/weak symbol and add to index map. */
 		if (is_global_symbol(&sym) || is_weak_symbol(&sym)) {
@@ -782,7 +785,8 @@ create_symtab(struct elfcopy *ecp)
 }
 
 void
-add_to_symop_list(struct elfcopy *ecp, const char *name, unsigned int op)
+add_to_symop_list(struct elfcopy *ecp, const char *name, const char *newname,
+    unsigned int op)
 {
 	struct symop *s;
 
@@ -790,6 +794,8 @@ add_to_symop_list(struct elfcopy *ecp, const char *name, unsigned int op)
 		if ((s = calloc(1, sizeof(*s))) == NULL)
 			errx(EX_SOFTWARE, "not enough memory");
 		s->name = name;
+		if (op == SYMOP_REDEF)
+			s->newname = newname;
 	}
 
 	s->op |= op;
