@@ -91,11 +91,44 @@ is_global_symbol(GElf_Sym *s)
 }
 
 static int
+is_weak_symbol(GElf_Sym *s)
+{
+
+	if (GELF_ST_BIND(s->st_info) == STB_WEAK)
+		return (1);
+
+	return (0);
+}
+
+static int
 is_local_symbol(GElf_Sym *s)
 {
 
 	if (GELF_ST_BIND(s->st_info) == STB_LOCAL)
 		return (1);
+
+	return (0);
+}
+
+/*
+ * Symbols related to relocation are needed.
+ */
+static int
+is_needed_symbol(struct elfcopy *ecp, int i, GElf_Sym *s)
+{
+
+	/* If symbol involves relocation, it is needed. */
+	if (BIT_ISSET(ecp->v_rel, i))
+		return (1);
+
+	/*
+	 * For relocatable files (.o files), global and weak symbols
+	 * are needed.
+	 */
+	if (ecp->flags & RELOCATABLE) {
+		if (is_global_symbol(s) || is_weak_symbol(s))
+			return (1);
+	}
 
 	return (0);
 }
@@ -232,39 +265,6 @@ mark_symbols(struct elfcopy *ecp, size_t sc)
 	if (elferr != 0)
 		errx(EX_SOFTWARE, "elf_nextscn failed: %s",
 		    elf_errmsg(elferr));
-}
-
-/*
- * Symbols related to relocation are needed.
- */
-static int
-is_needed_symbol(struct elfcopy *ecp, int i, GElf_Sym *s)
-{
-
-	/* If symbol involves relocation, it is needed. */
-	if (BIT_ISSET(ecp->v_rel, i))
-		return (1);
-
-	/*
-	 * For relocatable files (.o files), global and weak symbols
-	 * are needed.
-	 */
-	if (ecp->flags & RELOCATABLE) {
-		if (is_global_symbol(s) || is_weak_symbol(s))
-			return (1);
-	}
-
-	return (0);
-}
-
-static int
-is_weak_symbol(GElf_Sym *s)
-{
-
-	if (GELF_ST_BIND(s->st_info) == STB_WEAK)
-		return (1);
-
-	return (0);
 }
 
 static int
@@ -456,15 +456,18 @@ generate_symbols(struct elfcopy *ecp)
 			continue;
 
 		/*
-		 * Check if need to globalize/localize symbol. FIXME
+		 * Check if need to change the binding of symbol. FIXME
 		 * localize weak symbol?
 		 */
 		if (is_global_symbol(&sym)) {
+			if (lookup_symop_list(ecp, name, SYMOP_WEAKEN) !=
+			    NULL)
+				sym.st_info = GELF_ST_INFO(STB_WEAK,
+				    GELF_ST_TYPE(sym.st_info));
 			if (lookup_symop_list(ecp, name, SYMOP_LOCALIZE) !=
 			    NULL)
 				sym.st_info = GELF_ST_INFO(STB_LOCAL,
 				    GELF_ST_TYPE(sym.st_info));
-
 		} else {
 			/* local symbol */
 			if (lookup_symop_list(ecp, name, SYMOP_GLOBALIZE) !=
