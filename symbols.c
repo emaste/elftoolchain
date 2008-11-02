@@ -456,8 +456,7 @@ generate_symbols(struct elfcopy *ecp)
 			continue;
 
 		/*
-		 * Check if need to change the binding of symbol. FIXME
-		 * localize weak symbol?
+		 * Check if need to change the binding of symbol.
 		 */
 		if (is_global_symbol(&sym)) {
 			if (lookup_symop_list(ecp, name, SYMOP_WEAKEN) !=
@@ -468,8 +467,13 @@ generate_symbols(struct elfcopy *ecp)
 			    NULL)
 				sym.st_info = GELF_ST_INFO(STB_LOCAL,
 				    GELF_ST_TYPE(sym.st_info));
+			if (ecp->flags & KEEP_GLOBAL &&
+			    sym.st_shndx != SHN_UNDEF &&
+			    lookup_symop_list(ecp, name, SYMOP_KEEPG) == NULL)
+				sym.st_info = GELF_ST_INFO(STB_LOCAL,
+				    GELF_ST_TYPE(sym.st_info));
 		} else {
-			/* local symbol */
+			/* local or weak symbol */
 			if (lookup_symop_list(ecp, name, SYMOP_GLOBALIZE) !=
 			    NULL)
 				sym.st_info = GELF_ST_INFO(STB_GLOBAL,
