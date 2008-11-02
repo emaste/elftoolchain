@@ -56,7 +56,8 @@ enum options
 	ECP_RENAME_SECTION,
 	ECP_SET_SEC_FLAGS,
 	ECP_STRIP_SYMBOLS,
-	ECP_STRIP_UNNEEDED
+	ECP_STRIP_UNNEEDED,
+	ECP_WEAKEN_SYMBOLS
 };
 
 static struct option strip_longopts[] =
@@ -103,6 +104,8 @@ static struct option elfcopy_longopts[] =
 	{"strip-symbol", required_argument, NULL, 'N'},
 	{"strip-symbols", required_argument, NULL, ECP_STRIP_SYMBOLS},
 	{"strip-unneeded", no_argument, NULL, ECP_STRIP_UNNEEDED},
+	{"weaken-symbol", required_argument, NULL, 'W'},
+	{"weaken-symbols", required_argument, NULL, ECP_WEAKEN_SYMBOLS},
 	{NULL, 0, NULL, 0}
 };
 
@@ -430,7 +433,7 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 	FILE *fp;
 	int opt, len;
 
-	while ((opt = getopt_long(argc, argv, "I:j:K:L:N:O:pR:sSdgxX",
+	while ((opt = getopt_long(argc, argv, "I:j:K:L:N:O:pR:sSdgW:xX",
 	    elfcopy_longopts, NULL)) != -1) {
 		switch(opt) {
 		case 'R':
@@ -473,6 +476,9 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			break;
 		case 'p':
 			ecp->flags |= PRESERVE_DATE;
+			break;
+		case 'W':
+			add_to_symop_list(ecp, optarg, SYMOP_WEAKEN);
 			break;
 		case 'x':
 		case 'X':
@@ -551,6 +557,9 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			break;
 		case ECP_STRIP_UNNEEDED:
 			ecp->strip = STRIP_UNNEEDED;
+			break;
+		case ECP_WEAKEN_SYMBOLS:
+			parse_symlist_file(ecp, optarg, SYMOP_WEAKEN);
 			break;
 		default:
 			elfcopy_usage();
