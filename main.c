@@ -50,10 +50,12 @@ enum options
 	ECP_ADD_SECTION,
 	ECP_GLOBALIZE_SYMBOL,
 	ECP_GLOBALIZE_SYMBOLS,
+	ECP_KEEP_SYMBOLS,
 	ECP_LOCALIZE_SYMBOLS,
 	ECP_ONLY_DEBUG,
 	ECP_RENAME_SECTION,
 	ECP_SET_SEC_FLAGS,
+	ECP_STRIP_SYMBOLS,
 	ECP_STRIP_UNNEEDED
 };
 
@@ -86,6 +88,7 @@ static struct option elfcopy_longopts[] =
 	{"help", no_argument, NULL, 'h'},
 	{"input-target", required_argument, NULL, 'I'},
 	{"keep-symbol", required_argument, NULL, 'K'},
+	{"keep-symbols", required_argument, NULL, ECP_KEEP_SYMBOLS},
 	{"localize-symbol", required_argument, NULL, 'L'},
 	{"localize-symbols", required_argument, NULL, ECP_LOCALIZE_SYMBOLS},
 	{"only-keep-debug", no_argument, NULL, ECP_ONLY_DEBUG},
@@ -98,6 +101,7 @@ static struct option elfcopy_longopts[] =
 	{"strip-all", no_argument, NULL, 'S'},
 	{"strip-debug", no_argument, 0, 'g'},
 	{"strip-symbol", required_argument, NULL, 'N'},
+	{"strip-symbols", required_argument, NULL, ECP_STRIP_SYMBOLS},
 	{"strip-unneeded", no_argument, NULL, ECP_STRIP_UNNEEDED},
 	{NULL, 0, NULL, 0}
 };
@@ -509,6 +513,9 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 		case ECP_GLOBALIZE_SYMBOLS:
 			parse_symlist_file(ecp, optarg, SYMOP_GLOBALIZE);
 			break;
+		case ECP_KEEP_SYMBOLS:
+			parse_symlist_file(ecp, optarg, SYMOP_KEEP);
+			break;
 		case ECP_LOCALIZE_SYMBOLS:
 			parse_symlist_file(ecp, optarg, SYMOP_LOCALIZE);
 			break;
@@ -538,6 +545,9 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			*s++ = '\0';
 			sac = lookup_sec_act(ecp, optarg, 1);
 			parse_sec_flags(sac, s);
+			break;
+		case ECP_STRIP_SYMBOLS:
+			parse_symlist_file(ecp, optarg, SYMOP_STRIP);
 			break;
 		case ECP_STRIP_UNNEEDED:
 			ecp->strip = STRIP_UNNEEDED;
