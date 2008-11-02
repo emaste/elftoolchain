@@ -41,7 +41,7 @@ struct symop {
 #define SYMOP_STRIP	0x0002U
 #define SYMOP_GLOBALIZE	0x0004U
 #define SYMOP_LOCALIZE	0x0008U
-#define SYMOP_GKEEP	0x0010U
+#define SYMOP_KEEPG	0x0010U
 #define SYMOP_WEAKEN	0x0020U
 #define SYMOP_REDEF	0x0040U
 
@@ -180,7 +180,8 @@ struct elfcopy {
 #define	RELOCATABLE	0x0004
 #define	SYMTAB_EXIST	0x0010
 #define	SYMTAB_INTACT	0x0020
-#define DISCARD_LOCAL	0x0040
+#define KEEP_GLOBAL	0x0040
+#define DISCARD_LOCAL	0x0080
 #define PRESERVE_DATE	0x1000
 
 	int flags;

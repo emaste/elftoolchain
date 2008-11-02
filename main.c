@@ -51,6 +51,7 @@ enum options
 	ECP_GLOBALIZE_SYMBOL,
 	ECP_GLOBALIZE_SYMBOLS,
 	ECP_KEEP_SYMBOLS,
+	ECP_KEEP_GLOBAL_SYMBOLS,
 	ECP_LOCALIZE_SYMBOLS,
 	ECP_ONLY_DEBUG,
 	ECP_RENAME_SECTION,
@@ -90,6 +91,8 @@ static struct option elfcopy_longopts[] =
 	{"input-target", required_argument, NULL, 'I'},
 	{"keep-symbol", required_argument, NULL, 'K'},
 	{"keep-symbols", required_argument, NULL, ECP_KEEP_SYMBOLS},
+	{"keep-global-symbol", required_argument, NULL, 'G'},
+	{"keep-global-symbols", required_argument, NULL, ECP_KEEP_GLOBAL_SYMBOLS},
 	{"localize-symbol", required_argument, NULL, 'L'},
 	{"localize-symbols", required_argument, NULL, ECP_LOCALIZE_SYMBOLS},
 	{"only-keep-debug", no_argument, NULL, ECP_ONLY_DEBUG},
@@ -433,7 +436,7 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 	FILE *fp;
 	int opt, len;
 
-	while ((opt = getopt_long(argc, argv, "I:j:K:L:N:O:pR:sSdgW:xX",
+	while ((opt = getopt_long(argc, argv, "dgG:I:j:K:L:N:O:pR:sSW:xX",
 	    elfcopy_longopts, NULL)) != -1) {
 		switch(opt) {
 		case 'R':
@@ -449,6 +452,10 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			break;
 		case 'g':
 			ecp->strip = STRIP_DEBUG;
+			break;
+		case 'G':
+			ecp->flags |= KEEP_GLOBAL;
+			add_to_symop_list(ecp, optarg, SYMOP_KEEPG);
 			break;
 		case 'I':
 		case 's':
@@ -521,6 +528,9 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			break;
 		case ECP_KEEP_SYMBOLS:
 			parse_symlist_file(ecp, optarg, SYMOP_KEEP);
+			break;
+		case ECP_KEEP_GLOBAL_SYMBOLS:
+			parse_symlist_file(ecp, optarg, SYMOP_KEEPG);
 			break;
 		case ECP_LOCALIZE_SYMBOLS:
 			parse_symlist_file(ecp, optarg, SYMOP_LOCALIZE);
