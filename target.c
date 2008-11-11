@@ -6,7 +6,7 @@ __RCSID("$Id$");
 #endif
 
 #include <sys/param.h>
-#include <sys/elf_common.h>
+#include <gelf.h>
 #include <string.h>
 
 #include "target.h"
