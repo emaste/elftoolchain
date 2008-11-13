@@ -201,6 +201,7 @@ create_elf(struct elfcopy *ecp)
 
 	ecp->flags |= SYMTAB_INTACT;
 
+	/* Create EHDR. */
 	if (gelf_getehdr(ecp->ein, &ieh) == NULL)
 		errx(EX_SOFTWARE, "gelf_getehdr() failed: %s",
 		    elf_errmsg(-1));
@@ -246,6 +247,12 @@ create_elf(struct elfcopy *ecp)
 
 	setup_phdr(ecp);
 
+	/*
+	 * Scan of input sections: we iterate through sections from input
+	 * object, skip sections need to be stripped, allot Elf_Scn and
+	 * create internal section structure for sections we want.
+	 * (i.e., determine output sections)
+	 */
 	create_scn(ecp);
 
 	/* FIXME */
@@ -256,12 +263,25 @@ create_elf(struct elfcopy *ecp)
 	    !STAILQ_EMPTY(&ecp->v_symop))
 		ecp->flags &= ~SYMTAB_INTACT;
 
+	/* Add sections specified by --add-section. */
 	if (ecp->sections_to_add != 0)
 		add_unloadables(ecp);
 
+	/*
+	 * Create symbol table. Symbols are filtered or stripped according to
+	 * command line args specified by user, and later updated for the new
+	 * layout of sections in the output object.
+	 */
 	if ((ecp->flags & SYMTAB_EXIST) != 0)
 		create_symtab(ecp);
 
+	/*
+	 * First processing of output sections: at this stage we copy the
+	 * content of each section from input to output object.  Section
+	 * content will be modified and printed (mcs) if need. Also content of
+	 * relocation section probably will be filtered and updated according
+	 * to symbol table changes.
+	 */
 	copy_content(ecp);
 
 	/*
@@ -272,22 +292,36 @@ create_elf(struct elfcopy *ecp)
 		errx(EX_SOFTWARE, "gelf_update_ehdr() failed: %s",
 		    elf_errmsg(-1));
 
-	/* Put .shstrtab after sections added from file. */
+	/* Generate section name string table (.shstrtab). */
 	set_shstrtab(ecp);
 
-	/* Update section headers. */
+	/*
+	 * Second processing of output sections: Update section headers.
+	 * At this stage we set name string index, update st_link and st_info
+	 * for output sections.
+	 */
 	update_shdr(ecp);
 
-	/* Renew oeh to get the updated e_shstrndx */
+	/* Renew oeh to get the updated e_shstrndx. */
 	if (gelf_getehdr(ecp->eout, &oeh) == NULL)
 		errx(EX_SOFTWARE, "gelf_getehdr() failed: %s",
 		    elf_errmsg(-1));
 
+	/*
+	 * Insert SHDR table into the internal section list as a "pseudo"
+	 * section, so later it will get sorted and resynced just as "normal"
+	 * sections.
+	 */
 	shtab = insert_shtab(ecp);
 
-	/* Resync section offsets in the output object. */
+	/*
+	 * Resync section offsets in the output object. This is needed
+	 * because probably sections are modified or new sections are added,
+	 * as a result overlap/gap might appears.
+	 */
 	resync_sections(ecp);
 
+	/* Store SHDR offset in EHDR. */
 	oeh.e_shoff = shtab->off;
 
 #if 0
@@ -300,9 +334,8 @@ create_elf(struct elfcopy *ecp)
 	fprintf(stderr, "ecp->strtab_off = %d\n", (int)ecp->strtab_off);
 	fprintf(stderr, "ecp->strtab_size = %d\n", (int)ecp->strtab_size);
 #endif
-	/*
-	 * Put program header table immediately after the Elf header.
-	 */
+
+	/* Put program header table immediately after the Elf header. */
 	if (ecp->ophnum > 0) {
 		oeh.e_phoff = gelf_fsize(ecp->eout, ELF_T_EHDR, 1, EV_CURRENT);
 		if (oeh.e_phoff == 0)
@@ -321,6 +354,7 @@ create_elf(struct elfcopy *ecp)
 	if (ecp->ophnum > 0)
 		copy_phdr(ecp);
 
+	/* Write out the output elf object. */
         if (elf_update(ecp->eout, ELF_C_WRITE) < 0)
                 errx(EX_SOFTWARE, "elf_update() failed: %s",
                     elf_errmsg(-1));
