@@ -363,7 +363,7 @@ generate_symbols(struct elfcopy *ecp)
 	 * It handles buffer growing, st_name calculating and st_shndx
 	 * updating for symbols with non-special section index.
 	 */
-#define	COPYSYM(B, SZ) do {						\
+#define	COPYSYM(B, SZ, NDX) do {					\
 	if (sy_buf->B##SZ == NULL) {					\
 		sy_buf->B##SZ = malloc(B##sy_cap *			\
 		    sizeof(Elf##SZ##_Sym));				\
@@ -380,11 +380,14 @@ generate_symbols(struct elfcopy *ecp)
 	sy_buf->B##SZ[sy_buf->n##B##s].st_other	= sym.st_other;		\
 	sy_buf->B##SZ[sy_buf->n##B##s].st_value	= sym.st_value;		\
 	sy_buf->B##SZ[sy_buf->n##B##s].st_size	= sym.st_size;		\
-	if (sym.st_shndx == SHN_UNDEF || sym.st_shndx >= SHN_LORESERVE)	\
+	if ((NDX))							\
+		sy_buf->B##SZ[sy_buf->n##B##s].st_shndx = (NDX);	\
+	else if (sym.st_shndx == SHN_UNDEF ||				\
+	    sym.st_shndx >= SHN_LORESERVE)				\
 		sy_buf->B##SZ[sy_buf->n##B##s].st_shndx = sym.st_shndx;	\
 	else								\
 		sy_buf->B##SZ[sy_buf->n##B##s].st_shndx	=		\
-		    ecp->secndx[sym.st_shndx];				\
+			ecp->secndx[sym.st_shndx];			\
 	if (st_buf->B == NULL) {					\
 		st_buf->B = calloc(B##st_cap, sizeof(*st_buf->B));	\
 		if (st_buf->B == NULL)					\
@@ -498,14 +501,14 @@ generate_symbols(struct elfcopy *ecp)
 			ecp->symndx[i] = sy_buf->nls;
 		if (ec == ELFCLASS32) {
 			if (is_local_symbol(&sym))
-				COPYSYM(l, 32);
+				COPYSYM(l, 32, 0);
 			else
-				COPYSYM(g, 32);
+				COPYSYM(g, 32, 0);
 		} else {
 			if (is_local_symbol(&sym))
-				COPYSYM(l, 64);
+				COPYSYM(l, 64, 0);
 			else
-				COPYSYM(g, 64);
+				COPYSYM(g, 64, 0);
 		}
 
 		/*
@@ -548,12 +551,14 @@ generate_symbols(struct elfcopy *ecp)
 			sym.st_value	= s->vma;
 			sym.st_size	= 0;
 			sym.st_info	= GELF_ST_INFO(STB_LOCAL, STT_SECTION);
-			/* COPYSYM will handle st_shndx updating. */
-			sym.st_shndx	= elf_ndxscn(s->is);
+			/*
+			 * Don't let COPYSYM touch sym.st_shndx. In this case,
+			 * we know the index already.
+			 */
 			if (ec == ELFCLASS32)
-				COPYSYM(l, 32);
+				COPYSYM(l, 32, ndx);
 			else
-				COPYSYM(l, 64);
+				COPYSYM(l, 64, ndx);
 		}
 	}
 
