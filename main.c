@@ -47,6 +47,7 @@ __RCSID("$Id$");
 
 enum options
 {
+	ECP_ADD_GNU_DEBUGLINK,
 	ECP_ADD_SECTION,
 	ECP_GLOBALIZE_SYMBOL,
 	ECP_GLOBALIZE_SYMBOLS,
@@ -85,6 +86,7 @@ static struct option strip_longopts[] =
 
 static struct option elfcopy_longopts[] =
 {
+	{"add-gnu-debuglink", required_argument, NULL, ECP_ADD_GNU_DEBUGLINK},
 	{"add-section", required_argument, NULL, ECP_ADD_SECTION},
 	{"discard-all", no_argument, NULL, 'x'},
 	{"discard-locals", no_argument, NULL, 'X'},
@@ -262,10 +264,6 @@ create_elf(struct elfcopy *ecp)
 	    ecp->flags & DISCARD_LOCAL ||
 	    !STAILQ_EMPTY(&ecp->v_symop))
 		ecp->flags &= ~SYMTAB_INTACT;
-
-	/* Add sections specified by --add-section. */
-	if (ecp->sections_to_add != 0)
-		add_unloadables(ecp);
 
 	/*
 	 * Create symbol table. Symbols are filtered or stripped according to
@@ -471,13 +469,11 @@ static void
 elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 {
 	struct sec_action *sac;
-	struct sec_add *sa;
-	struct stat sb;
-	const char *infile, *outfile;
+	const char *infile, *outfile, *debuglink;
 	char *fn, *s;
-	FILE *fp;
-	int opt, len;
+	int opt;
 
+	debuglink = NULL;
 	while ((opt = getopt_long(argc, argv, "dgG:I:j:K:L:N:O:pR:sSW:xX",
 	    elfcopy_longopts, NULL)) != -1) {
 		switch(opt) {
@@ -533,34 +529,11 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 		case 'X':
 			ecp->flags |= DISCARD_LOCAL;
 			break;
+		case ECP_ADD_GNU_DEBUGLINK:
+			debuglink = optarg;
+			break;
 		case ECP_ADD_SECTION:
-			if ((s = strchr(optarg, '=')) == NULL)
-				errx(EX_USAGE,
-				    "illegal format for --add-section option");
-			if ((sa = malloc(sizeof(*sa))) == NULL)
-				err(EX_SOFTWARE, "malloc failed");
-
-			len = s - optarg;
-			if ((sa->name = malloc(len + 1)) == NULL)
-				err(EX_SOFTWARE, "malloc failed");
-			strncpy(sa->name, optarg, len);
-			sa->name[len] = '\0';
-
-			fn = s + 1;
-			if (stat(fn, &sb) == -1)
-				err(EX_DATAERR, "stat failed");
-			sa->size = sb.st_size;
-			if ((sa->content = malloc(sa->size)) == NULL)
-				err(EX_SOFTWARE, "malloc failed");
-			if ((fp = fopen(fn, "r")) == NULL)
-				err(EX_DATAERR, "can not open %s", fn);
-			if (fread(sa->content, 1, sa->size, fp) == 0 ||
-			    ferror(fp))
-				err(EX_DATAERR, "fread failed");
-			fclose(fp);
-
-			STAILQ_INSERT_TAIL(&ecp->v_sadd, sa, sadd_list);
-			ecp->sections_to_add = 1;
+			add_section(ecp, optarg);
 			break;
 		case ECP_GLOBALIZE_SYMBOL:
 			add_to_symop_list(ecp, optarg, NULL, SYMOP_GLOBALIZE);
@@ -633,6 +606,9 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 
 	if (optind == argc || optind + 2 < argc)
 		elfcopy_usage();
+
+	if (debuglink != NULL)
+		add_gnu_debuglink(ecp, debuglink);
 
 	infile = argv[optind];
 	outfile = NULL;

@@ -210,6 +210,8 @@ struct elfcopy {
 	TAILQ_HEAD(, section) v_sec;
 };
 
+void	add_section(struct elfcopy *ecp, const char *optarg);
+void	add_gnu_debuglink(struct elfcopy *ecp, const char *fn);
 void	add_unloadables(struct elfcopy *ecp);
 void	add_to_symop_list(struct elfcopy *ecp, const char *name,
     const char *newname, unsigned int op);
