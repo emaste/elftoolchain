@@ -42,10 +42,12 @@ __RCSID("$Id$");
 
 #include "elfcopy.h"
 
+static void	add_gnu_debuglink(struct elfcopy *ecp);
 static void	add_to_shstrtab(struct elfcopy *ecp, const char *name);
 static uint32_t calc_crc32(const char *p, size_t len, uint32_t crc);
 static void	check_section_rename(struct elfcopy *ecp, struct section *s);
 static void	filter_reloc(struct elfcopy *ecp, struct section *s);
+static void	insert_sections(struct elfcopy *ecp);
 static void	insert_to_sec_list(struct elfcopy *ecp, struct section *sec);
 static int	is_append_section(struct elfcopy *ecp, const char *name);
 static int	is_compress_section(struct elfcopy *ecp, const char *name);
@@ -341,12 +343,14 @@ create_scn(struct elfcopy *ecp)
 		    strcmp(name, ".strtab") != 0) {
 			if (!strcmp(name, ".shstrtab")) {
 				/*
-				 * Add sections specified by --add-section. we
-				 * want these sections have smaller index than
-				 * .shstrtab section.
+				 * Add sections specified by --add-section and
+				 * gnu debuglink. we want these sections have
+				 * smaller index than .shstrtab section.
 				 */
+				if (ecp->debuglink != NULL)
+					add_gnu_debuglink(ecp);
 				if (ecp->sections_to_add != 0)
-					add_unloadables(ecp);
+					insert_sections(ecp);
 			}
  			if ((s->os = elf_newscn(ecp->eout)) == NULL)
 				errx(EX_SOFTWARE, "elf_newscn failed: %s",
@@ -885,8 +889,11 @@ copy_data(struct section *s)
 		    elf_errmsg(elferr));
 }
 
-void
-add_unloadables(struct elfcopy *ecp)
+/*
+ * Insert sections specified by --add-section to the end of section list.
+ */
+static void
+insert_sections(struct elfcopy *ecp)
 {
 	struct sec_add *sa;
 	struct section *s;
@@ -1097,8 +1104,8 @@ add_section(struct elfcopy *ecp, const char *arg)
 	ecp->sections_to_add = 1;
 }
 
-void
-add_gnu_debuglink(struct elfcopy *ecp, const char *fn)
+static void
+add_gnu_debuglink(struct elfcopy *ecp)
 {
 	struct sec_add *sa;
 	struct stat sb;
@@ -1107,17 +1114,20 @@ add_gnu_debuglink(struct elfcopy *ecp, const char *fn)
 	int crc_off;
 	int crc;
 
+	if (ecp->debuglink == NULL)
+		return;
+
 	/* Read debug file content. */
 	if ((sa = malloc(sizeof(*sa))) == NULL)
 		err(EX_SOFTWARE, "malloc failed");
 	if ((sa->name = strdup(".gnu_debuglink")) == NULL)
 		err(EX_SOFTWARE, "strdup failed");
-	if (stat(fn, &sb) == -1)
+	if (stat(ecp->debuglink, &sb) == -1)
 		err(EX_DATAERR, "stat failed");
 	if ((buf = malloc(sb.st_size)) == NULL)
 		err(EX_SOFTWARE, "malloc failed");
-	if ((fp = fopen(fn, "r")) == NULL)
-		err(EX_DATAERR, "can not open %s", fn);
+	if ((fp = fopen(ecp->debuglink, "r")) == NULL)
+		err(EX_DATAERR, "can not open %s", ecp->debuglink);
 	if (fread(buf, 1, sb.st_size, fp) == 0 ||
 	    ferror(fp))
 		err(EX_DATAERR, "fread failed");
@@ -1128,7 +1138,7 @@ add_gnu_debuglink(struct elfcopy *ecp, const char *fn)
 	free(buf);
 
 	/* Calculate section size and the offset to store crc checksum. */
-	if ((fnbase = basename(fn)) == NULL)
+	if ((fnbase = basename(ecp->debuglink)) == NULL)
 		err(EX_DATAERR, "basename failed");
 	crc_off = roundup(strlen(fnbase) + 1, 4);
 	sa->size = crc_off + 4;
@@ -1137,7 +1147,7 @@ add_gnu_debuglink(struct elfcopy *ecp, const char *fn)
 	if ((sa->content = calloc(1, sa->size)) == NULL)
 		err(EX_SOFTWARE, "malloc failed");
 	strncpy(sa->content, fnbase, strlen(fnbase));
-	if (ecp->oed == ELFDATA2MSB) {
+	if (ecp->oed == ELFDATA2LSB) {
 		sa->content[crc_off] = crc & 0xFF;
 		sa->content[crc_off + 1] = (crc >> 8) & 0xFF;
 		sa->content[crc_off + 2] = (crc >> 16) & 0xFF;
