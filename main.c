@@ -213,6 +213,8 @@ create_elf(struct elfcopy *ecp)
 
 	if (ecp->oec == ELFCLASSNONE)
 		ecp->oec = ecp->iec;
+	if (ecp->oed == ELFDATANONE)
+		ecp->oed = ieh.e_ident[EI_DATA];
 
 	if (gelf_newehdr(ecp->eout, ecp->oec) == NULL)
 		errx(EX_SOFTWARE, "gelf_newehdr failed: %s",
@@ -223,13 +225,12 @@ create_elf(struct elfcopy *ecp)
 
 	memcpy(oeh.e_ident, ieh.e_ident, sizeof(ieh.e_ident));
 	oeh.e_ident[EI_CLASS] = ecp->oec;
-	if (ecp->oed != ELFDATANONE)
-		oeh.e_ident[EI_DATA] = ecp->oed;
-	oeh.e_flags	= ieh.e_flags;
-	oeh.e_machine	= ieh.e_machine;
-	oeh.e_type	= ieh.e_type;
-	oeh.e_entry	= ieh.e_entry;
-	oeh.e_version	= ieh.e_version;
+	oeh.e_ident[EI_DATA]  = ecp->oed;
+	oeh.e_flags	      = ieh.e_flags;
+	oeh.e_machine	      = ieh.e_machine;
+	oeh.e_type	      = ieh.e_type;
+	oeh.e_entry	      = ieh.e_entry;
+	oeh.e_version	      = ieh.e_version;
 
 	if (ieh.e_type == ET_EXEC)
 		ecp->flags |= EXECUTABLE;
@@ -469,11 +470,10 @@ static void
 elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 {
 	struct sec_action *sac;
-	const char *infile, *outfile, *debuglink;
+	const char *infile, *outfile;
 	char *fn, *s;
 	int opt;
 
-	debuglink = NULL;
 	while ((opt = getopt_long(argc, argv, "dgG:I:j:K:L:N:O:pR:sSW:xX",
 	    elfcopy_longopts, NULL)) != -1) {
 		switch(opt) {
@@ -530,7 +530,7 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			ecp->flags |= DISCARD_LOCAL;
 			break;
 		case ECP_ADD_GNU_DEBUGLINK:
-			debuglink = optarg;
+			ecp->debuglink = optarg;
 			break;
 		case ECP_ADD_SECTION:
 			add_section(ecp, optarg);
@@ -606,9 +606,6 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 
 	if (optind == argc || optind + 2 < argc)
 		elfcopy_usage();
-
-	if (debuglink != NULL)
-		add_gnu_debuglink(ecp, debuglink);
 
 	infile = argv[optind];
 	outfile = NULL;
@@ -923,6 +920,8 @@ main(int argc, char **argv)
 		err(EX_SOFTWARE, "malloc failed");
 	memset(ecp, 0, sizeof(*ecp));
 
+	ecp->iec = ecp->oec = ELFCLASSNONE;
+	ecp->oed = ELFDATANONE;
 	/* There is always an empty section. */
 	ecp->nos = 1;
 

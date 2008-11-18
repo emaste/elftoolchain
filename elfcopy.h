@@ -166,7 +166,7 @@ struct elfcopy {
 	struct section *symtab;
 	struct section *strtab;
 	struct section *shstrtab;
-	
+
 	enum {
 		STRIP_NONE = 0,
 		STRIP_ALL,
@@ -186,6 +186,9 @@ struct elfcopy {
 #define PRESERVE_DATE	0x1000
 
 	int flags;
+
+	/* GNU debuglink file. */
+	const char *debuglink;
 
 	/* keep record of section index changes. */
 	uint64_t *secndx;
@@ -211,8 +214,6 @@ struct elfcopy {
 };
 
 void	add_section(struct elfcopy *ecp, const char *optarg);
-void	add_gnu_debuglink(struct elfcopy *ecp, const char *fn);
-void	add_unloadables(struct elfcopy *ecp);
 void	add_to_symop_list(struct elfcopy *ecp, const char *name,
     const char *newname, unsigned int op);
 int	add_to_inseg_list(struct elfcopy *ecp, struct section *sec);
