@@ -144,6 +144,8 @@ struct elfcopy {
 	int iec;	/* elfclass of intput object */
 	int oec;	/* elfclass of output object */
 	unsigned char oed;	/* endianess of output object */
+	int abi;	/* OSABI of output object */
+
 	Elf *ein;	/* ELF descriptor of input object */
 	Elf *eout;	/* ELF descriptor of output object */
 

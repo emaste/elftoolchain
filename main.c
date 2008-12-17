@@ -58,6 +58,7 @@ enum options
 	ECP_REDEF_SYMBOL,
 	ECP_REDEF_SYMBOLS,
 	ECP_RENAME_SECTION,
+	ECP_SET_OSABI,
 	ECP_SET_SEC_FLAGS,
 	ECP_STRIP_SYMBOLS,
 	ECP_STRIP_UNNEEDED,
@@ -102,6 +103,7 @@ static struct option elfcopy_longopts[] =
 	{"localize-symbols", required_argument, NULL, ECP_LOCALIZE_SYMBOLS},
 	{"only-keep-debug", no_argument, NULL, ECP_ONLY_DEBUG},
 	{"only-section", required_argument, NULL, 'j'},
+	{"osabi", required_argument, NULL, ECP_SET_OSABI},
 	{"output-target", required_argument, NULL, 'O'},
 	{"preserve-dates", no_argument, NULL, 'p'},
 	{"redefine-sym", required_argument, NULL, ECP_REDEF_SYMBOL},
@@ -137,6 +139,30 @@ static struct {
 	{NULL, 0}
 };
 
+static struct {
+	const char *name;
+	int abi;
+} osabis[] = {
+	{"sysv", ELFOSABI_SYSV},
+	{"hpus", ELFOSABI_HPUX},
+	{"netbsd", ELFOSABI_NETBSD},
+	{"linux", ELFOSABI_LINUX},
+	{"hurd", ELFOSABI_HURD},
+	{"86open", ELFOSABI_86OPEN},
+	{"solaris", ELFOSABI_SOLARIS},
+	{"aix", ELFOSABI_AIX},
+	{"irix", ELFOSABI_IRIX},
+	{"freebsd", ELFOSABI_FREEBSD},
+	{"tru64", ELFOSABI_TRU64},
+	{"modesto", ELFOSABI_MODESTO},
+	{"openbsd", ELFOSABI_OPENBSD},
+	{"openvms", ELFOSABI_OPENVMS},
+	{"nsk", ELFOSABI_NSK},
+	{"arm", ELFOSABI_ARM},
+	{"standalone", ELFOSABI_STANDALONE},
+	{NULL, 0}
+};
+
 static void	create_elf(struct elfcopy *ecp);
 static void	create_file(struct elfcopy *ecp, const char *src,
     const char *dst);
@@ -146,6 +172,7 @@ static void	parse_symlist_file(struct elfcopy *ecp, const char *fn,
     unsigned int op);
 static void	strip_main(struct elfcopy *ecp, int argc, char **argv);
 static void	strip_usage(void);
+static void	set_osabi(struct elfcopy *ecp, const char *abi);
 static void	set_output_target(struct elfcopy *ecp, const char *target_name);
 static void	mcs_main(struct elfcopy *ecp, int argc, char **argv);
 static void	mcs_usage(void);
@@ -226,6 +253,8 @@ create_elf(struct elfcopy *ecp)
 	memcpy(oeh.e_ident, ieh.e_ident, sizeof(ieh.e_ident));
 	oeh.e_ident[EI_CLASS] = ecp->oec;
 	oeh.e_ident[EI_DATA]  = ecp->oed;
+	if (ecp->abi != -1)
+		oeh.e_ident[EI_OSABI] = ecp->abi;
 	oeh.e_flags	      = ieh.e_flags;
 	oeh.e_machine	      = ieh.e_machine;
 	oeh.e_type	      = ieh.e_type;
@@ -579,6 +608,9 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 			if (s != NULL)
 				parse_sec_flags(sac, s);
 			break;
+		case ECP_SET_OSABI:
+			set_osabi(ecp, optarg);
+			break;
 		case ECP_SET_SEC_FLAGS:
 			if ((s = strchr(optarg, '=')) == NULL)
 				errx(EX_USAGE,
@@ -883,6 +915,22 @@ set_output_target(struct elfcopy *ecp, const char *target_name)
 }
 
 static void
+set_osabi(struct elfcopy *ecp, const char *abi)
+{
+	int i, found;
+
+	found = 0;
+	for (i = 0; osabis[i].name != NULL; i++)
+		if (strcasecmp(osabis[i].name, abi) == 0) {
+			ecp->abi = osabis[i].abi;
+			found = 1;
+			break;
+		}
+	if (!found)
+		errx(EX_USAGE, "unrecognized OSABI %s", abi);
+}
+
+static void
 elfcopy_usage()
 {
 
@@ -922,6 +970,7 @@ main(int argc, char **argv)
 
 	ecp->iec = ecp->oec = ELFCLASSNONE;
 	ecp->oed = ELFDATANONE;
+	ecp->abi = -1;
 	/* There is always an empty section. */
 	ecp->nos = 1;
 
