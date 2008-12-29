@@ -19,6 +19,7 @@ struct _elf_target {
 
 struct _elf_target _elf_targets[] = {
 	{"elf32-i386", ELFDATA2LSB, ELFCLASS32,},
+	{"elf64-sparc", ELFDATA2MSB, ELFCLASS64},
 	{"elf64-x86-64", ELFDATA2LSB, ELFCLASS64},
 	{"binary", ELFDATANONE, ELFCLASSNONE},
 	{NULL, ELFDATANONE, ELFCLASSNONE},
