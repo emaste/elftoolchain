@@ -162,14 +162,10 @@ copy_phdr(struct elfcopy *ecp)
 			s = TAILQ_LAST(&seg->v_sec, sec_head);
 			t = s->off + s->sz - seg->off;
 			/*
-			 * XXX Here we check whether need to "Shrink"
-			 * fsize and msize by comparing the extend of
-			 * the last section to the mem size field.
-			 * This is so because alloc sections (e.g.
-			 * '.bss') are positioned at last of loadable
-			 * segment. And if that alloc section is
-			 * removed, we assume file size and mem size
-			 * become the same. This might not be right.
+			 * We simply assume fsz and msz become the same if
+			 * sections are removed at the end of a segment.
+			 * This is usually true, since .bss section is usually
+			 * positioned at the end.
 			 */
 			if (seg->msz != t)
 				seg->fsz = seg->msz = t;
