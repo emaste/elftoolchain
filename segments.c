@@ -190,9 +190,8 @@ copy_phdr(struct elfcopy *ecp)
 		errx(EX_SOFTWARE, "elf_update() failed: %s", elf_errmsg(-1));
 
 	/*
-	 * XXX iphnum == ophnum, since we don't remove program
-	 * headers even if they no longer contain sections.
-	 * Need more observation of objcopy's behaviour.
+	 * iphnum == ophnum, since we don't remove program headers even if
+	 * they no longer contain sections.
 	 */
 	i = 0;
 	STAILQ_FOREACH(seg, &ecp->v_seg, seg_list) {
