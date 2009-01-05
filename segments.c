@@ -44,6 +44,14 @@ __RCSID("$Id$");
 static void	insert_to_inseg_list(struct segment *seg, struct section *sec);
 
 /*
+ * elfcopy's segment handling is relatively simpler and less powerful than
+ * libbfd. Program headers are modified or copied from input to output objects,
+ * but never re-generated. As a result, if the input object has incorrect
+ * program headers, the output object's program headers will remain incorrect
+ * or become even worse.
+ */
+
+/*
  * Check whether a section is "loadable". If so, add it to the
  * corresponding segment list(s) and return 1.
  */
