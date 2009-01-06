@@ -811,8 +811,6 @@ parse_sec_flags(struct sec_action *sac, char *s)
 		if (!found)
 			errx(EX_USAGE, "unrecognized section flag %s", flag);
 	}
-
-	printf("sec->flags = 0x%4x\n",sac->flags);
 }
 
 static void

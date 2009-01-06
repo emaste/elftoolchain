@@ -660,8 +660,8 @@ create_symtab(struct elfcopy *ecp)
 	 * Copy .symtab and .strtab section headers from input to output
 	 * object to start with, these will be overridden later if need.
 	 */
-	copy_shdr(ecp, sy, ".symtab", 1);
-	copy_shdr(ecp, st, ".strtab", 1);
+	copy_shdr(ecp, sy, ".symtab", 1, 0);
+	copy_shdr(ecp, st, ".strtab", 1, 0);
 
 	if (gelf_getshdr(sy->os, &shy) == NULL)
 		errx(EX_SOFTWARE, "gelf_getshdr() failed: %s",

@@ -223,7 +223,7 @@ void	copy_content(struct elfcopy *ecp);
 void	copy_data(struct section *s);
 void	copy_phdr(struct elfcopy *ecp);
 void	copy_shdr(struct elfcopy *ecp, struct section *s, const char *name,
-    int copy);
+    int copy, int sec_flags);
 void	create_scn(struct elfcopy *ecp);
 void	create_symtab(struct elfcopy *ecp);
 struct section *insert_shtab(struct elfcopy *ecp);
