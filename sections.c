@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2007,2008 Kai Wang
+ * Copyright (c) 2007-2009 Kai Wang
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,7 @@ static void	add_to_shstrtab(struct elfcopy *ecp, const char *name);
 static uint32_t calc_crc32(const char *p, size_t len, uint32_t crc);
 static void	check_section_rename(struct elfcopy *ecp, struct section *s);
 static void	filter_reloc(struct elfcopy *ecp, struct section *s);
+static int	get_section_flags(struct elfcopy *ecp, const char *name);
 static void	insert_sections(struct elfcopy *ecp);
 static void	insert_to_sec_list(struct elfcopy *ecp, struct section *sec);
 static int	is_append_section(struct elfcopy *ecp, const char *name);
@@ -178,6 +179,18 @@ check_section_rename(struct elfcopy *ecp, struct section *s)
 		s->name = sac->newname;
 }
 
+static int
+get_section_flags(struct elfcopy *ecp, const char *name)
+{
+	struct sec_action *sac;
+
+	sac = lookup_sec_act(ecp, name, 0);
+	if (sac != NULL && sac->flags)
+		return sac->flags;
+
+	return (0);
+}
+
 /*
  * Determine whether the section are debugging section.
  * According to libbfd, debugging sections are recognized
@@ -280,7 +293,7 @@ create_scn(struct elfcopy *ecp)
 	GElf_Shdr ish;
 	size_t indx;
 	uint64_t oldndx, newndx;
-	int elferr;
+	int elferr, sec_flags;
 
 	/* Create internal .shstrtab section. */
 	if ((ecp->shstrtab = calloc(1, sizeof(*ecp->shstrtab))) == NULL)
@@ -320,6 +333,9 @@ create_scn(struct elfcopy *ecp)
 			    is_remove_reloc_sec(ecp, ish.sh_info))
 				continue;
 
+		/* Get section flags set by user. */
+		sec_flags = get_section_flags(ecp, name);
+
 		/* Create internal section object. */
 		if (strcmp(name, ".shstrtab") != 0) {
 			if ((s = calloc(1, sizeof(*s))) == NULL)
@@ -331,7 +347,18 @@ create_scn(struct elfcopy *ecp)
 			s->align	= ish.sh_addralign;
 			s->type		= ish.sh_type;
 			s->vma		= ish.sh_addr;
-			s->loadable	= add_to_inseg_list(ecp, s);
+
+			/*
+			 * Search program headers to determine whether section
+			 * is loadable, but if user explicitly set section flags
+			 * while neither "load" nor "alloc" is set, we make the
+			 * section unloadable.
+			 */
+			if (sec_flags &&
+			    (sec_flags & (SF_LOAD | SF_ALLOC)) == 0)
+				s->loadable = 0;
+			else
+				s->loadable = add_to_inseg_list(ecp, s);
 		} else {
 			/* Assuming .shstrtab is "unloadable". */
 			s		= ecp->shstrtab;
@@ -379,7 +406,7 @@ create_scn(struct elfcopy *ecp)
 		if (strcmp(name, ".symtab") != 0 &&
 		    strcmp(name, ".strtab") != 0 &&
 		    strcmp(name, ".shstrtab") != 0)
-			copy_shdr(ecp, s, NULL, 0);
+			copy_shdr(ecp, s, NULL, 0, sec_flags);
 
 		if (strcmp(name, ".symtab") == 0) {
 			ecp->flags |= SYMTAB_EXIST;
@@ -649,9 +676,7 @@ resync_sections(struct elfcopy *ecp)
 			off = s->off;
 
 		if (off <= s->off) {
-			if (s->loadable)
-				off = s->off;
-			else
+			if (!s->loadable)
 				s->off = roundup(off, s->align);
 		} else {
 			if (s->loadable)
@@ -660,8 +685,9 @@ resync_sections(struct elfcopy *ecp)
 			s->off = roundup(off, s->align);
 		}
 
+		off = s->off;
 		if (s->pseudo || (s->type != SHT_NOBITS && s->type != SHT_NULL))
-			off = s->off + s->sz;
+			off += s->sz;
 
 		if (s->pseudo)
 			continue;
@@ -816,7 +842,8 @@ read_section(struct section *s, size_t *size)
 }
 
 void
-copy_shdr(struct elfcopy *ecp, struct section *s, const char *name, int copy)
+copy_shdr(struct elfcopy *ecp, struct section *s, const char *name, int copy,
+    int sec_flags)
 {
 	GElf_Shdr ish, osh;
 
@@ -831,7 +858,6 @@ copy_shdr(struct elfcopy *ecp, struct section *s, const char *name, int copy)
 		(void) memcpy(&osh, &ish, sizeof(ish));
 	else {
 		osh.sh_type		= s->type;
-		osh.sh_flags		= ish.sh_flags;
 		osh.sh_addr		= s->vma;
 		osh.sh_offset		= s->off;
 		osh.sh_size		= s->sz;
@@ -839,6 +865,22 @@ copy_shdr(struct elfcopy *ecp, struct section *s, const char *name, int copy)
 		osh.sh_info		= ish.sh_info;
 		osh.sh_addralign	= s->align;
 		osh.sh_entsize		= ish.sh_entsize;
+
+		if (sec_flags) {
+			osh.sh_flags = 0;
+			if (sec_flags & SF_ALLOC) {
+				osh.sh_flags |= SHF_ALLOC;
+				if (!s->loadable)
+					warnx("set SHF_ALLOC flag for "
+					    "unloadable section %s",
+					    s->name);
+			}
+			if ((sec_flags & SF_READONLY) == 0)
+				osh.sh_flags |= SHF_WRITE;
+			if (sec_flags & SF_CODE)
+				osh.sh_flags |= SHF_EXECINSTR;
+		} else
+			osh.sh_flags = ish.sh_flags;
 	}
 
 	if (name == NULL)
