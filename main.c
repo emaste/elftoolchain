@@ -197,7 +197,6 @@ static struct {
 	{NULL, 0}
 };
 
-static void	create_elf(struct elfcopy *ecp);
 static void	create_file(struct elfcopy *ecp, const char *src,
     const char *dst);
 static void	create_object(struct elfcopy *ecp, int ifd, int ofd);
@@ -254,15 +253,23 @@ static void	elfcopy_usage(void);
  * |  .rel.text  | <- relocation info for .o files.
  * |_____________|
  */
-static void
+void
 create_elf(struct elfcopy *ecp)
 {
+	struct section *sec, *sec_temp;
 	struct section *shtab;
 	GElf_Ehdr ieh;
 	GElf_Ehdr oeh;
 	size_t ishnum;
 
 	ecp->flags |= SYMTAB_INTACT;
+
+	/* Reset internal section list. */
+	if (!TAILQ_EMPTY(&ecp->v_sec))
+		TAILQ_FOREACH_SAFE(sec, &ecp->v_sec, sec_list, sec_temp) {
+			TAILQ_REMOVE(&ecp->v_sec, sec, sec_list);
+			free(sec);
+		}
 
 	/* Create EHDR. */
 	if (gelf_getehdr(ecp->ein, &ieh) == NULL)
@@ -426,6 +433,17 @@ create_elf(struct elfcopy *ecp)
 static void
 create_object(struct elfcopy *ecp, int ifd, int ofd)
 {
+
+#ifndef LIBELF_AR
+	/* Detect and process ar(1) archive using libarchive. */
+	if (ac_detect_ar(ifd)) {
+		ecp->flags |= ARCHIVE;
+		ac_create_ar(ecp, ifd, ofd);
+		return;
+	}
+
+#endif	/* ! LIBELF_AR */
+
 	if ((ecp->ein = elf_begin(ifd, ELF_C_READ, NULL)) == NULL) {
 		errx(EX_DATAERR, "elf_begin() failed: %s",
 		     elf_errmsg(-1));
@@ -447,8 +465,7 @@ create_object(struct elfcopy *ecp, int ifd, int ofd)
 		break;
 
 	case ELF_K_AR:
-		fprintf(stderr, "archive file not supported yet");
-		return;
+		break;
 	default:
 		errx(EX_DATAERR, "file format not supported");
 	}
@@ -456,16 +473,50 @@ create_object(struct elfcopy *ecp, int ifd, int ofd)
 	elf_end(ecp->ein);
 }
 
+/* Create a temporary file. */
+void
+create_tempfile(char **fn, int *fd)
+{
+	const char *tmpdir;
+	char *cp, *tmpf;
+	size_t tlen, plen;
+
 #define	TEMPLATE "/tmp/ecp.XXXXXXXX"
+
+	if (fn == NULL || fd == NULL)
+		return;
+	/* Repect TMPDIR environment variable. */
+	tmpdir = getenv("TMPDIR");
+	if (tmpdir != NULL && *tmpdir != '\0') {
+		tlen = strlen(tmpdir);
+		plen = strlen(TEMPLATE);
+		tmpf = malloc(tlen + plen + 2);
+		if (tmpf == NULL)
+			err(EX_SOFTWARE, "malloc failed");
+		strncpy(tmpf, tmpdir, tlen);
+		cp = &tmpf[tlen - 1];
+		if (*cp++ != '/')
+			*cp++ = '/';
+		strncpy(cp, TEMPLATE, plen);
+		cp[plen] = '\0';
+	} else {
+		tmpf = strdup(TEMPLATE);
+		if (tmpf == NULL)
+			err(EX_SOFTWARE, "strdup failed");
+	}
+	if ((*fd = mkstemp(tmpf)) == -1)
+		err(EX_IOERR, "mkstemp %s failed", tmpf);
+	if (fchmod(*fd, 0755) == -1)
+		err(EX_IOERR, "fchmod %s failed", tmpf);
+	*fn = tmpf;
+}
 
 static void
 create_file(struct elfcopy *ecp, const char *src, const char *dst)
 {
 	struct stat sb;
 	struct timeval tv[2];
-	const char *tmpdir;
-	char *cp, *tmpf;
-	size_t tlen, plen;
+	char *tempfile;
 	int ifd, ofd;
 
 	if (src == NULL)
@@ -478,42 +529,19 @@ create_file(struct elfcopy *ecp, const char *src, const char *dst)
 			err(EX_IOERR, "fstat %s failed", src);
 	}
 
-	tmpf = NULL;
-	if (dst == NULL) {
-		/* Repect TMPDIR environment variable. */
-		tmpdir = getenv("TMPDIR");
-		if (tmpdir != NULL && *tmpdir != '\0') {
-			tlen = strlen(tmpdir);
-			plen = strlen(TEMPLATE);
-			tmpf = malloc(tlen + plen + 2);
-			if (tmpf == NULL)
-				err(EX_SOFTWARE, "malloc failed");
-			strncpy(tmpf, tmpdir, tlen);
-			cp = &tmpf[tlen - 1];
-			if (*cp++ != '/')
-				*cp++ = '/';
-			strncpy(cp, TEMPLATE, plen);
-			cp[plen] = '\0';
-		} else {
-			tmpf = strdup(TEMPLATE);
-			if (tmpf == NULL)
-				err(EX_SOFTWARE, "strdup failed");
-		}
-		if ((ofd = mkstemp(tmpf)) == -1)
-			err(EX_IOERR, "mkstemp %s failed", tmpf);
-		if (fchmod(ofd, 0755) == -1)
-			err(EX_IOERR, "fchmod %s failed", tmpf);
-	} else
+	if (dst == NULL)
+		create_tempfile(&tempfile, &ofd);
+	else
 		if ((ofd = open(dst, O_RDWR|O_CREAT, 0755)) == -1)
 			err(EX_IOERR, "open %s failed", dst);
 
 	create_object(ecp, ifd, ofd);
 
-	if (dst == NULL && tmpf != NULL) {
-		if (rename(tmpf, src) == -1)
+	if (dst == NULL && tempfile != NULL) {
+		if (rename(tempfile, src) == -1)
 			err(EX_IOERR, "rename %s to %s failed",
-			    tmpf, src);
-		free(tmpf);
+			    tempfile, src);
+		free(tempfile);
 	}
 
 	if (ecp->flags & PRESERVE_DATE) {
@@ -1011,6 +1039,7 @@ main(int argc, char **argv)
 	STAILQ_INIT(&ecp->v_sadd);
 	STAILQ_INIT(&ecp->v_symop);
 	STAILQ_INIT(&ecp->v_symfile);
+	STAILQ_INIT(&ecp->v_arobj);
 	TAILQ_INIT(&ecp->v_sec);
 
 	if ((ecp->progname = getprogname()) == NULL)
