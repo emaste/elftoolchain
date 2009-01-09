@@ -61,6 +61,7 @@ static int	is_needed_symbol(struct elfcopy *ecp, int i, GElf_Sym *s);
 static int	is_remove_symbol(struct elfcopy *ecp, size_t sc, int i,
 		    GElf_Sym *s, const char *name);
 static int	is_weak_symbol(GElf_Sym *s);
+static int	lookup_exact_string(const char *buf, size_t sz, const char *s);
 static int	generate_symbols(struct elfcopy *ecp);
 static void	mark_symbols(struct elfcopy *ecp, size_t sc);
 
@@ -819,4 +820,21 @@ lookup_symop_list(struct elfcopy *ecp, const char *name, unsigned int op)
 	}
 
 	return (NULL);
+}
+
+static int
+lookup_exact_string(const char *buf, size_t sz, const char *s)
+{
+	const char *b;
+	size_t slen;
+
+	slen = strlen(s);
+	for (b = buf; b < buf + sz; b += strlen(b) + 1) {
+		if (strlen(b) != slen)
+			continue;
+		if (!strcmp(b, s))
+			return (b - buf);
+	}
+
+	return (-1);
 }
