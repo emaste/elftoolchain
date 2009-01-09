@@ -437,7 +437,6 @@ create_object(struct elfcopy *ecp, int ifd, int ofd)
 #ifndef LIBELF_AR
 	/* Detect and process ar(1) archive using libarchive. */
 	if (ac_detect_ar(ifd)) {
-		ecp->flags |= ARCHIVE;
 		ac_create_ar(ecp, ifd, ofd);
 		return;
 	}
