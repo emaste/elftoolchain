@@ -267,10 +267,10 @@ extract_arsym(struct elfcopy *ecp)
 	elferr = elf_errno();
 	if (elferr != 0)
 		warnx("elf_nextscn failed: %s", elf_errmsg(elferr));
-	if (tabndx == -1) {
-		warnx("can't find .strtab section");
+
+	/* Ignore members without symbol table. */
+	if (tabndx == -1)
 		return;
-	}
 
 	scn = NULL;
 	while ((scn = elf_nextscn(ecp->eout, scn)) != NULL) {
@@ -444,20 +444,18 @@ ac_write_objs(struct elfcopy *ecp, int ofd)
 		archive_write_set_compression_none(a);
 	AC(archive_write_open_fd(a, ofd));
 
-	/* Write the archive symbol table, if there is one. */
-	if (ecp->s_cnt != 0 && ecp->strip != STRIP_ALL) {
-		entry = archive_entry_new();
-		archive_entry_copy_pathname(entry, "/");
-		archive_entry_set_mtime(entry, time(NULL), 0);
-		archive_entry_set_size(entry, (ecp->s_cnt + 1) *
-		    sizeof(uint32_t) + ecp->s_sn_sz);
-		AC(archive_write_header(a, entry));
-		nr = htobe32(ecp->s_cnt);
-		ac_write_data(a, &nr, sizeof(uint32_t));
-		ac_write_data(a, ecp->s_so, sizeof(uint32_t) * ecp->s_cnt);
-		ac_write_data(a, ecp->s_sn, ecp->s_sn_sz);
-		archive_entry_free(entry);
-	}
+	/* Write the archive symbol table, even if it's empty. */
+	entry = archive_entry_new();
+	archive_entry_copy_pathname(entry, "/");
+	archive_entry_set_mtime(entry, time(NULL), 0);
+	archive_entry_set_size(entry, (ecp->s_cnt + 1) * sizeof(uint32_t) +
+	    ecp->s_sn_sz);
+	AC(archive_write_header(a, entry));
+	nr = htobe32(ecp->s_cnt);
+	ac_write_data(a, &nr, sizeof(uint32_t));
+	ac_write_data(a, ecp->s_so, sizeof(uint32_t) * ecp->s_cnt);
+	ac_write_data(a, ecp->s_sn, ecp->s_sn_sz);
+	archive_entry_free(entry);
 
 	/* Write the archive string table, if exist. */
 	if (ecp->as != NULL) {
