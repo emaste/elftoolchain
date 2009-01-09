@@ -99,6 +99,7 @@ process_ar_obj(struct elfcopy *ecp, struct ar_obj *obj)
 		err(EX_SOFTWARE, "can't mmap file: %s", tempfile);
 	if (unlink(tempfile))
 		err(EX_IOERR, "unlink %s failed", tempfile);
+	free(tempfile);
 	close(fd);
 	if (strlen(obj->name) > _MAXNAMELEN_SVR4)
 		add_to_ar_str_table(ecp, obj->name);
