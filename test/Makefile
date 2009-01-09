@@ -4,11 +4,15 @@ ELFCOPY=	../elfcopy
 ECPDIR!=	dirname ${ELFCOPY}
 STRIP:=		${ECPDIR}/strip
 MCS:=		${ECPDIR}/mcs
+PLUGINDIR=	plugin
 
-test: ${ELFCOPY} ${STRIP} ${MCS}
+# list all the C plugins here.
+CPLUGIN=	ardiff teraser
+
+test: ${ELFCOPY} ${STRIP} ${MCS} ${CPLUGIN}
 	/bin/sh run.sh
 
-clean: ecpclean stripclean mcsclean
+clean: ecpclean stripclean mcsclean pluginclean
 
 ${ELFCOPY}:
 	cd ${ECPDIR} && ${MAKE}
@@ -19,6 +23,11 @@ ${STRIP}: ${ELFCOPY}
 ${MCS}: ${ELFCOPY}
 	ln -f ${ELFCOPY} ${MCS}
 
+${CPLUGIN}:
+.for plugin in ${.TARGET}
+	cd ${PLUGINDIR} && ${MAKE} -f Makefile.${plugin}
+.endfor
+
 ecpclean:
 	cd ${ECPDIR} && ${MAKE} clean
 
@@ -27,3 +36,8 @@ stripclean:
 
 mcsclean:
 	rm -f ${MCS}
+
+pluginclean:
+.for plugin in ${CPLUGIN}
+	cd ${PLUGINDIR} && ${MAKE} -f Makefile.${plugin} clean
+.endfor
