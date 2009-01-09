@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2007,2008 Kai Wang
+ * Copyright (c) 2007-2009 Kai Wang
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -68,16 +68,16 @@ struct sec_action {
 	const char *newname;
 	const char *string;
 
-#define	SF_ALLOC	0x0001
-#define	SF_LOAD		0x0002
-#define	SF_NOLOAD	0x0004
-#define	SF_READONLY	0x0008
-#define	SF_DEBUG	0x0010
-#define	SF_CODE		0x0020
-#define	SF_DATA		0x0040
-#define	SF_ROM		0x0080
-#define	SF_SHARED	0X0100
-#define	SF_CONTENTS	0x0200
+#define	SF_ALLOC	0x0001U
+#define	SF_LOAD		0x0002U
+#define	SF_NOLOAD	0x0004U
+#define	SF_READONLY	0x0008U
+#define	SF_DEBUG	0x0010U
+#define	SF_CODE		0x0020U
+#define	SF_DATA		0x0040U
+#define	SF_ROM		0x0080U
+#define	SF_SHARED	0X0100U
+#define	SF_CONTENTS	0x0200U
 
 	int flags;
 
@@ -136,6 +136,21 @@ struct segment {
 };
 
 /*
+ * In-memory representation of ar(1) archive member(object).
+ */
+struct ar_obj {
+	char *name;	/* member name */
+	void *maddr;	/* mmap start address */
+	uid_t uid;	/* user id */
+	gid_t gid;	/* group id */
+	mode_t md;	/* octal file permissions */
+	size_t size;	/* member size */
+	time_t mtime;	/* modification time */
+
+	STAILQ_ENTRY(ar_obj) objs;
+};
+
+/*
  * Structure encapsulates the "global" data for "elfcopy" program.
  */
 struct elfcopy {
@@ -145,13 +160,10 @@ struct elfcopy {
 	int oec;	/* elfclass of output object */
 	unsigned char oed;	/* endianess of output object */
 	int abi;	/* OSABI of output object */
-
 	Elf *ein;	/* ELF descriptor of input object */
 	Elf *eout;	/* ELF descriptor of output object */
-
 	int iphnum;	/* number of program headers of input object */
 	int ophnum;	/* number of program headers of output object */
-
 	int nos;	/* number of sections of output object */
 
 	/*
@@ -165,9 +177,9 @@ struct elfcopy {
 	int sections_to_remove;
 	int sections_to_copy;
 
-	struct section *symtab;
-	struct section *strtab;
-	struct section *shstrtab;
+	struct section *symtab;	/* .symtab section. */
+	struct section *strtab;	/* .strtab section. */
+	struct section *shstrtab; /* .shstrtab section. */
 
 	enum {
 		STRIP_NONE = 0,
@@ -177,42 +189,46 @@ struct elfcopy {
 		STRIP_UNNEEDED
 	} strip;
 
-#define	EXECUTABLE	0x0001
-#define	DYNAMIC		0x0002
-#define	RELOCATABLE	0x0004
-#define	SYMTAB_EXIST	0x0010
-#define	SYMTAB_INTACT	0x0020
-#define KEEP_GLOBAL	0x0040
-#define DISCARD_LOCAL	0x0080
-#define WEAKEN_ALL	0x0100
-#define PRESERVE_DATE	0x1000
+#define	EXECUTABLE	0x0001U
+#define	DYNAMIC		0x0002U
+#define	RELOCATABLE	0x0004U
+#define	ARCHIVE		0x0008U
+#define	SYMTAB_EXIST	0x0010U
+#define	SYMTAB_INTACT	0x0020U
+#define KEEP_GLOBAL	0x0040U
+#define DISCARD_LOCAL	0x0080U
+#define WEAKEN_ALL	0x0100U
+#define PRESERVE_DATE	0x1000U
 
-	int flags;
+	int flags;		/* elfcopy run control flags. */
 
-	/* GNU debuglink file. */
-	const char *debuglink;
+	const char *debuglink;	/* GNU debuglink file. */
+	uint64_t *secndx;	/* section index map. */
+	uint64_t *symndx;	/* symbol index map. */
+	unsigned char *v_rel;	/* symbols needed by relocation. */
+	unsigned char *v_secsym;	/* sections with section symbol. */
+	STAILQ_HEAD(, segment) v_seg;	/* list of segments. */
+	STAILQ_HEAD(, sec_action) v_sac; /* list of section operations. */
+	STAILQ_HEAD(, sec_add) v_sadd;	/* list of sections to add. */
+	STAILQ_HEAD(, symop) v_symop;	/* list of symbols operations. */
+	STAILQ_HEAD(, symfile) v_symfile; /* list of symlist files. */
+	TAILQ_HEAD(, section) v_sec;	/* list of sections. */
 
-	/* keep record of section index changes. */
-	uint64_t *secndx;
-
-	/* keep record of symbol index changes. */
-	uint64_t *symndx;
-
-	/* bit vector to mark symbols involving relocation */
-	unsigned char *v_rel;
-
-	/* bit vector to mark sections that have section symbol */
-	unsigned char *v_secsym;
-
-	STAILQ_HEAD(, segment) v_seg;
-	STAILQ_HEAD(, sec_action) v_sac;
-	STAILQ_HEAD(, sec_add) v_sadd;
-	/* list of symbols operations. */
-	STAILQ_HEAD(, symop) v_symop;
-	/* list of symlist files. */
-	STAILQ_HEAD(, symfile) v_symfile;
-	/* list of internal section structure */
-	TAILQ_HEAD(, section) v_sec;
+	/*
+	 * Fields for the ar(1) archive.
+	 */
+	int compression;	/* archive compression mode. */
+	char *as;		/* buffer for archive string table. */
+	size_t as_sz;		/* current size of as table. */
+	size_t as_cap;		/* capacity of as table buffer. */
+	uint32_t s_cnt;		/* current number of symbols. */
+	uint32_t *s_so;		/* symbol offset table. */
+	size_t s_so_cap;	/* capacity of so table buffer. */
+	char *s_sn;		/* symbol name table */
+	size_t s_sn_cap;	/* capacity of sn table buffer. */
+	size_t s_sn_sz;		/* current size of sn table. */
+	off_t rela_off;		/* offset relative to pseudo members. */
+	STAILQ_HEAD(, ar_obj) v_arobj;	/* archive object(member) list. */
 };
 
 void	add_section(struct elfcopy *ecp, const char *optarg);
@@ -224,8 +240,11 @@ void	copy_data(struct section *s);
 void	copy_phdr(struct elfcopy *ecp);
 void	copy_shdr(struct elfcopy *ecp, struct section *s, const char *name,
     int copy, int sec_flags);
+void	create_elf(struct elfcopy *ecp);
 void	create_scn(struct elfcopy *ecp);
 void	create_symtab(struct elfcopy *ecp);
+void	create_tempfile(char **fn, int *fd);
+void	extract_arsym(struct elfcopy *ecp);
 struct section *insert_shtab(struct elfcopy *ecp);
 void	insert_to_strtab(struct section *t, const char *s);
 int	is_remove_reloc_sec(struct elfcopy *ecp, uint32_t sh_info);
@@ -240,3 +259,8 @@ void	resync_sections(struct elfcopy *ecp);
 void	set_shstrtab(struct elfcopy *ecp);
 void	setup_phdr(struct elfcopy *ecp);
 void	update_shdr(struct elfcopy *ecp);
+
+#ifndef LIBELF_AR
+int	ac_detect_ar(int ifd);
+void	ac_create_ar(struct elfcopy *ecp, int ifd, int ofd);
+#endif	/* ! LIBELF_AR */
