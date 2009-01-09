@@ -245,15 +245,12 @@ void	create_scn(struct elfcopy *ecp);
 void	create_symtab(struct elfcopy *ecp);
 void	create_tempfile(char **fn, int *fd);
 struct section *insert_shtab(struct elfcopy *ecp);
-void	insert_to_strtab(struct section *t, const char *s);
 int	is_remove_reloc_sec(struct elfcopy *ecp, uint32_t sh_info);
 int	is_remove_section(struct elfcopy *ecp, const char *name);
-int	lookup_exact_string(const char *buf, size_t sz, const char *s);
 struct sec_action *lookup_sec_act(struct elfcopy *ecp,
     const char *name, int add);
 struct symop *lookup_symop_list(struct elfcopy *ecp, const char *name,
     unsigned int op);
-int	lookup_string(struct section *t, const char *s);
 void	resync_sections(struct elfcopy *ecp);
 void	set_shstrtab(struct elfcopy *ecp);
 void	setup_phdr(struct elfcopy *ecp);
