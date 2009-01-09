@@ -60,9 +60,10 @@ static void ac_read_objs(struct elfcopy *ecp, int ifd);
 static void ac_write_objs(struct elfcopy *ecp, int ofd);
 static void ac_write_data(struct archive *a, const void *buf, size_t s);
 #endif	/* ! LIBELF_AR */
-static void process_ar_obj(struct elfcopy *ecp, struct ar_obj *obj);
 static void add_to_ar_str_table(struct elfcopy *elfcopy, const char *name);
 static void add_to_ar_sym_table(struct elfcopy *ecp, const char *name);
+static void extract_arsym(struct elfcopy *ecp);
+static void process_ar_obj(struct elfcopy *ecp, struct ar_obj *obj);
 static void sync_ar(struct elfcopy *ecp);
 
 
@@ -225,7 +226,7 @@ sync_ar(struct elfcopy *ecp)
 /*
  * Extract global symbols from archive members.
  */
-void
+static void
 extract_arsym(struct elfcopy *ecp)
 {
 	Elf_Scn		*scn;
