@@ -192,7 +192,6 @@ struct elfcopy {
 #define	EXECUTABLE	0x0001U
 #define	DYNAMIC		0x0002U
 #define	RELOCATABLE	0x0004U
-#define	ARCHIVE		0x0008U
 #define	SYMTAB_EXIST	0x0010U
 #define	SYMTAB_INTACT	0x0020U
 #define KEEP_GLOBAL	0x0040U
