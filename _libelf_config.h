@@ -48,13 +48,13 @@
 #define	LIBELF_CONFIG_SWORD	1
 #define	LIBELF_CONFIG_SYM	1
 #define	LIBELF_CONFIG_WORD	1
-#endif	/* __FreeBSD_version__ >= 600102 */
+#endif
 
 #if __FreeBSD_version >= 700009
 #define	LIBELF_CONFIG_VDEF	1
 #define	LIBELF_CONFIG_VNEED	1
 #define	LIBELF_CONFIG_XWORD	1
-#endif	/* __FreeBSD_version__ >= 700009 */
+#endif
 
 #if __FreeBSD_version >= 700025
 #define	LIBELF_CONFIG_CAP	1
@@ -62,7 +62,11 @@
 #define	LIBELF_CONFIG_MOVE	1
 #define	LIBELF_CONFIG_MOVEP	1
 #define	LIBELF_CONFIG_SYMINFO	1
-#endif	/* __FreeBSD_version__ >= 700025 */
+#endif
+
+#if __FreeBSD_version >= 800060
+#define	LIBELF_CONFIG_GNUHASH	1
+#endif
 
 #define	LIBELF_VCSID(ID)	__FBSDID(ID)
 
