@@ -45,7 +45,6 @@ __FBSDID("$FreeBSD: src/usr.bin/brandelf/brandelf.c,v 1.25 2005/05/21 09:55:04 r
 
 static int elftype(const char *);
 static const char *iselftype(int);
-static int isfile(const char *);
 static Elf *openelf(int, const char *);
 static void printelftypes(void);
 static void usage(void);
@@ -126,18 +125,15 @@ main(int argc, char **argv)
 	while (argc) {
 		int fd;
 
-		if (isfile(argv[0]) != 0) {
-			retval = 1;
-			goto fail2;
-		}
-		if ((fd = open(argv[0], change || force ?
-			    O_RDWR : O_RDONLY, 0)) < 0) {
+		if ((fd = open(argv[0], change || force ? O_RDWR : O_RDONLY, 0))
+		    < 0) {
 			warn("error opening file %s", argv[0]);
 			retval = 1;
 			goto fail;
 		}
 		if ((elf = openelf(fd, argv[0])) == NULL) {
 			retval = 1;
+			elf_end(elf);
 			goto fail;
 		}
 		if (gelf_getehdr(elf, &ehdr) == NULL) {
@@ -147,6 +143,7 @@ main(int argc, char **argv)
 			else
 				warnx("gelf_getehdr error");
 			retval = 1;
+			elf_end(elf);
 			goto fail;
 		}
 		if (!change && !force) {
@@ -154,7 +151,6 @@ main(int argc, char **argv)
 			    "File '%s' is of brand '%s' (%u).\n",
 			    argv[0], iselftype(ehdr.e_ident[EI_OSABI]),
 			    ehdr.e_ident[EI_OSABI]);
-
 			if (!iselftype(type)) {
 				warnx("ELF ABI Brand '%u' is unknown",
 				      type);
@@ -170,6 +166,7 @@ main(int argc, char **argv)
 				else
 					warnx("gelf_update_ehdr error");
 				retval = 1;
+				elf_end(elf);
 				goto fail;
 			}
 
@@ -180,16 +177,16 @@ main(int argc, char **argv)
 				else
 					warnx("elf_update error");
 				retval = 1;
+				elf_end(elf);
 				goto fail;
 			}
 		}
 fail:
-		elf_end(elf);
+
 		if (close(fd) == -1) {
 			warnx("%s: close error", argv[0]);
 			retval = 1;
 		}
-fail2:
 		argc--;
 		argv++;
 	}
@@ -215,34 +212,6 @@ iselftype(int etype)
 	     elfwalk++)
 		if (etype == elftypes[elfwalk].value)
 			return (elftypes[elfwalk].str);
-	return (0);
-}
-
-/* Return 0 if path is regular file. */
-static int
-isfile(const char *path)
-{
-	struct stat sb;
-
-	if (path == NULL)
-		return (1);
-
-	errno = 0;
-	if (stat(path, &sb) != 0) {
-		if (errno == ENOENT)
-			warnx("'%s': No such file", path);
-		else
-			warn("'%s'", path);
-
-		return (1);
-	}
-
-	if (!S_ISLNK(sb.st_mode) && !S_ISREG(sb.st_mode)) {
-		warnx("Warning: '%s' is not an ordinary file", path);
-
-		return (1);
-	}
-
 	return (0);
 }
 
