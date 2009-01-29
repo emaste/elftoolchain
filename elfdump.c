@@ -335,23 +335,23 @@ main(int ac, char **av)
 
 	if ((e = elf_begin(fd, ELF_C_READ, NULL)) == NULL)
 		errx(EX_SOFTWARE, "elf_begin() failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 
 	if (elf_kind(e) != ELF_K_ELF)
 		errx(EX_DATAERR, "not an elf file");
 
 	if (elf_getshstrndx(e, &shstrndx) == 0)
 		errx(EX_SOFTWARE, "elf_getshstrndx failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 
 	scn = NULL;
 	while ((scn = elf_nextscn(e, scn)) != NULL) {
 		if (gelf_getshdr(scn, &shdr) != &shdr)
 			errx(EX_SOFTWARE, "elf_getshdr failed: %s",
-			     elf_errmsg(-1));
+			    elf_errmsg(-1));
 		if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
 			errx(EX_SOFTWARE, "elf_strptr failed: %s",
-			     elf_errmsg(-1));
+			    elf_errmsg(-1));
 		if (strcmp(name, ".strtab") == 0)
 			strtab = elf_ndxscn(scn);
 		if (strcmp(name, ".dynstr") == 0)
@@ -360,7 +360,7 @@ main(int ac, char **av)
 	elferr = elf_errno();
 	if (elferr != 0)
 		errx(EX_SOFTWARE, "elf_nextscn failed: %s",
-		     elf_errmsg(elferr));
+		    elf_errmsg(elferr));
 
 	if (flags & ED_EHDR)
 		elf_print_ehdr(e);
@@ -370,11 +370,11 @@ main(int ac, char **av)
 		elf_print_shdr(e);
 	if (elf_getphnum(e, &phnum) == 0)
 		errx(EX_DATAERR, "elf_getphnum failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	for (i = 0; (u_int64_t)i < phnum; i++) {
 		if (gelf_getphdr(e, i, &phdr) != &phdr)
 			errx(EX_SOFTWARE, "elf_getphdr failed: %s",
-			     elf_errmsg(-1));
+			    elf_errmsg(-1));
 		switch (phdr.p_type) {
 		case PT_INTERP:
 			if (flags & ED_INTERP)
@@ -394,7 +394,7 @@ main(int ac, char **av)
 	while ((scn = elf_nextscn(e, scn)) != NULL) {
 		if (gelf_getshdr(scn, &shdr) != &shdr)
 			errx(EX_SOFTWARE, "elf_getshdr failed: %s",
-			     elf_errmsg(-1));
+			    elf_errmsg(-1));
 		switch (shdr.sh_type) {
 		case SHT_SYMTAB:
 			if (flags & ED_SYMTAB)
@@ -415,7 +415,7 @@ main(int ac, char **av)
 		case SHT_NOTE:
 			if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
 				errx(EX_SOFTWARE, "elf_strptr failed: %s",
-				     elf_errmsg(-1));
+				    elf_errmsg(-1));
 			if (flags & ED_NOTE &&
 			    strcmp(name, ".note.ABI-tag") == 0)
 				elf_print_note(e, scn);
@@ -427,7 +427,7 @@ main(int ac, char **av)
 		case SHT_PROGBITS:
 			if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
 				errx(EX_SOFTWARE, "elf_strptr failed: %s",
-				     elf_errmsg(-1));
+				    elf_errmsg(-1));
 			if (flags & ED_GOT &&
 			    strcmp(name, ".got") == 0)
 				elf_print_got(e, scn);
@@ -446,7 +446,7 @@ main(int ac, char **av)
 	elferr = elf_errno();
 	if (elferr != 0)
 		errx(EX_SOFTWARE, "elf_nextscn failed: %s",
-		     elf_errmsg(elferr));
+		    elf_errmsg(elferr));
 	return (0);
 }
 
@@ -461,9 +461,9 @@ elf_print_ehdr(Elf * e)
 	fprintf(out, "\nelf header:\n");
 	fprintf(out, "\n");
 	fprintf(out, "\te_ident: %s %s %s\n",
-		ei_classes[ehdr.e_ident[EI_CLASS]],
-		ei_data[ehdr.e_ident[EI_DATA]],
-		ei_abis[ehdr.e_ident[EI_OSABI]]);
+	    ei_classes[ehdr.e_ident[EI_CLASS]],
+	    ei_data[ehdr.e_ident[EI_DATA]],
+	    ei_abis[ehdr.e_ident[EI_OSABI]]);
 	fprintf(out, "\te_type: %s\n", e_types[ehdr.e_type]);
 	fprintf(out, "\te_machine: %s\n", e_machines(ehdr.e_machine));
 	fprintf(out, "\te_version: %s\n", ei_versions[ehdr.e_version]);
@@ -488,12 +488,12 @@ elf_print_phdr(Elf * e)
 
 	if (elf_getphnum(e, &phnum) == 0)
 		errx(EX_DATAERR, "elf_getphnum failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	fprintf(out, "\nprogram header:\n");
 	for (i = 0; (u_int64_t) i < phnum; i++) {
 		if (gelf_getphdr(e, i, &phdr) != &phdr)
 			errx(EX_SOFTWARE, "elf_getphdr failed: %s",
-			     elf_errmsg(-1));
+			    elf_errmsg(-1));
 		fprintf(out, "\n");
 		fprintf(out, "entry: %d\n", i);
 		fprintf(out, "\tp_type: %s\n", p_types[phdr.p_type & 0x7]);
@@ -520,10 +520,10 @@ elf_print_shdr(Elf * e)
 	do {
 		if (gelf_getshdr(scn, &shdr) != &shdr)
 			errx(EX_SOFTWARE, "elf_getshdr failed: %s",
-			     elf_errmsg(-1));
+			    elf_errmsg(-1));
 		if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
 			errx(EX_SOFTWARE, "elf_strptr failed: %s",
-			     elf_errmsg(-1));
+			    elf_errmsg(-1));
 		fprintf(out, "\n");
 		fprintf(out, "entry: %ju\n", (uintmax_t)elf_ndxscn(scn));
 		fprintf(out, "\tsh_name: %s\n", name);
@@ -540,7 +540,7 @@ elf_print_shdr(Elf * e)
 	elferr = elf_errno();
 	if (elferr != 0)
 		errx(EX_SOFTWARE, "elf_nextscn failed: %s",
-		     elf_errmsg(elferr));
+		    elf_errmsg(elferr));
 }
 
 void
@@ -557,10 +557,10 @@ elf_print_symtab(Elf * e, Elf_Scn * scn, size_t strndx)
 
 	if (gelf_getshdr(scn, &shdr) != &shdr)
 		errx(EX_SOFTWARE, "elf_getshdr failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
 		errx(EX_SOFTWARE, "elf_strptr failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	fprintf(out, "\nsymbol table (%s):\n", name);
 	data = NULL;
 	n = 0;
@@ -569,29 +569,29 @@ elf_print_symtab(Elf * e, Elf_Scn * scn, size_t strndx)
 		for (i = 0; i < len; i++) {
 			if (gelf_getsym(data, i, &sym) != &sym)
 				errx(EX_SOFTWARE, "gelf_getsym failed: %s",
-				     elf_errmsg(-1));
+				    elf_errmsg(-1));
 			if ((name = elf_strptr(e, strndx, sym.st_name)) ==
 			    NULL)
 				errx(EX_SOFTWARE, "elf_strptr failed: %s",
-				     elf_errmsg(-1));
+				    elf_errmsg(-1));
 			fprintf(out, "\n");
 			fprintf(out, "entry: %d\n", i);
 			fprintf(out, "\tst_name: %s\n", name);
 			fprintf(out, "\tst_value: %#jx\n", sym.st_value);
-			fprintf(out, "\tst_size: %ju\n", 
-				(uintmax_t)sym.st_size);
+			fprintf(out, "\tst_size: %ju\n",
+			    (uintmax_t)sym.st_size);
 			fprintf(out, "\tst_info: %s %s\n",
-				st_types[GELF_ST_TYPE(sym.st_info)],
-				st_bindings[GELF_ST_BIND(sym.st_info)]);
-			fprintf(out, "\tst_shndx: %ju\n", 
-				(uintmax_t)sym.st_shndx);
+			    st_types[GELF_ST_TYPE(sym.st_info)],
+			    st_bindings[GELF_ST_BIND(sym.st_info)]);
+			fprintf(out, "\tst_shndx: %ju\n",
+			    (uintmax_t)sym.st_shndx);
 		}
 		n += data->d_size;
 	}
 	elferr = elf_errno();
 	if (elferr != 0)
 		errx(EX_SOFTWARE, "elf_getdata failed: %s",
-		     elf_errmsg(elferr));
+		    elf_errmsg(elferr));
 }
 
 void
@@ -608,7 +608,7 @@ elf_print_dynamic(Elf * e, Elf_Scn * scn)
 
 	if (gelf_getshdr(scn, &shdr) != &shdr)
 		errx(EX_SOFTWARE, "elf_getshdr failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	fprintf(out, "\ndynamic:\n");
 	data = NULL;
 	n = 0;
@@ -617,7 +617,7 @@ elf_print_dynamic(Elf * e, Elf_Scn * scn)
 		for (i = 0; i < len; i++) {
 			if (gelf_getdyn(data, i, &dyn) != &dyn)
 				errx(EX_SOFTWARE, "gelf_getdyn failed: %s",
-				     elf_errmsg(-1));
+				    elf_errmsg(-1));
 			fprintf(out, "\n");
 			fprintf(out, "entry: %d\n", i);
 			fprintf(out, "\td_tag: %s\n", d_tags(dyn.d_tag));
@@ -625,12 +625,11 @@ elf_print_dynamic(Elf * e, Elf_Scn * scn)
 			case DT_NEEDED:
 			case DT_SONAME:
 			case DT_RPATH:
-				if ((name = 
-				     elf_strptr(e, dynstr, dyn.d_un.d_val)) ==
-				    NULL)
-					errx(EX_SOFTWARE, 
-					     "elf_strptr failed: %s",
-					     elf_errmsg(-1));
+				name = elf_strptr(e, dynstr, dyn.d_un.d_val);
+				if (name == NULL)
+					errx(EX_SOFTWARE,
+					    "elf_strptr failed: %s",
+					    elf_errmsg(-1));
 				fprintf(out, "\td_val: %s\n", name);
 				break;
 			case DT_PLTRELSZ:
@@ -642,8 +641,8 @@ elf_print_dynamic(Elf * e, Elf_Scn * scn)
 			case DT_RELSZ:
 			case DT_RELENT:
 			case DT_PLTREL:
-				fprintf(out, "\td_val: %ju\n", 
-					(uintmax_t)dyn.d_un.d_val);
+				fprintf(out, "\td_val: %ju\n",
+				    (uintmax_t)dyn.d_un.d_val);
 				break;
 			case DT_PLTGOT:
 			case DT_HASH:
@@ -653,8 +652,8 @@ elf_print_dynamic(Elf * e, Elf_Scn * scn)
 			case DT_FINI:
 			case DT_REL:
 			case DT_JMPREL:
-				fprintf(out, "\td_ptr: %#jx\n", 
-					dyn.d_un.d_ptr);
+				fprintf(out, "\td_ptr: %#jx\n",
+				    dyn.d_un.d_ptr);
 				break;
 			case DT_NULL:
 			case DT_SYMBOLIC:
@@ -668,7 +667,7 @@ elf_print_dynamic(Elf * e, Elf_Scn * scn)
 	elferr = elf_errno();
 	if (elferr != 0)
 		errx(EX_SOFTWARE, "elf_getdata failed: %s",
-		     elf_errmsg(elferr));
+		    elf_errmsg(elferr));
 }
 
 void
@@ -685,10 +684,10 @@ elf_print_rela(Elf * e, Elf_Scn * scn)
 
 	if (gelf_getshdr(scn, &shdr) != &shdr)
 		errx(EX_SOFTWARE, "elf_getshdr failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
 		errx(EX_SOFTWARE, "elf_strptr failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	fprintf(out, "\nrelocation with addend (%s):\n", name);
 	data = NULL;
 	n = 0;
@@ -697,22 +696,22 @@ elf_print_rela(Elf * e, Elf_Scn * scn)
 		for (i = 0; i < len; i++) {
 			if (gelf_getrela(data, i, &rela) != &rela)
 				errx(EX_SOFTWARE, "gelf_getrela failed: %s",
-				     elf_errmsg(-1));
+				    elf_errmsg(-1));
 			fprintf(out, "\n");
 			fprintf(out, "entry: %d\n", i);
 			fprintf(out, "\tr_offset: %#jx\n",
-				rela.r_offset);
-			fprintf(out, "\tr_info: %ju\n", 
-				(uintmax_t)rela.r_info);
-			fprintf(out, "\tr_addend: %jd\n", 
-				(intmax_t)rela.r_addend);
+			    rela.r_offset);
+			fprintf(out, "\tr_info: %ju\n",
+			    (uintmax_t)rela.r_info);
+			fprintf(out, "\tr_addend: %jd\n",
+			    (intmax_t)rela.r_addend);
 		}
 		n += data->d_size;
 	}
 	elferr = elf_errno();
 	if (elferr != 0)
 		errx(EX_SOFTWARE, "elf_getdata failed: %s",
-		     elf_errmsg(elferr));
+		    elf_errmsg(elferr));
 }
 
 void
@@ -729,10 +728,10 @@ elf_print_rel(Elf * e, Elf_Scn * scn)
 
 	if (gelf_getshdr(scn, &shdr) != &shdr)
 		errx(EX_SOFTWARE, "elf_getshdr failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
 		errx(EX_SOFTWARE, "elf_strptr failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	fprintf(out, "\nrelocation (%s):\n", name);
 	data = NULL;
 	n = 0;
@@ -741,22 +740,22 @@ elf_print_rel(Elf * e, Elf_Scn * scn)
 		for (i = 0; i < len; i++) {
 			if (gelf_getrel(data, i, &rel) != &rel)
 				errx(EX_SOFTWARE, "gelf_getrel failed: %s",
-				     elf_errmsg(-1));
+				    elf_errmsg(-1));
 			fprintf(out, "\n");
 			fprintf(out, "entry: %d\n", i);
 			fprintf(out, "\tr_offset: %#jx\n",
-				rel.r_offset);
-			fprintf(out, "\tr_info: %ju\n", 
-				(uintmax_t)rel.r_info);
+			    rel.r_offset);
+			fprintf(out, "\tr_info: %ju\n",
+			    (uintmax_t)rel.r_info);
 		}
 		n += data->d_size;
 	}
 	elferr = elf_errno();
 	if (elferr != 0)
 		errx(EX_SOFTWARE, "elf_getdata failed: %s",
-		     elf_errmsg(elferr));
+		    elf_errmsg(elferr));
 }
-	
+
 void
 elf_print_interp(Elf * e, Elf64_Off p_offset)
 {
@@ -764,7 +763,7 @@ elf_print_interp(Elf * e, Elf64_Off p_offset)
 
 	if ((s = elf_rawfile(e, NULL)) == NULL)
 		errx(EX_SOFTWARE, "elf_rawfile failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	fprintf(out, "\ninterp:\n");
 	fprintf(out, "\t%s\n", s + (size_t)p_offset);
 }
@@ -783,13 +782,13 @@ elf_print_got(Elf * e, Elf_Scn * scn)
 
 	if (gelf_getehdr(e, &ehdr) == NULL)
 		errx(EX_SOFTWARE, "gelf_getehdr failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	if (gelf_getshdr(scn, &shdr) != &shdr)
 		errx(EX_SOFTWARE, "elf_getshdr failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	if ((ec = gelf_getclass(e)) == ELFCLASSNONE)
 		errx(EX_DATAERR, "gelf_getclass failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	fprintf(out, "\nglobal offset table:\n");
 	data = NULL;
 	n = 0;
@@ -803,7 +802,7 @@ elf_print_got(Elf * e, Elf_Scn * scn)
 		memcpy(dst, data, sizeof(Elf_Data));
 		if (gelf_xlatetom(e, dst, data, ehdr.e_ident[EI_DATA]) != dst)
 			errx(EX_SOFTWARE, "gelf_xlatetom failed: %s",
-			     elf_errmsg(-1));
+			    elf_errmsg(-1));
 		for(i = 0; i * dst->d_align <  dst->d_size; i++) {
 			fprintf(out, "\nentry: %d\n", i);
 			if (ec == ELFCLASS32)
@@ -831,13 +830,13 @@ elf_print_note(Elf * e, Elf_Scn * scn)
 	size_t		 n;
 	char		*name;
 	int		 elferr;
-	
+
 	if (gelf_getshdr(scn, &shdr) != &shdr)
 		errx(EX_SOFTWARE, "elf_getshdr failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
 		errx(EX_SOFTWARE, "elf_strptr failed: %s",
-		     elf_errmsg(-1));
+		    elf_errmsg(-1));
 	fprintf(out, "\nnote (%s):\n", name);
 	data = NULL;
 	n = 0;
@@ -847,21 +846,21 @@ elf_print_note(Elf * e, Elf_Scn * scn)
 			namesz = ((Elf_Note *)s)->n_namesz;
 			descsz = ((Elf_Note *)s)->n_descsz;
 			fprintf(out, "\t%s %d\n", (char *)s + sizeof(Elf_Note),
-				*(s + sizeof(Elf_Note)/sizeof(u_int32_t) +
-				  roundup2(namesz, sizeof(u_int32_t)) /
-				  sizeof(u_int32_t)));
-			s = s + sizeof(Elf_Note)/sizeof(u_int32_t) + 
-				roundup2(namesz,sizeof(u_int32_t)) /
-				sizeof(u_int32_t) + 
-				roundup2(descsz,sizeof(u_int32_t)) /
-				sizeof(u_int32_t);
+			    *(s + sizeof(Elf_Note)/sizeof(u_int32_t) +
+			    roundup2(namesz, sizeof(u_int32_t)) /
+			    sizeof(u_int32_t)));
+			s = s + sizeof(Elf_Note)/sizeof(u_int32_t) +
+			    roundup2(namesz,sizeof(u_int32_t)) /
+			    sizeof(u_int32_t) +
+			    roundup2(descsz,sizeof(u_int32_t)) /
+			    sizeof(u_int32_t);
 		}
 		n += data->d_size;
 	}
 	elferr = elf_errno();
 	if (elferr != 0)
 		errx(EX_SOFTWARE, "elf_getdata failed: %s",
-		     elf_errmsg(elferr));
+		    elf_errmsg(elferr));
 }
 
 void
@@ -897,10 +896,10 @@ elf_print_hash(Elf * e, Elf_Scn * scn)
 			if ((dst = malloc(sizeof(Elf_Data))) == NULL)
 				err(1, "malloc failed: ");
 			memcpy(dst, data, sizeof(Elf_Data));
-			if (gelf_xlatetom(e, dst,
-					  data, ehdr.e_ident[EI_DATA]) != dst)
+			if (gelf_xlatetom(e, dst, data, ehdr.e_ident[EI_DATA])
+			    != dst)
 				errx(EX_SOFTWARE, "gelf_xlatetom failed: %s",
-				     elf_errmsg(-1));
+				    elf_errmsg(-1));
 			s64 = dst->d_buf;
 			nbucket = *s64++;
 			nchain = *s64++;
@@ -908,10 +907,10 @@ elf_print_hash(Elf * e, Elf_Scn * scn)
 			fprintf(out, "\nnchain:\n\t%ju\n\n", nchain);
 			for(i = 0; i < nbucket; i++, s64++)
 				fprintf(out, "bucket[%jd]:\n\t%ju\n\n",
-					i, *s64);
+				    i, *s64);
 			for(i = 0; i < nchain; i++, s64++)
 				fprintf(out, "chain[%jd]:\n\t%ju\n\n",
-					i, *s64);
+				    i, *s64);
 			free(dst);
 		}
 	} else {
@@ -930,7 +929,7 @@ elf_print_hash(Elf * e, Elf_Scn * scn)
 	elferr = elf_errno();
 	if (elferr != 0)
 		errx(EX_SOFTWARE, "elf_getdata failed: %s",
-		     elf_errmsg(elferr));
+		    elf_errmsg(elferr));
 }
 
 void
