@@ -27,6 +27,7 @@ global:
 	elf_errmsg;
 	elf_errno;
 	elf_fill;
+	elf_flagarhdr;
 	elf_flagdata;
 	elf_flagehdr;
 	elf_flagelf;
