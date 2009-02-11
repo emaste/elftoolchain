@@ -34,8 +34,8 @@
  * weaken, rename, etc).
  */
 struct symop {
-	const char *name;
-	const char *newname;
+	const char	*name;
+	const char	*newname;
 
 #define SYMOP_KEEP	0x0001U
 #define SYMOP_STRIP	0x0002U
@@ -45,28 +45,28 @@ struct symop {
 #define SYMOP_WEAKEN	0x0020U
 #define SYMOP_REDEF	0x0040U
 
-	unsigned int op;
+	unsigned int	op;
 
 	STAILQ_ENTRY(symop) symop_list;
 };
 
 /* File containing symbol list. */
 struct symfile {
-	dev_t dev;
-	ino_t ino;
-	size_t size;
-	char *data;
-	unsigned int op;
+	dev_t		 dev;
+	ino_t		 ino;
+	size_t		 size;
+	char		*data;
+	unsigned int	 op;
 
 	STAILQ_ENTRY(symfile) symfile_list;
 };
 
 /* Sections to copy/remove/rename/... */
 struct sec_action {
-	const char *name;
-	const char *addopt;
-	const char *newname;
-	const char *string;
+	const char	*name;
+	const char	*addopt;
+	const char	*newname;
+	const char	*string;
 
 #define	SF_ALLOC	0x0001U
 #define	SF_LOAD		0x0002U
@@ -79,57 +79,56 @@ struct sec_action {
 #define	SF_SHARED	0X0100U
 #define	SF_CONTENTS	0x0200U
 
-	int flags;
+	int	flags;
 
-	int add;
-	int append;
-	int compress;
-	int copy;
-	int print;
-	int remove;
-	int rename;
-	int setflags;
+	int	add;
+	int	append;
+	int	compress;
+	int	copy;
+	int	print;
+	int	remove;
+	int	rename;
+	int	setflags;
 
 	STAILQ_ENTRY(sec_action) sac_list;
 };
 
 /* Sections to add from file. */
 struct sec_add {
-	char *name;
-	char *content;
-	size_t size;
+	char	*name;
+	char	*content;
+	size_t	 size;
 
 	STAILQ_ENTRY(sec_add) sadd_list;
 };
 
 /* Internal data structure for sections. */
 struct section {
-	const char *name;
-	Elf_Scn *is;		/* input scn */
-	Elf_Scn *os;		/* output scn */
-	void *buf;		/* section content */
-	uint64_t off;		/* section offset */
-	uint64_t sz;		/* section size */
-	uint64_t cap;		/* section capacity */
-	uint64_t align;		/* section alignment */
-	uint64_t type;		/* section type */
-	uint64_t vma;		/* section virtual addr */
-	int loadable;		/* whether loadable */
-	int pseudo;
-	int nocopy;
+	const char	*name;
+	Elf_Scn		*is;	/* input scn */
+	Elf_Scn		*os;	/* output scn */
+	void		*buf;	/* section content */
+	uint64_t	 off;	/* section offset */
+	uint64_t	 sz;	/* section size */
+	uint64_t	 cap;	/* section capacity */
+	uint64_t	 align;	/* section alignment */
+	uint64_t	 type;	/* section type */
+	uint64_t	 vma;	/* section virtual addr */
+	int		 loadable;	/* whether loadable */
+	int		 pseudo;
+	int		 nocopy;
 
 	TAILQ_ENTRY(section) sec_list;	/* list of all sections */
-	TAILQ_ENTRY(section) in_seg; /* list of sections in a segment */
+	TAILQ_ENTRY(section) in_seg;	/* list of sections in a segment */
 };
 
 /* Internal data structure for segments. */
 struct segment {
-	uint64_t off;
-	uint64_t fsz;		/* file size */
-	uint64_t msz;		/* memory size */
-	uint64_t type;
-
-	int remove;
+	uint64_t	off;
+	uint64_t	fsz;	/* file size */
+	uint64_t	msz;	/* memory size */
+	uint64_t	type;
+	int		remove;
 
 	TAILQ_HEAD(sec_head, section) v_sec;
 	STAILQ_ENTRY(segment) seg_list;
@@ -139,13 +138,13 @@ struct segment {
  * In-memory representation of ar(1) archive member(object).
  */
 struct ar_obj {
-	char *name;	/* member name */
-	void *maddr;	/* mmap start address */
-	uid_t uid;	/* user id */
-	gid_t gid;	/* group id */
-	mode_t md;	/* octal file permissions */
-	size_t size;	/* member size */
-	time_t mtime;	/* modification time */
+	char	*name;		/* member name */
+	void	*maddr;		/* mmap start address */
+	uid_t	 uid;		/* user id */
+	gid_t	 gid;		/* group id */
+	mode_t	 md;		/* octal file permissions */
+	size_t	 size;		/* member size */
+	time_t	 mtime;		/* modification time */
 
 	STAILQ_ENTRY(ar_obj) objs;
 };
@@ -154,32 +153,31 @@ struct ar_obj {
  * Structure encapsulates the "global" data for "elfcopy" program.
  */
 struct elfcopy {
-	const char *progname;	/* program name */
-
-	int iec;	/* elfclass of intput object */
-	int oec;	/* elfclass of output object */
-	unsigned char oed;	/* endianess of output object */
-	int abi;	/* OSABI of output object */
-	Elf *ein;	/* ELF descriptor of input object */
-	Elf *eout;	/* ELF descriptor of output object */
-	int iphnum;	/* number of program headers of input object */
-	int ophnum;	/* number of program headers of output object */
-	int nos;	/* number of sections of output object */
+	const char	*progname;	/* program name */
+	int		 iec;	/* elfclass of intput object */
+	int		 oec;	/* elfclass of output object */
+	unsigned char	 oed;	/* endianess of output object */
+	int		 abi;	/* OSABI of output object */
+	Elf		*ein;	/* ELF descriptor of input object */
+	Elf		*eout;	/* ELF descriptor of output object */
+	int		 iphnum;	/* #phdr of input object */
+	int		 ophnum;	/* #phdr of output object */
+	int		 nos;	/* #sections of output object */
 
 	/*
 	 * flags indicating whether there exist sections
 	 * to add/remove/(only)copy. FIXME use bit instead.
 	 */
-	int sections_to_add;
-	int sections_to_append;
-	int sections_to_compress;
-	int sections_to_print;
-	int sections_to_remove;
-	int sections_to_copy;
+	int	sections_to_add;
+	int	sections_to_append;
+	int	sections_to_compress;
+	int	sections_to_print;
+	int	sections_to_remove;
+	int	sections_to_copy;
 
-	struct section *symtab;	/* .symtab section. */
-	struct section *strtab;	/* .strtab section. */
-	struct section *shstrtab; /* .shstrtab section. */
+	struct section	*symtab;	/* .symtab section. */
+	struct section	*strtab;	/* .strtab section. */
+	struct section	*shstrtab;	/* .shstrtab section. */
 
 	enum {
 		STRIP_NONE = 0,
@@ -201,32 +199,32 @@ struct elfcopy {
 
 	int flags;		/* elfcopy run control flags. */
 
-	const char *debuglink;	/* GNU debuglink file. */
-	uint64_t *secndx;	/* section index map. */
-	uint64_t *symndx;	/* symbol index map. */
-	unsigned char *v_rel;	/* symbols needed by relocation. */
-	unsigned char *v_secsym;	/* sections with section symbol. */
+	const char	*debuglink;	/* GNU debuglink file. */
+	uint64_t	*secndx;	/* section index map. */
+	uint64_t	*symndx;	/* symbol index map. */
+	unsigned char	*v_rel;		/* symbols needed by relocation. */
+	unsigned char	*v_secsym;	/* sections with section symbol. */
 	STAILQ_HEAD(, segment) v_seg;	/* list of segments. */
-	STAILQ_HEAD(, sec_action) v_sac; /* list of section operations. */
+	STAILQ_HEAD(, sec_action) v_sac;/* list of section operations. */
 	STAILQ_HEAD(, sec_add) v_sadd;	/* list of sections to add. */
 	STAILQ_HEAD(, symop) v_symop;	/* list of symbols operations. */
-	STAILQ_HEAD(, symfile) v_symfile; /* list of symlist files. */
+	STAILQ_HEAD(, symfile) v_symfile;	/* list of symlist files. */
 	TAILQ_HEAD(, section) v_sec;	/* list of sections. */
 
 	/*
 	 * Fields for the ar(1) archive.
 	 */
-	int compression;	/* archive compression mode. */
-	char *as;		/* buffer for archive string table. */
-	size_t as_sz;		/* current size of as table. */
-	size_t as_cap;		/* capacity of as table buffer. */
-	uint32_t s_cnt;		/* current number of symbols. */
-	uint32_t *s_so;		/* symbol offset table. */
-	size_t s_so_cap;	/* capacity of so table buffer. */
-	char *s_sn;		/* symbol name table */
-	size_t s_sn_cap;	/* capacity of sn table buffer. */
-	size_t s_sn_sz;		/* current size of sn table. */
-	off_t rela_off;		/* offset relative to pseudo members. */
+	int		 compression;	/* archive compression mode. */
+	char		*as;		/* buffer for archive string table. */
+	size_t		 as_sz;		/* current size of as table. */
+	size_t		 as_cap;	/* capacity of as table buffer. */
+	uint32_t	 s_cnt;		/* current number of symbols. */
+	uint32_t	*s_so;		/* symbol offset table. */
+	size_t		 s_so_cap;	/* capacity of so table buffer. */
+	char		*s_sn;		/* symbol name table */
+	size_t		 s_sn_cap;	/* capacity of sn table buffer. */
+	size_t		 s_sn_sz;	/* current size of sn table. */
+	off_t		 rela_off;	/* offset relative to pseudo members. */
 	STAILQ_HEAD(, ar_obj) v_arobj;	/* archive object(member) list. */
 };
 
