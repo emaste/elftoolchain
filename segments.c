@@ -58,8 +58,8 @@ static void	insert_to_inseg_list(struct segment *seg, struct section *sec);
 int
 add_to_inseg_list(struct elfcopy *ecp, struct section *s)
 {
-	struct segment *seg;
-	int loadable;
+	struct segment	*seg;
+	int		 loadable;
 
 	if (ecp->ophnum == 0)
 		return (0);
@@ -110,10 +110,10 @@ insert_to_inseg_list(struct segment *seg, struct section *sec)
 void
 setup_phdr(struct elfcopy *ecp)
 {
-	struct segment *seg;
-	GElf_Phdr iphdr;
-	size_t iphnum;
-	int i;
+	struct segment	*seg;
+	GElf_Phdr	 iphdr;
+	size_t		 iphnum;
+	int		 i;
 
 	if (elf_getphnum(ecp->ein, &iphnum) == 0)
 		errx(EX_DATAERR, "elf_getphnum failed: %s",
@@ -147,11 +147,11 @@ setup_phdr(struct elfcopy *ecp)
 void
 copy_phdr(struct elfcopy *ecp)
 {
-	struct segment *seg;
-	struct section *s;
-	GElf_Phdr iphdr, ophdr;
-	size_t t;
-	int i;
+	struct segment	*seg;
+	struct section	*s;
+	GElf_Phdr	 iphdr, ophdr;
+	size_t		 t;
+	int		 i;
 
 	STAILQ_FOREACH(seg, &ecp->v_seg, seg_list) {
 		/* Do not touch phdr itself. */

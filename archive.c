@@ -70,9 +70,9 @@ static void sync_ar(struct elfcopy *ecp);
 static void
 process_ar_obj(struct elfcopy *ecp, struct ar_obj *obj)
 {
-	struct stat sb;
-	char *tempfile;
-	int fd;
+	struct stat	 sb;
+	char		*tempfile;
+	int		 fd;
 
 	/* Output to a temporary file. */
 	create_tempfile(&tempfile, &fd);
@@ -331,9 +331,9 @@ extract_arsym(struct elfcopy *ecp)
 int
 ac_detect_ar(int ifd)
 {
-	struct archive *a;
-	struct archive_entry *entry;
-	int r;
+	struct archive		*a;
+	struct archive_entry	*entry;
+	int			 r;
 
 	r = -1;
 	if ((a = archive_read_new()) == NULL)
@@ -360,13 +360,13 @@ ac_create_ar(struct elfcopy *ecp, int ifd, int ofd)
 static void
 ac_read_objs(struct elfcopy *ecp, int ifd)
 {
-	struct archive *a;
-	struct archive_entry *entry;
-	struct ar_obj *obj;
-	const char *name;
-	char *buff;
-	size_t size;
-	int r;
+	struct archive		*a;
+	struct archive_entry	*entry;
+	struct ar_obj		*obj;
+	const char		*name;
+	char			*buff;
+	size_t			 size;
+	int			 r;
 
 	ecp->rela_off = 0;
 	if (lseek(ifd, 0, SEEK_SET) == -1)
@@ -428,10 +428,10 @@ ac_read_objs(struct elfcopy *ecp, int ifd)
 static void
 ac_write_objs(struct elfcopy *ecp, int ofd)
 {
-	struct archive *a;
-	struct archive_entry *entry;
-	struct ar_obj *obj;
-	int nr;
+	struct archive		*a;
+	struct archive_entry	*entry;
+	struct ar_obj		*obj;
+	int			 nr;
 
 	if ((a = archive_write_new()) == NULL)
 		errx(EX_SOFTWARE, "%s", archive_error_string(a));
