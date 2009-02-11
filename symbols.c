@@ -192,14 +192,14 @@ is_remove_symbol(struct elfcopy *ecp, size_t sc, int i, GElf_Sym *s,
 static void
 mark_symbols(struct elfcopy *ecp, size_t sc)
 {
-	const char *name;
-	Elf_Data *d;
-	Elf_Scn *s;
-	GElf_Rel r;
-	GElf_Rela ra;
-	GElf_Shdr sh;
-	size_t n, indx;
-	int elferr, i, len;
+	const char	*name;
+	Elf_Data	*d;
+	Elf_Scn		*s;
+	GElf_Rel	 r;
+	GElf_Rela	 ra;
+	GElf_Shdr	 sh;
+	size_t		 n, indx;
+	int		 elferr, i, len;
 
 	ecp->v_rel = calloc((sc + 7) / 8, 1);
 	if (ecp->v_rel == NULL)
@@ -271,20 +271,20 @@ mark_symbols(struct elfcopy *ecp, size_t sc)
 static int
 generate_symbols(struct elfcopy *ecp)
 {
-	struct section *s;
-	struct symop *sp;
-	struct symbuf *sy_buf;
-	struct strbuf *st_buf;
-	const char *name;
-	unsigned char *gsym;
-	GElf_Shdr ish;
-	GElf_Sym sym;
-	Elf_Data* id;
-	Elf_Scn *is;
-	size_t ishstrndx, ndx, nsyms, sc, symndx;
-	size_t gsy_cap, lsy_cap;
-	size_t gst_cap, lst_cap;
-	int ec, elferr, i, pos;
+	struct section	*s;
+	struct symop	*sp;
+	struct symbuf	*sy_buf;
+	struct strbuf	*st_buf;
+	const char	*name;
+	unsigned char	*gsym;
+	GElf_Shdr	 ish;
+	GElf_Sym	 sym;
+	Elf_Data*	 id;
+	Elf_Scn		*is;
+	size_t		 ishstrndx, ndx, nsyms, sc, symndx;
+	size_t		 gsy_cap, lsy_cap;
+	size_t		 gst_cap, lst_cap;
+	int		 ec, elferr, i, pos;
 
 	if (elf_getshstrndx(ecp->ein, &ishstrndx) == 0)
 		errx(EX_SOFTWARE, "elf_getshstrndx failed: %s",
@@ -602,12 +602,12 @@ generate_symbols(struct elfcopy *ecp)
 void
 create_symtab(struct elfcopy *ecp)
 {
-	struct section *s, *sy, *st;
-	struct symbuf *sy_buf;
-	struct strbuf *st_buf;
-	Elf_Data *gsydata, *lsydata, *gstdata, *lstdata;
-	GElf_Shdr shy, sht;
-	size_t maxndx, ndx;
+	struct section	*s, *sy, *st;
+	struct symbuf	*sy_buf;
+	struct strbuf	*st_buf;
+	Elf_Data	*gsydata, *lsydata, *gstdata, *lstdata;
+	GElf_Shdr	 shy, sht;
+	size_t		 maxndx, ndx;
 
 	sy = ecp->symtab;
 	st = ecp->strtab;
@@ -825,8 +825,8 @@ lookup_symop_list(struct elfcopy *ecp, const char *name, unsigned int op)
 static int
 lookup_exact_string(const char *buf, size_t sz, const char *s)
 {
-	const char *b;
-	size_t slen;
+	const char	*b;
+	size_t		 slen;
 
 	slen = strlen(s);
 	for (b = buf; b < buf + sz; b += strlen(b) + 1) {

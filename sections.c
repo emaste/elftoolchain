@@ -112,11 +112,11 @@ is_remove_section(struct elfcopy *ecp, const char *name)
 int
 is_remove_reloc_sec(struct elfcopy *ecp, uint32_t sh_info)
 {
-	const char *name;
-	GElf_Shdr ish;
-	Elf_Scn *is;
-	size_t indx;
-	int elferr;
+	const char	*name;
+	GElf_Shdr	 ish;
+	Elf_Scn		*is;
+	size_t		 indx;
+	int		 elferr;
 
 	if (elf_getshstrndx(ecp->ein, &indx) == 0)
 		errx(EX_SOFTWARE, "elf_getshstrndx failed: %s",
@@ -289,13 +289,13 @@ inc_nos:
 void
 create_scn(struct elfcopy *ecp)
 {
-	struct section *s;
-	const char *name;
-	Elf_Scn *is;
-	GElf_Shdr ish;
-	size_t indx;
-	uint64_t oldndx, newndx;
-	int elferr, sec_flags;
+	struct section	*s;
+	const char	*name;
+	Elf_Scn		*is;
+	GElf_Shdr	 ish;
+	size_t		 indx;
+	uint64_t	 oldndx, newndx;
+	int		 elferr, sec_flags;
 
 	/* Create internal .shstrtab section. */
 	if ((ecp->shstrtab = calloc(1, sizeof(*ecp->shstrtab))) == NULL)
@@ -428,9 +428,9 @@ create_scn(struct elfcopy *ecp)
 struct section *
 insert_shtab(struct elfcopy *ecp)
 {
-	struct section *s, *shtab;
-	GElf_Ehdr ieh;
-	int nsecs;
+	struct section	*s, *shtab;
+	GElf_Ehdr	 ieh;
+	int		 nsecs;
 
 	/*
 	 * Treat section header table as a "pseudo" section, insert it
@@ -512,17 +512,17 @@ copy_content(struct elfcopy *ecp)
 static void
 filter_reloc(struct elfcopy *ecp, struct section *s)
 {
-	const char *name;
-	GElf_Shdr ish;
-	GElf_Rel rel;
-	GElf_Rela rela;
-	Elf32_Rel *rel32;
-	Elf64_Rel *rel64;
-	Elf32_Rela *rela32;
-	Elf64_Rela *rela64;
-	Elf_Data *id;
-	uint64_t cap, n, nrels;
-	int elferr, i;
+	const char	*name;
+	GElf_Shdr	 ish;
+	GElf_Rel	 rel;
+	GElf_Rela	 rela;
+	Elf32_Rel	*rel32;
+	Elf64_Rel	*rel64;
+	Elf32_Rela	*rela32;
+	Elf64_Rela	*rela64;
+	Elf_Data	*id;
+	uint64_t	 cap, n, nrels;
+	int		 elferr, i;
 
 	if (gelf_getshdr(s->is, &ish) == NULL)
 		errx(EX_SOFTWARE, "gelf_getehdr() failed: %s",
@@ -627,12 +627,12 @@ filter_reloc(struct elfcopy *ecp, struct section *s)
 static void
 update_reloc(struct elfcopy *ecp, struct section *s)
 {
-	GElf_Shdr osh;
-	GElf_Rel rel;
-	GElf_Rela rela;
-	Elf_Data *od;
-	uint64_t n;
-	int i;
+	GElf_Shdr	 osh;
+	GElf_Rel	 rel;
+	GElf_Rela	 rela;
+	Elf_Data	*od;
+	uint64_t	 n;
+	int		 i;
 
 #define UPDATEREL(REL) do {						\
 	if (gelf_get##REL(od, i, &REL) != &REL)				\
@@ -668,9 +668,9 @@ update_reloc(struct elfcopy *ecp, struct section *s)
 void
 resync_sections(struct elfcopy *ecp)
 {
-	struct section *s;
-	GElf_Shdr osh;
-	uint64_t off;
+	struct section	*s;
+	GElf_Shdr	 osh;
+	uint64_t	 off;
 
 	off = 0;
 	TAILQ_FOREACH(s, &ecp->v_sec, sec_list) {
@@ -709,10 +709,10 @@ resync_sections(struct elfcopy *ecp)
 static void
 modify_section(struct elfcopy *ecp, struct section *s)
 {
-	struct sec_action *sac;
-	size_t srcsz, dstsz, p, len;
-	char *b, *c, *d, *src, *end;
-	int dupe;
+	struct sec_action	*sac;
+	size_t			 srcsz, dstsz, p, len;
+	char			*b, *c, *d, *src, *end;
+	int			 dupe;
 
 	src = read_section(s, &srcsz);
 	if (src == NULL || srcsz == 0) {
@@ -794,8 +794,8 @@ print_data(const char *d, size_t sz)
 static void
 print_section(struct section *s)
 {
-	Elf_Data *id;
-	int elferr;
+	Elf_Data	*id;
+	int		 elferr;
 
 	if (s->buf != NULL && s->sz > 0) {
 		print_data(s->buf, s->sz);
@@ -814,10 +814,10 @@ print_section(struct section *s)
 static void *
 read_section(struct section *s, size_t *size)
 {
-	Elf_Data *id;
-	char *b;
-	size_t sz;
-	int elferr;
+	Elf_Data	*id;
+	char		*b;
+	size_t		 sz;
+	int		 elferr;
 
 	sz = 0;
 	b = NULL;
@@ -898,8 +898,8 @@ copy_shdr(struct elfcopy *ecp, struct section *s, const char *name, int copy,
 void
 copy_data(struct section *s)
 {
-	Elf_Data *id, *od;
-	int elferr;
+	Elf_Data	*id, *od;
+	int		 elferr;
 
 	if (s->nocopy && s->buf == NULL)
 		return;
@@ -939,12 +939,12 @@ copy_data(struct section *s)
 static void
 insert_sections(struct elfcopy *ecp)
 {
-	struct sec_add *sa;
-	struct section *s;
-	Elf_Data *od;
-	Elf_Scn *os;
-	GElf_Shdr osh;
-	size_t off;
+	struct sec_add	*sa;
+	struct section	*s;
+	Elf_Data	*od;
+	Elf_Scn		*os;
+	GElf_Shdr	 osh;
+	size_t		 off;
 
 	/* Put these sections in the end of current list. */
 	off = 0;
@@ -1021,9 +1021,9 @@ add_to_shstrtab(struct elfcopy *ecp, const char *name)
 void
 update_shdr(struct elfcopy *ecp)
 {
-	struct section *s;
-	GElf_Shdr osh;
-	int elferr;
+	struct section	*s;
+	GElf_Shdr	 osh;
+	int		 elferr;
 
 	TAILQ_FOREACH(s, &ecp->v_sec, sec_list) {
 		if (gelf_getshdr(s->os, &osh) == NULL)
@@ -1061,9 +1061,9 @@ update_shdr(struct elfcopy *ecp)
 void
 set_shstrtab(struct elfcopy *ecp)
 {
-	struct section *s;
-	Elf_Data *data;
-	GElf_Shdr sh;
+	struct section	*s;
+	Elf_Data	*data;
+	GElf_Shdr	 sh;
 
 	s = ecp->shstrtab;
 
@@ -1113,11 +1113,11 @@ set_shstrtab(struct elfcopy *ecp)
 void
 add_section(struct elfcopy *ecp, const char *arg)
 {
-	struct sec_add *sa;
-	struct stat sb;
-	const char *s, *fn;
-	FILE *fp;
-	int len;
+	struct sec_add	*sa;
+	struct stat	 sb;
+	const char	*s, *fn;
+	FILE		*fp;
+	int		 len;
 
 	if ((s = strchr(arg, '=')) == NULL)
 		errx(EX_USAGE,
@@ -1151,12 +1151,12 @@ add_section(struct elfcopy *ecp, const char *arg)
 static void
 add_gnu_debuglink(struct elfcopy *ecp)
 {
-	struct sec_add *sa;
-	struct stat sb;
-	FILE *fp;
-	char *fnbase, *buf;
-	int crc_off;
-	int crc;
+	struct sec_add	*sa;
+	struct stat	 sb;
+	FILE		*fp;
+	char		*fnbase, *buf;
+	int		 crc_off;
+	int		 crc;
 
 	if (ecp->debuglink == NULL)
 		return;
@@ -1210,10 +1210,10 @@ add_gnu_debuglink(struct elfcopy *ecp)
 static void
 insert_to_strtab(struct section *t, const char *s)
 {
-	const char *r;
-	char *b, *c;
-	size_t len, slen;
-	int append;
+	const char	*r;
+	char		*b, *c;
+	size_t		 len, slen;
+	int		 append;
 
 	if (t->sz == 0) {
 		t->cap = 512;
@@ -1256,8 +1256,8 @@ insert_to_strtab(struct section *t, const char *s)
 static int
 lookup_string(struct section *t, const char *s)
 {
-	const char *b, *c, *r;
-	size_t len, slen;
+	const char	*b, *c, *r;
+	size_t		 len, slen;
 
 	slen = strlen(s);
 	b = t->buf;

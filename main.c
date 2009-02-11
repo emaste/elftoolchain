@@ -256,11 +256,11 @@ static void	elfcopy_usage(void);
 void
 create_elf(struct elfcopy *ecp)
 {
-	struct section *sec, *sec_temp;
-	struct section *shtab;
-	GElf_Ehdr ieh;
-	GElf_Ehdr oeh;
-	size_t ishnum;
+	struct section	*sec, *sec_temp;
+	struct section	*shtab;
+	GElf_Ehdr	 ieh;
+	GElf_Ehdr	 oeh;
+	size_t		 ishnum;
 
 	ecp->flags |= SYMTAB_INTACT;
 
@@ -476,9 +476,9 @@ create_object(struct elfcopy *ecp, int ifd, int ofd)
 void
 create_tempfile(char **fn, int *fd)
 {
-	const char *tmpdir;
-	char *cp, *tmpf;
-	size_t tlen, plen;
+	const char	*tmpdir;
+	char		*cp, *tmpf;
+	size_t		 tlen, plen;
 
 #define	TEMPLATE "/tmp/ecp.XXXXXXXX"
 
@@ -513,10 +513,10 @@ create_tempfile(char **fn, int *fd)
 static void
 create_file(struct elfcopy *ecp, const char *src, const char *dst)
 {
-	struct stat sb;
-	struct timeval tv[2];
-	char *tempfile;
-	int ifd, ofd;
+	struct stat	 sb;
+	struct timeval	 tv[2];
+	char		*tempfile;
+	int		 ifd, ofd;
 
 	if (src == NULL)
 		errx(EX_SOFTWARE, "internal: src == NULL");
@@ -559,10 +559,10 @@ create_file(struct elfcopy *ecp, const char *src, const char *dst)
 static void
 elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 {
-	struct sec_action *sac;
-	const char *infile, *outfile;
-	char *fn, *s;
-	int opt;
+	struct sec_action	*sac;
+	const char		*infile, *outfile;
+	char			*fn, *s;
+	int			 opt;
 
 	while ((opt = getopt_long(argc, argv, "dgG:I:j:K:L:N:O:pR:sSW:xX",
 	    elfcopy_longopts, NULL)) != -1) {
@@ -711,10 +711,10 @@ elfcopy_main(struct elfcopy *ecp, int argc, char **argv)
 static void
 mcs_main(struct elfcopy *ecp, int argc, char **argv)
 {
-	struct sec_action *sac;
-	const char *string;
-	int append, delete, compress, name, print;
-	int opt, i;
+	struct sec_action	*sac;
+	const char		*string;
+	int			 append, delete, compress, name, print;
+	int			 opt, i;
 
 	append = delete = compress = name = print = 0;
 	string = NULL;
@@ -791,10 +791,10 @@ mcs_main(struct elfcopy *ecp, int argc, char **argv)
 static void
 strip_main(struct elfcopy *ecp, int argc, char **argv)
 {
-	struct sec_action *sac;
-	const char *outfile;
-	int opt;
-	int i;
+	struct sec_action	*sac;
+	const char		*outfile;
+	int			 opt;
+	int			 i;
 
 	outfile = NULL;
 	while ((opt = getopt_long(argc, argv, "I:K:N:o:O:pR:sSdgxX",
@@ -858,8 +858,8 @@ strip_main(struct elfcopy *ecp, int argc, char **argv)
 static void
 parse_sec_flags(struct sec_action *sac, char *s)
 {
-	const char *flag;
-	int found, i;
+	const char	*flag;
+	int		 found, i;
 
 	for (flag = strtok(s, ","); flag; flag = strtok(NULL, ",")) {
 		found = 0;
@@ -877,10 +877,10 @@ parse_sec_flags(struct sec_action *sac, char *s)
 static void
 parse_symlist_file(struct elfcopy *ecp, const char *fn, unsigned int op)
 {
-	struct symfile *sf;
-	struct stat sb;
-	FILE *fp;
-	char *data, *p, *line, *end, *e, *n;
+	struct symfile	*sf;
+	struct stat	 sb;
+	FILE		*fp;
+	char		*data, *p, *line, *end, *e, *n;
 
 	if (stat(fn, &sb) == -1)
 		err(EX_IOERR, "stat %s failed", fn);
