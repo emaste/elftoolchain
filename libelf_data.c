@@ -44,6 +44,10 @@ _libelf_xlate_shtype(uint32_t sht)
 	case SHT_FINI_ARRAY:
 		return (ELF_T_ADDR);
 #endif
+#if	defined(SHT_GNU_HASH)
+	case SHT_GNU_HASH:
+		return (ELF_T_GNUHASH);
+#endif
 #if	defined(SHT_GROUP)
 	case SHT_GROUP:
 		return (ELF_T_WORD);
