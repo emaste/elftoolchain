@@ -64,7 +64,7 @@
 #define	LIBELF_CONFIG_SYMINFO	1
 #endif
 
-#if __FreeBSD_version >= 800060
+#if __FreeBSD_version >= 800062
 #define	LIBELF_CONFIG_GNUHASH	1
 #endif
 
@@ -245,4 +245,17 @@
 
 #ifndef	SHN_XINDEX
 #define	SHN_XINDEX		0xFFFFU
+#endif
+
+#ifndef	LIBELF_CONFIG_GNUHASH
+/*
+ * The header for GNU-style hash sections.
+ */
+
+typedef struct {
+	u_int32_t	gh_nbuckets;	/* Number of hash buckets. */
+	u_int32_t	gh_symndx;	/* First visible symbol in .dynsym. */
+	u_int32_t	gh_maskwords;	/* #maskwords used in bloom filter. */
+	u_int32_t	gh_shift2;	/* Bloom filter shift count. */
+} Elf_GNU_Hash_Header;
 #endif
