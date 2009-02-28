@@ -98,9 +98,7 @@ static struct align malign[ELF_T_NUM] = {
 #endif
 	[ELF_T_WORD]	= MALIGN(Word),
 	[ELF_T_XWORD]	= MALIGN64(Xword),
-#if	LIBELF_CONFIG_GNUHASH
 	[ELF_T_GNUHASH] = MALIGN_WORD()
-#endif
 };
 
 int
@@ -153,9 +151,7 @@ static struct align falign[ELF_T_NUM] = {
 #endif
 	[ELF_T_WORD]	= FALIGN(4,4),
 	[ELF_T_XWORD]	= FALIGN(0,8),
-#if	LIBELF_CONFIG_GNUHASH
 	[ELF_T_GNUHASH] = FALIGN(4,8)
-#endif
 };
 
 int
