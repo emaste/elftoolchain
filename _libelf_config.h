@@ -247,7 +247,13 @@
 #define	SHN_XINDEX		0xFFFFU
 #endif
 
+#ifndef	SHT_GNU_HASH
+#define	SHT_GNU_HASH		0x6FFFFFF6U
+#endif
+
 #ifndef	LIBELF_CONFIG_GNUHASH
+#define	LIBELF_CONFIG_GNUHASH	1
+
 /*
  * The header for GNU-style hash sections.
  */
