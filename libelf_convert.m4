@@ -230,6 +230,7 @@ define(`IGNORE',
 
 IGNORE(MOVEP)
 IGNORE(NOTE)
+IGNORE(GNUHASH)
 
 define(IGNORE_BYTE,		1)	/* 'lator, leave 'em bytes alone */
 define(IGNORE_GNUHASH,		1)
@@ -500,6 +501,144 @@ libelf_cvt_BYTE_tox(char *dst, size_t dsz, char *src, size_t count,
 	return (1);
 }
 
+#if	LIBELF_CONFIG_GNUHASH
+/*
+ * Section of type ELF_T_GNUHASH start with a header containing 4 32-bit
+ * words.  Bloom filter data and the hash buckets follow the header.
+ *
+ * Bloom filter words are 64 bit wide on ELFCLASS64 objects and are 32 bit
+ * wide on ELFCLASS32 objects.  The other objects in this section are 32
+ * bits wide.
+ */
+
+static int
+libelf_cvt64_GNUHASH_tom(char *dst, size_t dsz, char *src, size_t count,
+    int byteswap)
+{
+	size_t sz;
+	uint64_t t64, *bloom64;
+	Elf_GNU_Hash_Header *gh;
+	uint32_t n, nbuckets, symndx, maskwords, shift2, t32, *buckets;
+
+	sz = 4 * sizeof(uint32_t);	/* File header is 4 words long. */
+	if (dsz < sizeof(Elf_GNU_Hash_Header) || count < sz)
+		return (0);
+
+	/* Read in the section header and byteswap if needed. */
+	READ_WORD(src, nbuckets);
+	READ_WORD(src, symndx);
+	READ_WORD(src, maskwords);
+	READ_WORD(src, shift2);
+
+	count -= sz;
+
+	if (byteswap) {
+		SWAP_WORD(nbuckets);
+		SWAP_WORD(symndx);
+		SWAP_WORD(maskwords);
+		SWAP_WORD(shift2);
+	}
+
+	/* Check source buffer and destination buffer sizes. */
+	sz = nbuckets * sizeof(uint32_t) + maskwords * sizeof(uint64_t);
+	if (count < sz || dsz < sz + sizeof(Elf_GNU_Hash_Header))
+		return (0);
+
+	gh = (Elf_GNU_Hash_Header *) (uintptr_t) dst;
+	gh->gh_nbuckets  = nbuckets;
+	gh->gh_symndx    = symndx;
+	gh->gh_maskwords = maskwords;
+	gh->gh_shift2    = shift2;
+	
+	dsz -= sizeof(Elf_GNU_Hash_Header);
+	dst += sizeof(Elf_GNU_Hash_Header);
+
+	bloom64 = (uint64_t *) (uintptr_t) dst;
+
+	/* Copy the bloom filter and the hash table. */
+	for (n = 0; n < maskwords; n++) {
+		READ_XWORD(src, t64);
+		if (byteswap)
+			SWAP_XWORD(t64);
+		bloom64[n] = t64;
+	}
+
+	dst += maskwords * sizeof(uint64_t);
+	buckets = (uint32_t *) (uintptr_t) dst;
+
+	for (n = 0; n < nbuckets; n++) {
+		READ_WORD(src, t32);
+		if (byteswap)
+			SWAP_XWORD(t32);
+		buckets[n] = t32;
+	}
+
+	return (1);
+}
+
+static int
+libelf_cvt64_GNUHASH_tof(char *dst, size_t dsz, char *src, size_t count,
+    int byteswap)
+{
+	size_t sz, hdrsz;
+	Elf_GNU_Hash_Header *gh;
+	uint32_t *s32, t32, n, maskwords, nbuckets;
+	uint64_t *s64, t64;
+
+	hdrsz = 4 * sizeof(uint32_t);	/* Header is 4x32 bits. */
+	if (dsz < hdrsz || count < sizeof(Elf_GNU_Hash_Header))
+		return (0);
+
+	gh = (Elf_GNU_Hash_Header *) (uintptr_t) src;
+
+	src   += sizeof(Elf_GNU_Hash_Header);
+	count -= sizeof(Elf_GNU_Hash_Header);
+
+	sz = gh->gh_nbuckets * sizeof(uint32_t) + gh->gh_maskwords *
+	    sizeof(uint64_t);
+
+	if (count < sz || dsz < sz + hdrsz)
+		return (0);
+
+	maskwords = gh->gh_maskwords;
+	nbuckets  = gh->gh_nbuckets;
+
+ 	/* Write out the header. */
+	if (byteswap) {
+		SWAP_WORD(gh->gh_nbuckets);
+		SWAP_WORD(gh->gh_symndx);
+		SWAP_WORD(gh->gh_maskwords);
+		SWAP_WORD(gh->gh_shift2);
+	}
+
+	WRITE_WORD(dst, gh->gh_nbuckets);
+	WRITE_WORD(dst, gh->gh_symndx);
+	WRITE_WORD(dst, gh->gh_maskwords);
+	WRITE_WORD(dst, gh->gh_shift2);
+
+
+	/* Copy the bloom filter and the hash table. */
+	s64 = (uint64_t *) (uintptr_t) src;
+
+	for (n = 0; n < maskwords; n++) {
+		t64 = *s64++;
+		if (byteswap)
+			SWAP_XWORD(t64);
+		WRITE_WORD64(dst, t64);
+	}
+
+	s32 = (uint32_t *) s64;
+	for (n = 0; n < nbuckets; n++) {
+		t32 = *s32++;
+		if (byteswap)
+			SWAP_WORD(t32);
+		WRITE_WORD(dst, t32);
+	}
+
+	return (1);
+}
+#endif	/* LIBELF_CONFIG_GNUHASH */
+
 #if	LIBELF_CONFIG_NOTE
 /*
  * Elf_Note structures comprise a fixed size header followed by variable
@@ -507,6 +646,7 @@ libelf_cvt_BYTE_tox(char *dst, size_t dsz, char *src, size_t count,
  * not the strings.
  *
  * Argument `count' denotes the total number of bytes to be converted.
+ * The destination buffer needs to be at least `count' bytes in size.
  */
 static int
 libelf_cvt_NOTE_tom(char *dst, size_t dsz, char *src, size_t count, 
@@ -564,6 +704,7 @@ libelf_cvt_NOTE_tom(char *dst, size_t dsz, char *src, size_t count,
 		dst += sz;
 
 		count -= sz;
+		dsz -= sz;
 	}
 
 	return (1);
@@ -673,6 +814,14 @@ CONVERTER_NAMES(ELF_TYPE_LIST)
 		.tof64 = libelf_cvt_BYTE_tox,
 		.tom64 = libelf_cvt_BYTE_tox
 	},
+
+	[ELF_T_GNUHASH] = {
+		.tof32 = libelf_cvt_WORD_tof,
+		.tom32 = libelf_cvt_WORD_tom,
+		.tof64 = libelf_cvt64_GNUHASH_tof,
+		.tom64 = libelf_cvt64_GNUHASH_tom
+	},
+
 #if	LIBELF_CONFIG_NOTE
 	[ELF_T_NOTE] = {
 		.tof32 = libelf_cvt_NOTE_tof,
