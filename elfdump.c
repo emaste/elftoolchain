@@ -774,6 +774,13 @@ elf_print_got(Elf *e, Elf_Scn *scn)
 			warnx("elf_getdata failed: %s", elf_errmsg(elferr));
 		return;
 	}
+
+	/*
+	 * .got section has section type SHT_PROGBITS, thus libelf treats it as
+	 * byte stream and will not perfrom any translation on it. As a result,
+	 * an exlicit call to gelf_xlatetom is needed here. Depends on arch,
+	 * .got section should be translated to either WORD or XWORD.
+	 */
 	if (ec == ELFCLASS32)
 		data->d_type = ELF_T_WORD;
 	else
@@ -864,7 +871,11 @@ elf_print_hash(Elf *e, Elf_Scn *scn)
 	fprintf(out, "\nhash table (%s):\n", name);
 	data = NULL;
 	if (ehdr.e_machine == EM_ALPHA) {
-		/* Alpha uses 64-bit hash entries */
+		/*
+		 * Alpha uses 64-bit hash entries. Since libelf assume that
+		 * .hash section always has 32-bit entry, an explicit
+		 * gelf_xlatetom is needed here.
+		 */
 		if ((data = elf_rawdata(scn, data)) == NULL) {
 			elferr = elf_errno();
 			if (elferr != 0)
