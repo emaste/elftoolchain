@@ -30,6 +30,7 @@ __FBSDID("$FreeBSD: src/usr.bin/elfdump/elfdump.c,v 1.14 2006/01/28 17:58:22 mar
 
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <sys/endian.h>
 #include <err.h>
 #include <fcntl.h>
 #include <gelf.h>
@@ -803,14 +804,22 @@ elf_print_got(Elf *e, Elf_Scn *scn)
 static void
 elf_print_note(Elf *e, Elf_Scn *scn)
 {
+	GElf_Ehdr	 ehdr;
 	GElf_Shdr	 shdr;
 	Elf_Data        *data;
-	u_int32_t	 namesz;
-	u_int32_t	 descsz;
-	u_int32_t	*s;
+	Elf_Note	*en;
+	uint32_t	 namesz;
+	uint32_t	 descsz;
+	uint32_t	 desc;
+	size_t		 count;
 	const char	*name;
 	int		 elferr;
+	char		*s;
 
+	if (gelf_getehdr(e, &ehdr) == NULL) {
+		warnx("gelf_getehdr failed: %s", elf_errmsg(-1));
+		return;
+	}
 	if (gelf_getshdr(scn, &shdr) != &shdr) {
 		warnx("elf_getshdr failed: %s", elf_errmsg(-1));
 		return;
@@ -828,18 +837,23 @@ elf_print_note(Elf *e, Elf_Scn *scn)
 	}
 
 	s = data->d_buf;
-	while ((char *)s < (char *)data->d_buf + data->d_size) {
-		namesz = ((Elf_Note *)s)->n_namesz;
-		descsz = ((Elf_Note *)s)->n_descsz;
-		fprintf(out, "\t%s %d\n", (char *)s + sizeof(Elf_Note),
-		    *(s + sizeof(Elf_Note)/sizeof(u_int32_t) +
-		    roundup2(namesz, sizeof(u_int32_t)) /
-		    sizeof(u_int32_t)));
-		s = s + sizeof(Elf_Note)/sizeof(u_int32_t) +
-		    roundup2(namesz,sizeof(u_int32_t)) /
-		    sizeof(u_int32_t) +
-		    roundup2(descsz,sizeof(u_int32_t)) /
-		    sizeof(u_int32_t);
+	count = data->d_size;
+	while (count > sizeof(Elf_Note)) {
+		en = (Elf_Note *) (uintptr_t) s;
+		namesz = en->n_namesz;
+		descsz = en->n_descsz;
+		s += sizeof(Elf_Note);
+		count -= sizeof(Elf_Note);
+		fprintf(out, "\t%s ", s);
+		s += roundup2(namesz, 4);
+		count -= roundup2(namesz, 4);
+		if (ehdr.e_ident[EI_DATA] == ELFDATA2MSB)
+			desc = be32dec(s);
+		else
+			desc = le32dec(s);
+		fprintf(out, "%d\n", desc);
+		s += roundup2(descsz, 4);
+		count -= roundup2(descsz, 4);
 	}
 }
 
@@ -872,8 +886,8 @@ elf_print_hash(Elf *e, Elf_Scn *scn)
 	data = NULL;
 	if (ehdr.e_machine == EM_ALPHA) {
 		/*
-		 * Alpha uses 64-bit hash entries. Since libelf assume that
-		 * .hash section always has 32-bit entry, an explicit
+		 * Alpha uses 64-bit hash entries. Since libelf assumes that
+		 * .hash section contains only 32-bit entry, an explicit
 		 * gelf_xlatetom is needed here.
 		 */
 		if ((data = elf_rawdata(scn, data)) == NULL) {
