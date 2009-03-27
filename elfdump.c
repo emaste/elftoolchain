@@ -41,6 +41,14 @@ __FBSDID("$FreeBSD: src/usr.bin/elfdump/elfdump.c,v 1.14 2006/01/28 17:58:22 mar
 #include <string.h>
 #include <unistd.h>
 
+#ifdef USE_LIBARCHIVE_AR
+#include <archive.h>
+#include <archive_entry.h>
+#endif	/* USE_LIBARCHIVE_AR */
+
+/*
+ * elfdump(1) options.
+ */
 #define	ED_DYN		(1<<0)
 #define	ED_EHDR		(1<<1)
 #define	ED_GOT		(1<<2)
@@ -52,6 +60,44 @@ __FBSDID("$FreeBSD: src/usr.bin/elfdump/elfdump.c,v 1.14 2006/01/28 17:58:22 mar
 #define	ED_SHDR		(1<<8)
 #define	ED_SYMTAB	(1<<9)
 #define	ED_ALL		((1<<10)-1)
+
+/*
+ * elfdump(1) run control flags.
+ */
+#define	DISPLAY_FILENAME	0x0001
+#define	SECTIONS_LOADED		0x0002
+
+/*
+ * Internal data structure for sections.
+ */
+struct section {
+	const char	*name;		/* section name */
+	Elf_Scn		*scn;		/* section scn */
+	uint64_t	 off;		/* section offset */
+	uint64_t	 sz;		/* section size */
+	uint64_t	 entsize;	/* section entsize */
+	uint64_t	 align;		/* section alignment */
+	uint64_t	 type;		/* section type */
+	uint64_t	 flags;		/* section flags */
+	uint64_t	 addr;		/* section virtual addr */
+	uint32_t	 link;		/* section link ndx */
+	uint32_t	 info;		/* section info ndx */
+};
+
+/*
+ * Structure encapsulates the global data for readelf(1).
+ */
+struct elfdump {
+	FILE		*out;		/* output redirection. */
+	const char	*filename;	/* current processing file. */
+	int		 options;	/* command line options. */
+	int		 flags;		/* run control flags. */
+	Elf		*elf;		/* underlying ELF descriptor. */
+	GElf_Ehdr	 ehdr;		/* ELF header. */
+	int		 ec;		/* ELF class. */
+	size_t		 shnum;		/* #sections. */
+	struct section	*sl;		/* list of sections. */
+};
 
 /* http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#tag_encodings */
 static const char *
@@ -240,74 +286,74 @@ static const char *st_bindings[] = {
 	"STB_LOCAL", "STB_GLOBAL", "STB_WEAK"
 };
 
-static size_t	 shstrndx;	/* .shstrtab index */
-static FILE	*out;
-
-static void	elf_print_ehdr(Elf *e);
-static void	elf_print_phdr(Elf *e);
-static void	elf_print_shdr(Elf *e);
-static void	elf_print_symtab(Elf *e, Elf_Scn *scn);
-static void	elf_print_interp(Elf *e);
-static void	elf_print_dynamic(Elf *e, Elf_Scn *scn);
-static void	elf_print_rela(Elf *e, Elf_Scn *scn);
-static void	elf_print_rel(Elf *e, Elf_Scn *scn);
-static void	elf_print_got(Elf *e, Elf_Scn *scn);
-static void	elf_print_note(Elf *e, Elf_Scn *scn);
-static void	elf_print_hash(Elf *e, Elf_Scn *scn);
+static void	elf_print_object(struct elfdump *ed);
+static void	elf_print_elf(struct elfdump *ed);
+static void	elf_print_ehdr(struct elfdump *ed);
+static void	elf_print_phdr(struct elfdump *ed);
+static void	elf_print_shdr(struct elfdump *ed);
+static void	elf_print_symtab(struct elfdump *ed, int i);
+static void	elf_print_symtabs(struct elfdump *ed);
+static void	elf_print_interp(struct elfdump *ed);
+static void	elf_print_dynamic(struct elfdump *ed);
+static void	elf_print_rela(struct elfdump *ed);
+static void	elf_print_rel(struct elfdump *ed);
+static void	elf_print_got(struct elfdump *ed);
+static void	elf_print_note(struct elfdump *ed);
+static void	elf_print_hash(struct elfdump *ed);
+static void	load_sections(struct elfdump *ed);
 static void	usage(void);
+#ifdef USE_LIBARCHIVE_AR
+static int	ac_detect_ar(int fd);
+static void	ac_print_ar(struct elfdump *ed, int fd);
+#endif	/* USE_LIBARCHIVE_AR */
 
 int
 main(int ac, char **av)
 {
-	unsigned int	 flags;
-	Elf		*e;
-	Elf_Scn		*scn;
-	GElf_Shdr	 shdr;
-	struct stat	 sb;
-	int		 ch;
-	int		 elferr;
-	int		 fd;
-	const char	*name;
+	struct elfdump	*ed, ed_storage;
+	int		 ch, i;
 
-	out = stdout;
-	flags = 0;
+	ed = &ed_storage;
+	memset(ed, 0, sizeof(*ed));
+
+	ed->out = stdout;
 	while ((ch = getopt(ac, av, "acdeiGhnprsw:")) != -1)
 		switch (ch) {
 		case 'a':
-			flags = ED_ALL;
+			ed->options = ED_ALL;
 			break;
 		case 'c':
-			flags |= ED_SHDR;
+			ed->options |= ED_SHDR;
 			break;
 		case 'd':
-			flags |= ED_DYN;
+			ed->options |= ED_DYN;
 			break;
 		case 'e':
-			flags |= ED_EHDR;
+			ed->options |= ED_EHDR;
 			break;
 		case 'i':
-			flags |= ED_INTERP;
+			ed->options |= ED_INTERP;
 			break;
 		case 'G':
-			flags |= ED_GOT;
+			ed->options |= ED_GOT;
 			break;
 		case 'h':
-			flags |= ED_HASH;
+			ed->options |= ED_HASH;
 			break;
 		case 'n':
-			flags |= ED_NOTE;
+			ed->options |= ED_NOTE;
 			break;
 		case 'p':
-			flags |= ED_PHDR;
+			ed->options |= ED_PHDR;
 			break;
 		case 'r':
-			flags |= ED_REL;
+			ed->options |= ED_REL;
 			break;
 		case 's':
-			flags |= ED_SYMTAB;
+			ed->options |= ED_SYMTAB;
 			break;
 		case 'w':
-			if ((out = fopen(optarg, "w")) == NULL)
+			if ((ed->out = fopen(optarg, "w")) == NULL)
 				err(EX_NOINPUT, "%s", optarg);
 			break;
 		case '?':
@@ -318,297 +364,461 @@ main(int ac, char **av)
 	ac -= optind;
 	av += optind;
 
-	if (ac == 0 || flags == 0)
+	if (ac == 0 || ed->options == 0)
 		usage();
+
+	if (ac > 1)
+		ed->flags |= DISPLAY_FILENAME;
 
 	if (elf_version(EV_CURRENT) == EV_NONE)
 		errx(EX_SOFTWARE, "ELF library initialization failed: %s",
 		    elf_errmsg(-1));
 
-	if ((fd = open(*av, O_RDONLY)) < 0 ||
-	    fstat(fd, &sb) < 0)
-		err(EX_NOINPUT, "%s", *av);
-
-	if ((e = elf_begin(fd, ELF_C_READ, NULL)) == NULL)
-		errx(EX_SOFTWARE, "elf_begin() failed: %s",
-		    elf_errmsg(-1));
-
-	if (elf_kind(e) != ELF_K_ELF)
-		errx(EX_DATAERR, "not an elf file");
-
-	if (!elf_getshstrndx(e, &shstrndx)) {
-		warnx("elf_getshstrndx failed: %s", elf_errmsg(-1));
-		shstrndx = SHN_UNDEF;
-	}
-
-	if (flags & ED_EHDR)
-		elf_print_ehdr(e);
-	if (flags & ED_PHDR)
-		elf_print_phdr(e);
-	if (flags & ED_SHDR)
-		elf_print_shdr(e);
-	if (flags & ED_INTERP)
-		elf_print_interp(e);
-
-	scn = NULL;
-	(void) elf_errno();
-	while ((scn = elf_nextscn(e, scn)) != NULL) {
-		if (gelf_getshdr(scn, &shdr) != &shdr) {
-			warnx("elf_getshdr failed: %s", elf_errmsg(-1));
-			(void) elf_errno();
-			continue;
+	for (i = 0; i < ac; i++)
+		if (av[i] != NULL) {
+			ed->filename = av[i];
+			elf_print_object(ed);
 		}
-		switch (shdr.sh_type) {
-		case SHT_SYMTAB:
-			if (flags & ED_SYMTAB)
-				elf_print_symtab(e, scn);
-			break;
-		case SHT_DYNAMIC:
-			if (flags & ED_DYN)
-				elf_print_dynamic(e, scn);
-			break;
-		case SHT_RELA:
-			if (flags & ED_REL)
-				elf_print_rela(e, scn);
-			break;
-		case SHT_REL:
-			if (flags & ED_REL)
-				elf_print_rel(e, scn);
-			break;
-		case SHT_NOTE:
-			if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) ==
-			    NULL) {
-				(void) elf_errno();
-				break;
-			}
-			if (flags & ED_NOTE && !strcmp(name, ".note.ABI-tag"))
-				elf_print_note(e, scn);
-			break;
-		case SHT_DYNSYM:
-			if (flags & ED_SYMTAB)
-				elf_print_symtab(e, scn);
-			break;
-		case SHT_PROGBITS:
-			if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) ==
-			    NULL) {
-				(void) elf_errno();
-				break;
-			}
-			if (flags & ED_GOT && !strcmp(name, ".got"))
-				elf_print_got(e, scn);
-			break;
-		case SHT_HASH:
-			if (flags & ED_HASH)
-				elf_print_hash(e, scn);
-			break;
-		case SHT_NULL:
-		case SHT_STRTAB:
-		case SHT_NOBITS:
-		case SHT_SHLIB:
-			break;
-		}
-	}
-	elferr = elf_errno();
-	if (elferr != 0)
-		warnx("elf_nextscn failed: %s", elf_errmsg(elferr));
-	return (0);
+
+	exit(EX_OK);
+}
+
+#ifdef USE_LIBARCHIVE_AR
+/*
+ * Convenient wrapper for general libarchive error handling.
+ */
+#define	AC(CALL) do {							\
+	if ((CALL))							\
+		errx(EX_SOFTWARE, "%s", archive_error_string(a));	\
+} while (0)
+
+static int
+ac_detect_ar(int fd)
+{
+	struct archive		*a;
+	struct archive_entry	*entry;
+	int			 r;
+
+	r = -1;
+	if ((a = archive_read_new()) == NULL)
+		return (0);
+	archive_read_support_compression_all(a);
+	archive_read_support_format_ar(a);
+	if (archive_read_open_fd(a, fd, 10240) == ARCHIVE_OK)
+		r = archive_read_next_header(a, &entry);
+	archive_read_close(a);
+	archive_read_finish(a);
+
+	return (r == ARCHIVE_OK);
 }
 
 static void
-elf_print_ehdr(Elf *e)
+ac_print_ar(struct elfdump *ed, int fd)
 {
-	GElf_Ehdr	 ehdr;
+	struct archive		*a;
+	struct archive_entry	*entry;
+	const char		*name;
+	void			*buff;
+	size_t			 size;
+	int			 r;
 
-	if (gelf_getehdr(e, &ehdr) == NULL) {
+	if (lseek(fd, 0, SEEK_SET) == -1)
+		err(EX_IOERR, "lseek failed");
+	if ((a = archive_read_new()) == NULL)
+		errx(EX_SOFTWARE, "%s", archive_error_string(a));
+	archive_read_support_compression_all(a);
+	archive_read_support_format_ar(a);
+	AC(archive_read_open_fd(a, fd, 10240));
+	for(;;) {
+		r = archive_read_next_header(a, &entry);
+		if (r == ARCHIVE_FATAL)
+			errx(EX_DATAERR, "%s", archive_error_string(a));
+		if (r == ARCHIVE_EOF)
+			break;
+		if (r == ARCHIVE_WARN || r == ARCHIVE_RETRY)
+			warnx("%s", archive_error_string(a));
+		if (r == ARCHIVE_RETRY)
+			continue;
+
+		name = archive_entry_pathname(entry);
+
+		/* TODO: handle option '-c' here. */
+
+		/* skip pseudo members. */
+		if (strcmp(name, "/") == 0 || strcmp(name, "//") == 0)
+			continue;
+
+		size = archive_entry_size(entry);
+		if (size > 0) {
+			if ((buff = malloc(size)) == NULL)
+				err(EX_SOFTWARE, "malloc failed");
+			if (archive_read_data(a, buff, size) != (ssize_t)size) {
+				warnx("%s", archive_error_string(a));
+				free(buff);
+				continue;
+			}
+			if ((ed->elf = elf_memory(buff, size)) == NULL) {
+				warnx("elf_memroy() failed: %s",
+				    elf_errmsg(-1));
+				free(buff);
+				continue;
+			}
+			elf_print_elf(ed);
+			free(buff);
+		}
+	}
+	AC(archive_read_close(a));
+	AC(archive_read_finish(a));
+}
+#endif	/* USE_LIBARCHIVE_AR */
+
+static void
+elf_print_object(struct elfdump *ed)
+{
+	int fd;
+
+	if ((fd = open(ed->filename, O_RDONLY)) == -1) {
+		warn("open %s failed", ed->filename);
+		return;
+	}
+
+#ifdef	USE_LIBARCHIVE_AR
+	/*
+	 * Detect and process ar(1) archive using libarchive.
+	 */
+	if (ac_detect_ar(fd)) {
+		ac_print_ar(ed, fd);
+		return;
+	}
+#endif	/* USE_LIBARCHIVE_AR */
+
+	if ((ed->flags & DISPLAY_FILENAME) != 0)
+		printf("\nFile: %s\n", ed->filename);
+
+	if ((ed->elf = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
+		warnx("elf_begin() failed: %s", elf_errmsg(-1));
+		return;
+	}
+
+	switch (elf_kind(ed->elf)) {
+	case ELF_K_NONE:
+		warnx("Not an ELF file.");
+		return;
+	case ELF_K_ELF:
+		elf_print_elf(ed);
+		break;
+	case ELF_K_AR:
+		/* dump_ar(re); */
+		break;
+	default:
+		warnx("Internal: libelf returned unknown elf kind.");
+		return;
+	}
+
+	elf_end(ed->elf);
+}
+
+static void
+elf_print_elf(struct elfdump *ed)
+{
+
+	/* Fetch ELF header. No need to continue if this fails. */
+	if (gelf_getehdr(ed->elf, &ed->ehdr) == NULL) {
 		warnx("gelf_getehdr failed: %s", elf_errmsg(-1));
 		return;
 	}
-	fprintf(out, "\nelf header:\n");
-	fprintf(out, "\n");
-	fprintf(out, "\te_ident: %s %s %s\n",
-	    ei_classes[ehdr.e_ident[EI_CLASS]],
-	    ei_data[ehdr.e_ident[EI_DATA]],
-	    ei_abis[ehdr.e_ident[EI_OSABI]]);
-	fprintf(out, "\te_type: %s\n", e_types[ehdr.e_type]);
-	fprintf(out, "\te_machine: %s\n", e_machines(ehdr.e_machine));
-	fprintf(out, "\te_version: %s\n", ei_versions[ehdr.e_version]);
-	fprintf(out, "\te_entry: %#jx\n", (uintmax_t)ehdr.e_entry);
-	fprintf(out, "\te_phoff: %ju\n", (uintmax_t)ehdr.e_phoff);
-	fprintf(out, "\te_shoff: %ju\n", (uintmax_t)ehdr.e_shoff);
-	fprintf(out, "\te_flags: %ju\n", (uintmax_t)ehdr.e_flags);
-	fprintf(out, "\te_ehsize: %ju\n", (uintmax_t)ehdr.e_ehsize);
-	fprintf(out, "\te_phentsize: %ju\n", (uintmax_t)ehdr.e_phentsize);
-	fprintf(out, "\te_phnum: %ju\n", (uintmax_t)ehdr.e_phnum);
-	fprintf(out, "\te_shentsize: %ju\n", (uintmax_t)ehdr.e_shentsize);
-	fprintf(out, "\te_shnum: %ju\n", (uintmax_t)ehdr.e_shnum);
-	fprintf(out, "\te_shstrndx: %ju\n", (uintmax_t)ehdr.e_shstrndx);
+	if ((ed->ec = gelf_getclass(ed->elf)) == ELFCLASSNONE) {
+		warnx("gelf_getclass failed: %s", elf_errmsg(-1));
+		return;
+	}
+
+	load_sections(ed);
+
+	if (ed->options & ED_EHDR)
+		elf_print_ehdr(ed);
+	if (ed->options & ED_PHDR)
+		elf_print_phdr(ed);
+	if (ed->options & ED_INTERP)
+		elf_print_interp(ed);
+	if (ed->options & ED_SHDR)
+		elf_print_shdr(ed);
+	if (ed->options & ED_DYN)
+		elf_print_dynamic(ed);
+	if (ed->options & ED_REL) {
+		elf_print_rel(ed);
+		elf_print_rela(ed);
+	}
+	if (ed->options & ED_GOT)
+		elf_print_got(ed);
+	if (ed->options & ED_SYMTAB)
+		elf_print_symtabs(ed);
+	if (ed->options & ED_NOTE)
+		elf_print_note(ed);
+	if (ed->options & ED_HASH)
+		elf_print_hash(ed);
 }
 
 static void
-elf_print_phdr(Elf *e)
+load_sections(struct elfdump *ed)
+{
+	struct section	*s;
+	const char	*name;
+	Elf_Scn		*scn;
+	GElf_Shdr	 sh;
+	size_t		 shstrndx, ndx;
+	int		 elferr;
+
+
+	if (ed->flags & SECTIONS_LOADED)
+		return;
+
+	/* Allocate storage for internal section list. */
+	if (!elf_getshnum(ed->elf, &ed->shnum)) {
+		warnx("elf_getshnum failed: %s", elf_errmsg(-1));
+		return;
+	}
+	if (ed->sl != NULL)
+		free(ed->sl);
+	if ((ed->sl = calloc(ed->shnum, sizeof(*ed->sl))) == NULL)
+		err(EX_SOFTWARE, "calloc failed");
+
+	/* Get the index of .shstrtab section. */
+	if (!elf_getshstrndx(ed->elf, &shstrndx)) {
+		warnx("elf_getshstrndx failed: %s", elf_errmsg(-1));
+		return;
+	}
+
+	if ((scn = elf_getscn(ed->elf, 0)) == NULL) {
+		warnx("elf_getscn failed: %s", elf_errmsg(-1));
+		return;
+	}
+
+	(void) elf_errno();
+	do {
+		if (gelf_getshdr(scn, &sh) == NULL) {
+			warnx("gelf_getshdr failed: %s", elf_errmsg(-1));
+			(void) elf_errno();
+			continue;
+		}
+		if ((name = elf_strptr(ed->elf, shstrndx, sh.sh_name)) == NULL) {
+			(void) elf_errno();
+			name = "ERROR";
+		}
+		if ((ndx = elf_ndxscn(scn)) == SHN_UNDEF) {
+			if ((elferr = elf_errno()) != 0)
+				warnx("elf_ndxscn failed: %s",
+				    elf_errmsg(elferr));
+			continue;
+		}
+		if (ndx >= ed->shnum) {
+			warnx("section index of '%s' out of range", name);
+			continue;
+		}
+		s = &ed->sl[ndx];
+		s->name = name;
+		s->scn = scn;
+		s->off = sh.sh_offset;
+		s->sz = sh.sh_size;
+		s->entsize = sh.sh_entsize;
+		s->align = sh.sh_addralign;
+		s->type = sh.sh_type;
+		s->flags = sh.sh_flags;
+		s->addr = sh.sh_addr;
+		s->link = sh.sh_link;
+		s->info = sh.sh_info;
+	} while ((scn = elf_nextscn(ed->elf, scn)) != NULL);
+	elferr = elf_errno();
+	if (elferr != 0)
+		warnx("elf_nextscn failed: %s", elf_errmsg(elferr));
+
+	ed->flags |= SECTIONS_LOADED;
+}
+
+static void
+elf_print_ehdr(struct elfdump *ed)
+{
+
+	fprintf(ed->out, "\nelf header:\n");
+	fprintf(ed->out, "\n");
+	fprintf(ed->out, "\te_ident: %s %s %s\n",
+	    ei_classes[ed->ehdr.e_ident[EI_CLASS]],
+	    ei_data[ed->ehdr.e_ident[EI_DATA]],
+	    ei_abis[ed->ehdr.e_ident[EI_OSABI]]);
+	fprintf(ed->out, "\te_type: %s\n", e_types[ed->ehdr.e_type]);
+	fprintf(ed->out, "\te_machine: %s\n", e_machines(ed->ehdr.e_machine));
+	fprintf(ed->out, "\te_version: %s\n", ei_versions[ed->ehdr.e_version]);
+	fprintf(ed->out, "\te_entry: %#jx\n", (uintmax_t)ed->ehdr.e_entry);
+	fprintf(ed->out, "\te_phoff: %ju\n", (uintmax_t)ed->ehdr.e_phoff);
+	fprintf(ed->out, "\te_shoff: %ju\n", (uintmax_t)ed->ehdr.e_shoff);
+	fprintf(ed->out, "\te_flags: %ju\n", (uintmax_t)ed->ehdr.e_flags);
+	fprintf(ed->out, "\te_ehsize: %ju\n", (uintmax_t)ed->ehdr.e_ehsize);
+	fprintf(ed->out, "\te_phentsize: %ju\n",
+	    (uintmax_t)ed->ehdr.e_phentsize);
+	fprintf(ed->out, "\te_phnum: %ju\n", (uintmax_t)ed->ehdr.e_phnum);
+	fprintf(ed->out, "\te_shentsize: %ju\n",
+	    (uintmax_t)ed->ehdr.e_shentsize);
+	fprintf(ed->out, "\te_shnum: %ju\n", (uintmax_t)ed->ehdr.e_shnum);
+	fprintf(ed->out, "\te_shstrndx: %ju\n", (uintmax_t)ed->ehdr.e_shstrndx);
+}
+
+static void
+elf_print_phdr(struct elfdump *ed)
 {
 	GElf_Phdr	 phdr;
 	size_t		 phnum;
 	int		 i;
 
-	if (elf_getphnum(e, &phnum) == 0) {
+	if (elf_getphnum(ed->elf, &phnum) == 0) {
 		warnx("elf_getphnum failed: %s", elf_errmsg(-1));
 		return;
 	}
-	fprintf(out, "\nprogram header:\n");
+	fprintf(ed->out, "\nprogram header:\n");
 	for (i = 0; (u_int64_t) i < phnum; i++) {
-		if (gelf_getphdr(e, i, &phdr) != &phdr) {
+		if (gelf_getphdr(ed->elf, i, &phdr) != &phdr) {
 			warnx("elf_getphdr failed: %s", elf_errmsg(-1));
 			continue;
 		}
-		fprintf(out, "\n");
-		fprintf(out, "entry: %d\n", i);
-		fprintf(out, "\tp_type: %s\n", p_types[phdr.p_type & 0x7]);
-		fprintf(out, "\tp_offset: %ju\n", (uintmax_t)phdr.p_offset);
-		fprintf(out, "\tp_vaddr: %#jx\n", (uintmax_t)phdr.p_vaddr);
-		fprintf(out, "\tp_paddr: %#jx\n", (uintmax_t)phdr.p_paddr);
-		fprintf(out, "\tp_filesz: %ju\n", (uintmax_t)phdr.p_filesz);
-		fprintf(out, "\tp_memsz: %ju\n", (uintmax_t)phdr.p_memsz);
-		fprintf(out, "\tp_flags: %s\n", p_flags[phdr.p_flags]);
-		fprintf(out, "\tp_align: %ju\n", (uintmax_t)phdr.p_align);
+		fprintf(ed->out, "\n");
+		fprintf(ed->out, "entry: %d\n", i);
+		fprintf(ed->out, "\tp_type: %s\n", p_types[phdr.p_type & 0x7]);
+		fprintf(ed->out, "\tp_offset: %ju\n", (uintmax_t)phdr.p_offset);
+		fprintf(ed->out, "\tp_vaddr: %#jx\n", (uintmax_t)phdr.p_vaddr);
+		fprintf(ed->out, "\tp_paddr: %#jx\n", (uintmax_t)phdr.p_paddr);
+		fprintf(ed->out, "\tp_filesz: %ju\n", (uintmax_t)phdr.p_filesz);
+		fprintf(ed->out, "\tp_memsz: %ju\n", (uintmax_t)phdr.p_memsz);
+		fprintf(ed->out, "\tp_flags: %s\n", p_flags[phdr.p_flags]);
+		fprintf(ed->out, "\tp_align: %ju\n", (uintmax_t)phdr.p_align);
 	}
 }
 
 static void
-elf_print_shdr(Elf *e)
+elf_print_shdr(struct elfdump *ed)
 {
-	GElf_Shdr	 shdr;
-	Elf_Scn		*scn;
-	const char	*name;
-	int		 elferr;
+	struct section *s;
+	int i;
 
-	fprintf(out, "\nsection header:\n");
-	scn = elf_getscn(e, SHN_UNDEF);
-	if (scn == NULL)
+	if ((ed->flags & SECTIONS_LOADED) == 0)
 		return;
-	(void) elf_errno();
-	do {
-		if (gelf_getshdr(scn, &shdr) != &shdr) {
-			warnx("elf_getshdr failed: %s", elf_errmsg(-1));
-			(void) elf_errno();
-			continue;
-		}
-		if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) ==
-		    NULL) {
-			warnx("elf_strptr failed: %s", elf_errmsg(-1));
-			(void) elf_errno();
-			name = "ERROR";
-		}
-		fprintf(out, "\n");
-		fprintf(out, "entry: %ju\n", (uintmax_t)elf_ndxscn(scn));
-		fprintf(out, "\tsh_name: %s\n", name);
-		fprintf(out, "\tsh_type: %s\n", sh_types(shdr.sh_type));
-		fprintf(out, "\tsh_flags: %s\n", sh_flags[shdr.sh_flags & 0x7]);
-		fprintf(out, "\tsh_addr: %#jx\n", shdr.sh_addr);
-		fprintf(out, "\tsh_offset: %ju\n", (uintmax_t)shdr.sh_offset);
-		fprintf(out, "\tsh_size: %ju\n", (uintmax_t)shdr.sh_size);
-		fprintf(out, "\tsh_link: %ju\n", (uintmax_t)shdr.sh_link);
-		fprintf(out, "\tsh_info: %ju\n", (uintmax_t)shdr.sh_info);
-		fprintf(out, "\tsh_addralign: %ju\n",
-		    (uintmax_t)shdr.sh_addralign);
-		fprintf(out, "\tsh_entsize: %ju\n", (uintmax_t)shdr.sh_entsize);
-	} while ((scn = elf_nextscn(e, scn)) != NULL);
-	elferr = elf_errno();
-	if (elferr != 0)
-		warnx("elf_nextscn failed: %s", elf_errmsg(elferr));
+	fprintf(ed->out, "\nsection header:\n");
+
+	for (i = 0; (size_t)i < ed->shnum; i++) {
+		s = &ed->sl[i];
+		fprintf(ed->out, "\n");
+		fprintf(ed->out, "entry: %ju\n", (uintmax_t)i);
+		fprintf(ed->out, "\tsh_name: %s\n", s->name);
+		fprintf(ed->out, "\tsh_type: %s\n", sh_types(s->type));
+		fprintf(ed->out, "\tsh_flags: %s\n", sh_flags[s->flags & 0x7]);
+		fprintf(ed->out, "\tsh_addr: %#jx\n", s->addr);
+		fprintf(ed->out, "\tsh_offset: %ju\n", (uintmax_t)s->off);
+		fprintf(ed->out, "\tsh_size: %ju\n", (uintmax_t)s->sz);
+		fprintf(ed->out, "\tsh_link: %ju\n", (uintmax_t)s->link);
+		fprintf(ed->out, "\tsh_info: %ju\n", (uintmax_t)s->info);
+		fprintf(ed->out, "\tsh_addralign: %ju\n", (uintmax_t)s->align);
+		fprintf(ed->out, "\tsh_entsize: %ju\n", (uintmax_t)s->entsize);
+	}
 }
 
 static void
-elf_print_symtab(Elf *e, Elf_Scn *scn)
+elf_print_symtab(struct elfdump *ed, int i)
 {
+	struct section	*s;
 	const char	*name;
 	Elf_Data	*data;
 	GElf_Sym	 sym;
-	GElf_Shdr	 shdr;
-	size_t		 strndx;
-	int		 elferr;
-	int		 i;
-	int		 len;
+	int		 len, j, strndx, elferr;
 
-	if (gelf_getshdr(scn, &shdr) != &shdr) {
-		warnx("elf_getshdr failed: %s", elf_errmsg(-1));
-		return;
-	}
-	strndx = shdr.sh_link;
-	if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
-		name = "ERROR";
-	fprintf(out, "\nsymbol table (%s):\n", name);
+	s = &ed->sl[i];
+	strndx = s->link;
+	fprintf(ed->out, "\nsymbol table (%s):\n", s->name);
 	(void) elf_errno();
-	if ((data = elf_getdata(scn, NULL)) == NULL) {
+	if ((data = elf_getdata(s->scn, NULL)) == NULL) {
 		elferr = elf_errno();
 		if (elferr != 0)
 			warnx("elf_getdata failed: %s", elf_errmsg(elferr));
 		return;
 	}
 
-	len = data->d_size / shdr.sh_entsize;
-	for (i = 0; i < len; i++) {
-		if (gelf_getsym(data, i, &sym) != &sym) {
+	len = data->d_size / s->entsize;
+	for (j = 0; j < len; j++) {
+		if (gelf_getsym(data, j, &sym) != &sym) {
 			warnx("gelf_getsym failed: %s", elf_errmsg(-1));
 			continue;
 		}
-		if ((name = elf_strptr(e, strndx, sym.st_name)) ==
+		if ((name = elf_strptr(ed->elf, strndx, sym.st_name)) ==
 		    NULL)
-			name = "ERROR";
-		fprintf(out, "\n");
-		fprintf(out, "entry: %d\n", i);
-		fprintf(out, "\tst_name: %s\n", name);
-		fprintf(out, "\tst_value: %#jx\n", sym.st_value);
-		fprintf(out, "\tst_size: %ju\n", (uintmax_t)sym.st_size);
-		fprintf(out, "\tst_info: %s %s\n",
+			name = "";
+		fprintf(ed->out, "\n");
+		fprintf(ed->out, "entry: %d\n", j);
+		fprintf(ed->out, "\tst_name: %s\n", name);
+		fprintf(ed->out, "\tst_value: %#jx\n", sym.st_value);
+		fprintf(ed->out, "\tst_size: %ju\n", (uintmax_t)sym.st_size);
+		fprintf(ed->out, "\tst_info: %s %s\n",
 		    st_types[GELF_ST_TYPE(sym.st_info)],
 		    st_bindings[GELF_ST_BIND(sym.st_info)]);
-		fprintf(out, "\tst_shndx: %ju\n", (uintmax_t)sym.st_shndx);
+		fprintf(ed->out, "\tst_shndx: %ju\n", (uintmax_t)sym.st_shndx);
 	}
 }
 
 static void
-elf_print_dynamic(Elf *e, Elf_Scn *scn)
+elf_print_symtabs(struct elfdump *ed)
 {
+	int i;
+
+	if ((ed->flags & SECTIONS_LOADED) == 0 || ed->shnum == 0)
+		return;
+	for (i = 0; (size_t)i < ed->shnum; i++) {
+		if (ed->sl[i].type == SHT_SYMTAB ||
+		    ed->sl[i].type == SHT_DYNSYM)
+			elf_print_symtab(ed, i);
+	}
+}
+
+static void
+elf_print_dynamic(struct elfdump *ed)
+{
+	struct section	*s;
 	const char	*name;
 	Elf_Data	*data;
 	GElf_Dyn	 dyn;
-	GElf_Shdr	 shdr;
-	size_t		 dynstr;
 	int		 elferr;
 	int		 i;
 	int		 len;
 
-	if (gelf_getshdr(scn, &shdr) != &shdr) {
-	        warnx("elf_getshdr failed: %s", elf_errmsg(-1));
+	if ((ed->flags & SECTIONS_LOADED) == 0 || ed->shnum == 0)
 		return;
+	for (i = 0; (size_t)i < ed->shnum; i++) {
+		s = &ed->sl[i];
+		if (s->type == SHT_DYNAMIC)
+			break;
 	}
-	dynstr = shdr.sh_link;
-	fprintf(out, "\ndynamic:\n");
+	if ((size_t)i >= ed->shnum)
+		return;
+
+	fprintf(ed->out, "\ndynamic:\n");
 	(void) elf_errno();
-	if ((data = elf_getdata(scn, NULL)) == NULL) {
+	if ((data = elf_getdata(s->scn, NULL)) == NULL) {
 		elferr = elf_errno();
 		if (elferr != 0)
 			warnx("elf_getdata failed: %s", elf_errmsg(elferr));
 		return;
 	}
-	len = data->d_size / shdr.sh_entsize;
+	len = data->d_size / s->entsize;
 	for (i = 0; i < len; i++) {
 		if (gelf_getdyn(data, i, &dyn) != &dyn) {
 			warnx("gelf_getdyn failed: %s", elf_errmsg(-1));
 			continue;
 		}
-		fprintf(out, "\n");
-		fprintf(out, "entry: %d\n", i);
-		fprintf(out, "\td_tag: %s\n", d_tags(dyn.d_tag));
+		fprintf(ed->out, "\n");
+		fprintf(ed->out, "entry: %d\n", i);
+		fprintf(ed->out, "\td_tag: %s\n", d_tags(dyn.d_tag));
 		switch(dyn.d_tag) {
 		case DT_NEEDED:
 		case DT_SONAME:
 		case DT_RPATH:
-			if ((name = elf_strptr(e, dynstr, dyn.d_un.d_val)) ==
-			    NULL)
-				name = "ERROR";
-			fprintf(out, "\td_val: %s\n", name);
+			if ((name = elf_strptr(ed->elf, s->link, dyn.d_un.d_val))
+			    == NULL)
+				name = "";
+			fprintf(ed->out, "\td_val: %s\n", name);
 			break;
 		case DT_PLTRELSZ:
 		case DT_RELA:
@@ -619,7 +829,7 @@ elf_print_dynamic(Elf *e, Elf_Scn *scn)
 		case DT_RELSZ:
 		case DT_RELENT:
 		case DT_PLTREL:
-			fprintf(out, "\td_val: %ju\n",
+			fprintf(ed->out, "\td_val: %ju\n",
 			    (uintmax_t)dyn.d_un.d_val);
 			break;
 		case DT_PLTGOT:
@@ -630,7 +840,7 @@ elf_print_dynamic(Elf *e, Elf_Scn *scn)
 		case DT_FINI:
 		case DT_REL:
 		case DT_JMPREL:
-			fprintf(out, "\td_ptr: %#jx\n",
+			fprintf(ed->out, "\td_ptr: %#jx\n",
 			    dyn.d_un.d_ptr);
 			break;
 		case DT_NULL:
@@ -643,133 +853,133 @@ elf_print_dynamic(Elf *e, Elf_Scn *scn)
 }
 
 static void
-elf_print_rela(Elf *e, Elf_Scn *scn)
+elf_print_rela(struct elfdump *ed)
 {
-	const char	*name;
+	struct section	*s;
 	Elf_Data	*data;
 	GElf_Rela	 rela;
-	GElf_Shdr	 shdr;
 	int		 elferr;
-	int		 i;
+	int		 i, j;
 	int		 len;
 
-	if (gelf_getshdr(scn, &shdr) != &shdr) {
-		warnx("elf_getshdr failed: %s", elf_errmsg(-1));
+	if ((ed->flags & SECTIONS_LOADED) == 0 || ed->shnum == 0)
 		return;
-	}
-	if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
-		name = "ERROR";
-	fprintf(out, "\nrelocation with addend (%s):\n", name);
-	(void) elf_errno();
-	if ((data = elf_getdata(scn, NULL)) == NULL) {
-		elferr = elf_errno();
-		if (elferr != 0)
-			warnx("elf_getdata failed: %s", elf_errmsg(elferr));
-		return;
-	}
-	len = data->d_size / shdr.sh_entsize;
-	for (i = 0; i < len; i++) {
-		if (gelf_getrela(data, i, &rela) != &rela) {
-			warnx("gelf_getrela failed: %s", elf_errmsg(-1));
+	for (i = 0; (size_t)i < ed->shnum; i++) {
+		s = &ed->sl[i];
+		if (s->type != SHT_RELA)
 			continue;
+		fprintf(ed->out, "\nrelocation with addend (%s):\n", s->name);
+		(void) elf_errno();
+		if ((data = elf_getdata(s->scn, NULL)) == NULL) {
+			elferr = elf_errno();
+			if (elferr != 0)
+				warnx("elf_getdata failed: %s",
+				    elf_errmsg(elferr));
+			return;
 		}
-		fprintf(out, "\n");
-		fprintf(out, "entry: %d\n", i);
-		fprintf(out, "\tr_offset: %#jx\n", rela.r_offset);
-		fprintf(out, "\tr_info: %ju\n", (uintmax_t)rela.r_info);
-		fprintf(out, "\tr_addend: %jd\n", (intmax_t)rela.r_addend);
+		len = data->d_size / s->entsize;
+		for (j = 0; j < len; j++) {
+			if (gelf_getrela(data, j, &rela) != &rela) {
+				warnx("gelf_getrela failed: %s",
+				    elf_errmsg(-1));
+				continue;
+			}
+			fprintf(ed->out, "\n");
+			fprintf(ed->out, "entry: %d\n", j);
+			fprintf(ed->out, "\tr_offset: %#jx\n", rela.r_offset);
+			fprintf(ed->out, "\tr_info: %ju\n", rela.r_info);
+			fprintf(ed->out, "\tr_addend: %jd\n", rela.r_addend);
+		}
 	}
 }
 
 static void
-elf_print_rel(Elf *e, Elf_Scn *scn)
+elf_print_rel(struct elfdump *ed)
 {
-	const char	*name;
+	struct section	*s;
 	Elf_Data	*data;
 	GElf_Rel	 rel;
-	GElf_Shdr	 shdr;
 	int		 elferr;
-	int		 i;
+	int		 i, j;
 	int		 len;
 
-	if (gelf_getshdr(scn, &shdr) != &shdr) {
-		warnx("elf_getshdr failed: %s", elf_errmsg(-1));
+	if ((ed->flags & SECTIONS_LOADED) == 0 || ed->shnum == 0)
 		return;
-	}
-	if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
-		name = "ERROR";
-	fprintf(out, "\nrelocation (%s):\n", name);
-	(void) elf_errno();
-	if ((data = elf_getdata(scn, NULL)) == NULL) {
-		elferr = elf_errno();
-		if (elferr != 0)
-			warnx("elf_getdata failed: %s", elf_errmsg(elferr));
-		return;
-	}
-	len = data->d_size / shdr.sh_entsize;
-	for (i = 0; i < len; i++) {
-		if (gelf_getrel(data, i, &rel) != &rel) {
-			warnx("gelf_getrel failed: %s", elf_errmsg(-1));
+	for (i = 0; (size_t)i < ed->shnum; i++) {
+		s = &ed->sl[i];
+		if (s->type != SHT_REL)
 			continue;
+		fprintf(ed->out, "\nrelocation (%s):\n", s->name);
+		(void) elf_errno();
+		if ((data = elf_getdata(s->scn, NULL)) == NULL) {
+			elferr = elf_errno();
+			if (elferr != 0)
+				warnx("elf_getdata failed: %s",
+				    elf_errmsg(elferr));
+			return;
 		}
-		fprintf(out, "\n");
-		fprintf(out, "entry: %d\n", i);
-		fprintf(out, "\tr_offset: %#jx\n", rel.r_offset);
-		fprintf(out, "\tr_info: %ju\n", (uintmax_t)rel.r_info);
+		len = data->d_size / s->entsize;
+		for (j = 0; j < len; j++) {
+			if (gelf_getrel(data, j, &rel) != &rel) {
+				warnx("gelf_getrel failed: %s", elf_errmsg(-1));
+				continue;
+			}
+			fprintf(ed->out, "\n");
+			fprintf(ed->out, "entry: %d\n", j);
+			fprintf(ed->out, "\tr_offset: %#jx\n", rel.r_offset);
+			fprintf(ed->out, "\tr_info: %ju\n", rel.r_info);
+		}
 	}
 }
 
 static void
-elf_print_interp(Elf *e)
+elf_print_interp(struct elfdump *ed)
 {
 	const char *s;
 	GElf_Phdr phdr;
 	size_t phnum;
 	int i;
 
-	if ((s = elf_rawfile(e, NULL)) == NULL) {
+	if ((s = elf_rawfile(ed->elf, NULL)) == NULL) {
 		warnx("elf_rawfile failed: %s", elf_errmsg(-1));
 		return;
 	}
-	if (!elf_getphnum(e, &phnum)) {
+	if (!elf_getphnum(ed->elf, &phnum)) {
 		warnx("elf_getphnum failed: %s", elf_errmsg(-1));
 		return;
 	}
 	for (i = 0; (size_t)i < phnum; i++) {
-		if (gelf_getphdr(e, i, &phdr) != &phdr) {
+		if (gelf_getphdr(ed->elf, i, &phdr) != &phdr) {
 			warnx("elf_getphdr failed: %s", elf_errmsg(-1));
 			continue;
 		}
 		if (phdr.p_type == PT_INTERP) {
-			fprintf(out, "\ninterp:\n");
-			fprintf(out, "\t%s\n", s + phdr.p_offset);
+			fprintf(ed->out, "\ninterp:\n");
+			fprintf(ed->out, "\t%s\n", s + phdr.p_offset);
 		}
 	}
 }
 
 static void
-elf_print_got(Elf *e, Elf_Scn *scn)
+elf_print_got(struct elfdump *ed)
 {
-	GElf_Ehdr	 ehdr;
-	GElf_Shdr	 shdr;
+	struct section	*s;
 	Elf_Data	*data, dst;
-	int		 ec, elferr, i, len;
+	int		 elferr, i, len;
 
-	if (gelf_getehdr(e, &ehdr) == NULL) {
-		warnx("gelf_getehdr failed: %s", elf_errmsg(-1));
+	if ((ed->flags & SECTIONS_LOADED) == 0 || ed->shnum == 0)
 		return;
+	for (i = 0; (size_t)i < ed->shnum; i++) {
+		s = &ed->sl[i];
+		if (!strcmp(s->name, ".got"))
+			break;
 	}
-	if (gelf_getshdr(scn, &shdr) != &shdr) {
-		warnx("elf_getshdr failed: %s", elf_errmsg(-1));
+	if ((size_t)i >= ed->shnum)
 		return;
-	}
-	if ((ec = gelf_getclass(e)) == ELFCLASSNONE) {
-		warnx("gelf_getclass failed: %s", elf_errmsg(-1));
-		return;
-	}
-	fprintf(out, "\nglobal offset table:\n");
+
+	fprintf(ed->out, "\nglobal offset table:\n");
 	(void) elf_errno();
-	if ((data = elf_getdata(scn, NULL)) == NULL) {
+	if ((data = elf_getdata(s->scn, NULL)) == NULL) {
 		elferr = elf_errno();
 		if (elferr != 0)
 			warnx("elf_getdata failed: %s", elf_errmsg(elferr));
@@ -782,115 +992,108 @@ elf_print_got(Elf *e, Elf_Scn *scn)
 	 * an exlicit call to gelf_xlatetom is needed here. Depends on arch,
 	 * .got section should be translated to either WORD or XWORD.
 	 */
-	if (ec == ELFCLASS32)
+	if (ed->ec == ELFCLASS32)
 		data->d_type = ELF_T_WORD;
 	else
 		data->d_type = ELF_T_XWORD;
 	memcpy(&dst, data, sizeof(Elf_Data));
-	if (gelf_xlatetom(e, &dst, data, ehdr.e_ident[EI_DATA]) != &dst) {
+	if (gelf_xlatetom(ed->elf, &dst, data, ed->ehdr.e_ident[EI_DATA]) !=
+	    &dst) {
 		warnx("gelf_xlatetom failed: %s", elf_errmsg(-1));
 		return;
 	}
-	len = dst.d_size / shdr.sh_entsize;
+	len = dst.d_size / s->entsize;
 	for(i = 0; i < len; i++) {
-		fprintf(out, "\nentry: %d\n", i);
-		if (ec == ELFCLASS32)
-			fprintf(out, "\t%#x\n", *((uint32_t *)dst.d_buf + i));
+		fprintf(ed->out, "\nentry: %d\n", i);
+		if (ed->ec == ELFCLASS32)
+			fprintf(ed->out, "\t%#x\n",
+			    *((uint32_t *)dst.d_buf + i));
 		else
-			fprintf(out, "\t%#jx\n", *((uint64_t *)dst.d_buf + i));
+			fprintf(ed->out, "\t%#jx\n",
+			    *((uint64_t *)dst.d_buf + i));
 	}
 }
 
 static void
-elf_print_note(Elf *e, Elf_Scn *scn)
+elf_print_note(struct elfdump *ed)
 {
-	GElf_Ehdr	 ehdr;
-	GElf_Shdr	 shdr;
+	struct section	*s;
 	Elf_Data        *data;
 	Elf_Note	*en;
 	uint32_t	 namesz;
 	uint32_t	 descsz;
 	uint32_t	 desc;
 	size_t		 count;
-	const char	*name;
-	int		 elferr;
-	char		*s;
+	int		 elferr, i;
+	char		*src;
 
-	if (gelf_getehdr(e, &ehdr) == NULL) {
-		warnx("gelf_getehdr failed: %s", elf_errmsg(-1));
-		return;
+	for (i = 0; (size_t)i < ed->shnum; i++) {
+		s = &ed->sl[i];
+		if (s->type == SHT_NOTE && !strcmp(s->name, ".note.ABI-tag"))
+			break;
 	}
-	if (gelf_getshdr(scn, &shdr) != &shdr) {
-		warnx("elf_getshdr failed: %s", elf_errmsg(-1));
+	if ((size_t)i >= ed->shnum)
 		return;
-	}
-	if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
-		name = "ERROR";
-	fprintf(out, "\nnote (%s):\n", name);
 
+	fprintf(ed->out, "\nnote (%s):\n", s->name);
 	(void) elf_errno();
-	if ((data = elf_getdata(scn, NULL)) == NULL) {
+	if ((data = elf_getdata(s->scn, NULL)) == NULL) {
 		elferr = elf_errno();
 		if (elferr != 0)
 			warnx("elf_getdata failed: %s", elf_errmsg(elferr));
 		return;
 	}
-
-	s = data->d_buf;
+	src = data->d_buf;
 	count = data->d_size;
 	while (count > sizeof(Elf_Note)) {
-		en = (Elf_Note *) (uintptr_t) s;
+		en = (Elf_Note *) (uintptr_t) src;
 		namesz = en->n_namesz;
 		descsz = en->n_descsz;
-		s += sizeof(Elf_Note);
+		src += sizeof(Elf_Note);
 		count -= sizeof(Elf_Note);
-		fprintf(out, "\t%s ", s);
-		s += roundup2(namesz, 4);
+		fprintf(ed->out, "\t%s ", src);
+		src += roundup2(namesz, 4);
 		count -= roundup2(namesz, 4);
-		if (ehdr.e_ident[EI_DATA] == ELFDATA2MSB)
-			desc = be32dec(s);
+		if (ed->ehdr.e_ident[EI_DATA] == ELFDATA2MSB)
+			desc = be32dec(src);
 		else
-			desc = le32dec(s);
-		fprintf(out, "%d\n", desc);
-		s += roundup2(descsz, 4);
+			desc = le32dec(src);
+		fprintf(ed->out, "%d\n", desc);
+		src += roundup2(descsz, 4);
 		count -= roundup2(descsz, 4);
 	}
 }
 
 static void
-elf_print_hash(Elf *e, Elf_Scn *scn)
+elf_print_hash(struct elfdump *ed)
 {
-	GElf_Ehdr	 ehdr;
-	GElf_Shdr	 shdr;
+	struct section	*s;
 	Elf_Data	*data;
 	Elf_Data	 dst;
-	uint32_t	*s;
+	uint32_t	*s32;
 	uint64_t	 i;
 	uint64_t	 nbucket;
 	uint64_t	 nchain;
 	uint64_t	*s64;
-	const char	*name;
 	int		 elferr;
 
-	if (gelf_getehdr(e, &ehdr) == NULL) {
-		warnx("gelf_getehdr failed: %s", elf_errmsg(-1));
-		return;
+	/* Find .hash section. */
+	for (i = 0; (size_t)i < ed->shnum; i++) {
+		s = &ed->sl[i];
+		if (s->type == SHT_HASH)
+			break;
 	}
-	if (gelf_getshdr(scn, &shdr) != &shdr) {
-		warnx("elf_getshdr failed: %s", elf_errmsg(-1));
+	if ((size_t)i >= ed->shnum)
 		return;
-	}
-	if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
-		name = "ERROR";
-	fprintf(out, "\nhash table (%s):\n", name);
+	fprintf(ed->out, "\nhash table (%s):\n", s->name);
 	data = NULL;
-	if (ehdr.e_machine == EM_ALPHA) {
+	if (ed->ehdr.e_machine == EM_ALPHA) {
 		/*
 		 * Alpha uses 64-bit hash entries. Since libelf assumes that
 		 * .hash section contains only 32-bit entry, an explicit
 		 * gelf_xlatetom is needed here.
 		 */
-		if ((data = elf_rawdata(scn, data)) == NULL) {
+		if ((data = elf_rawdata(s->scn, data)) == NULL) {
 			elferr = elf_errno();
 			if (elferr != 0)
 				warnx("elf_rawdata failed: %s",
@@ -899,37 +1102,37 @@ elf_print_hash(Elf *e, Elf_Scn *scn)
 		}
 		data->d_type = ELF_T_XWORD;
 		memcpy(&dst, data, sizeof(Elf_Data));
-		if (gelf_xlatetom(e, &dst, data, ehdr.e_ident[EI_DATA]) !=
-		    &dst) {
+		if (gelf_xlatetom(ed->elf, &dst, data,
+		    ed->ehdr.e_ident[EI_DATA]) != &dst) {
 			warnx("gelf_xlatetom failed: %s", elf_errmsg(-1));
 			return;
 		}
 		s64 = dst.d_buf;
 		nbucket = *s64++;
 		nchain = *s64++;
-		fprintf(out, "\nnbucket:\n\t%ju\n", nbucket);
-		fprintf(out, "\nnchain:\n\t%ju\n\n", nchain);
+		fprintf(ed->out, "\nnbucket:\n\t%ju\n", nbucket);
+		fprintf(ed->out, "\nnchain:\n\t%ju\n\n", nchain);
 		for(i = 0; i < nbucket; i++, s64++)
-			fprintf(out, "bucket[%jd]:\n\t%ju\n\n", i, *s64);
+			fprintf(ed->out, "bucket[%jd]:\n\t%ju\n\n", i, *s64);
 		for(i = 0; i < nchain; i++, s64++)
-			fprintf(out, "chain[%jd]:\n\t%ju\n\n", i, *s64);
+			fprintf(ed->out, "chain[%jd]:\n\t%ju\n\n", i, *s64);
 	} else {
-		if ((data = elf_getdata(scn, data)) == NULL) {
+		if ((data = elf_getdata(s->scn, data)) == NULL) {
 			elferr = elf_errno();
 			if (elferr != 0)
 				warnx("elf_getdata failed: %s",
 				    elf_errmsg(elferr));
 			return;
 		}
-		s = data->d_buf;
-		nbucket = *s++;
-		nchain = *s++;
-		fprintf(out, "\nnbucket:\n\t%ju\n", nbucket);
-		fprintf(out, "\nnchain:\n\t%ju\n\n", nchain);
-		for(i = 0; i < nbucket; i++, s++)
-			fprintf(out, "bucket[%jd]:\n\t%u\n\n", i, *s);
-		for(i = 0; i < nchain; i++, s++)
-			fprintf(out, "chain[%jd]:\n\t%u\n\n", i, *s);
+		s32 = data->d_buf;
+		nbucket = *s32++;
+		nchain = *s32++;
+		fprintf(ed->out, "\nnbucket:\n\t%ju\n", nbucket);
+		fprintf(ed->out, "\nnchain:\n\t%ju\n\n", nchain);
+		for(i = 0; i < nbucket; i++, s32++)
+			fprintf(ed->out, "bucket[%jd]:\n\t%u\n\n", i, *s32);
+		for(i = 0; i < nchain; i++, s32++)
+			fprintf(ed->out, "chain[%jd]:\n\t%u\n\n", i, *s32);
 	}
 }
 
