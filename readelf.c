@@ -1300,8 +1300,11 @@ dump_symtab(struct readelf *re, int i)
 
 	s = &re->sl[i];
 	stab = s->link;
+	(void) elf_errno();
 	if ((d = elf_getdata(s->scn, NULL)) == NULL) {
-		warnx("elf_getdata failed: %s", elf_errmsg(-1));
+		elferr = elf_errno();
+		if (elferr != 0)
+			warnx("elf_getdata failed: %s", elf_errmsg(elferr));
 		return;
 	}
 	if (d->d_size <= 0)
@@ -1320,9 +1323,7 @@ dump_symtab(struct readelf *re, int i)
 		dump_st_bind(GELF_ST_BIND(sym.st_info));
 		printf(" DEFAULT "); /* FIXME */
 		dump_st_shndx(sym.st_shndx);
-		if ((name = elf_strptr(re->elf, stab, sym.st_name)) == NULL)
-			(void) elf_errno(); /* clear error */
-		else
+		if ((name = elf_strptr(re->elf, stab, sym.st_name)) != NULL)
 			printf(" %s", name);
 		printf("\n");
 	}
@@ -1370,8 +1371,11 @@ dump_hash(struct readelf *re)
 		return;
 
 	/* Read and parse the content of .hash section. */
+	(void) elf_errno();
 	if ((d = elf_getdata(s->scn, NULL)) == NULL) {
-		warnx("elf_getdata failed: %s", elf_errmsg(-1));
+		elferr = elf_errno();
+		if (elferr != 0)
+			warnx("elf_getdata failed: %s", elf_errmsg(elferr));
 		return;
 	}
 	if (d->d_size < 2 * sizeof(uint32_t)) {
@@ -1502,13 +1506,16 @@ load_sections(struct readelf *re)
 		warnx("elf_getscn failed: %s", elf_errmsg(-1));
 		return;
 	}
+
+	(void) elf_errno();
 	do {
 		if (gelf_getshdr(scn, &sh) == NULL) {
 			warnx("gelf_getshdr failed: %s", elf_errmsg(-1));
+			(void) elf_errno();
 			continue;
 		}
 		if ((name = elf_strptr(re->elf, shstrndx, sh.sh_name)) == NULL) {
-			(void) elf_errno(); /* clear error */
+			(void) elf_errno();
 			name = "ERROR";
 		}
 		if ((ndx = elf_ndxscn(scn)) == SHN_UNDEF) {
