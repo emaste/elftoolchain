@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2007-2009 Kai Wang
- * Copyright (c) 2003 David O'Brien
+ * Copyright (c) 2003 David O'Brien.  All rights reserved.
  * Copyright (c) 2001 Jake Burkholder
  * All rights reserved.
  *
@@ -702,6 +702,7 @@ static void	elf_print_reloc(struct elfdump *ed);
 static void	elf_print_got(struct elfdump *ed);
 static void	elf_print_note(struct elfdump *ed);
 static void	elf_print_hash(struct elfdump *ed);
+static void	elf_print_hash_64(struct elfdump *ed, struct section *s);
 static void	elf_print_checksum(struct elfdump *ed);
 static void	find_gotrel(struct elfdump *ed, struct section *gs,
     struct rel_entry *got);
@@ -1708,13 +1709,12 @@ elf_print_hash(struct elfdump *ed)
 {
 	struct section	*s;
 	Elf_Data	*data;
-	Elf_Data	 dst;
-	uint32_t	*s32;
-	uint64_t	 i;
-	uint64_t	 nbucket;
-	uint64_t	 nchain;
-	uint64_t	*s64;
-	int		 elferr;
+	char		 idx[10];
+	uint32_t	*buf;
+	uint32_t	*bucket, *chain;
+	uint32_t	 nbucket, nchain;
+	uint32_t	*bl, *c, maxl, total;
+	int		 i, j, elferr, first;
 
 	/* Find .hash section. */
 	for (i = 0; (size_t)i < ed->shnum; i++) {
@@ -1724,55 +1724,192 @@ elf_print_hash(struct elfdump *ed)
 	}
 	if ((size_t)i >= ed->shnum)
 		return;
-	PRT("\nhash table (%s):\n", s->name);
-	data = NULL;
-	if (ed->ehdr.e_machine == EM_ALPHA) {
-		/*
-		 * Alpha uses 64-bit hash entries. Since libelf assumes that
-		 * .hash section contains only 32-bit entry, an explicit
-		 * gelf_xlatetom is needed here.
-		 */
-		if ((data = elf_rawdata(s->scn, data)) == NULL) {
-			elferr = elf_errno();
-			if (elferr != 0)
-				warnx("elf_rawdata failed: %s",
-				    elf_errmsg(elferr));
-			return;
-		}
-		data->d_type = ELF_T_XWORD;
-		memcpy(&dst, data, sizeof(Elf_Data));
-		if (gelf_xlatetom(ed->elf, &dst, data,
-		    ed->ehdr.e_ident[EI_DATA]) != &dst) {
-			warnx("gelf_xlatetom failed: %s", elf_errmsg(-1));
-			return;
-		}
-		s64 = dst.d_buf;
-		nbucket = *s64++;
-		nchain = *s64++;
-		PRT("\nnbucket:\n\t%ju\n", nbucket);
-		PRT("\nnchain:\n\t%ju\n\n", nchain);
-		for(i = 0; i < nbucket; i++, s64++)
-			PRT("bucket[%jd]:\n\t%ju\n\n", i, *s64);
-		for(i = 0; i < nchain; i++, s64++)
-			PRT("chain[%jd]:\n\t%ju\n\n", i, *s64);
-	} else {
-		if ((data = elf_getdata(s->scn, data)) == NULL) {
-			elferr = elf_errno();
-			if (elferr != 0)
-				warnx("elf_getdata failed: %s",
-				    elf_errmsg(elferr));
-			return;
-		}
-		s32 = data->d_buf;
-		nbucket = *s32++;
-		nchain = *s32++;
-		PRT("\nnbucket:\n\t%ju\n", nbucket);
-		PRT("\nnchain:\n\t%ju\n\n", nchain);
-		for(i = 0; i < nbucket; i++, s32++)
-			PRT("bucket[%jd]:\n\t%u\n\n", i, *s32);
-		for(i = 0; i < nchain; i++, s32++)
-			PRT("chain[%jd]:\n\t%u\n\n", i, *s32);
+	if (ed->options & ED_SOLARIS)
+		PRT("\nHash Section:  %s\n", s->name);
+	else
+		PRT("\nhash table (%s):\n", s->name);
+	if (ed->ehdr.e_machine == EM_ALPHA && s->entsize == 8) {
+		elf_print_hash_64(ed, s);
+		return;
 	}
+	(void) elf_errno();
+	if ((data = elf_getdata(s->scn, NULL)) == NULL) {
+		elferr = elf_errno();
+		if (elferr != 0)
+			warnx("elf_getdata failed: %s",
+			    elf_errmsg(elferr));
+		return;
+	}
+	if (data->d_size < 2 * sizeof(uint32_t)) {
+		warnx(".hash section too small");
+		return;
+	}
+	buf = data->d_buf;
+	nbucket = buf[0];
+	nchain = buf[1];
+	if (nbucket <= 0 || nchain <= 0) {
+		warnx("Malformed .hash section");
+		return;
+	}
+	if (data->d_size != (nbucket + nchain + 2) * sizeof(uint32_t)) {
+		warnx("Malformed .hash section");
+		return;
+	}
+	bucket = &buf[2];
+	chain = &buf[2 + nbucket];
+
+	if (ed->options & ED_SOLARIS) {
+		maxl = 0;
+		if ((bl = calloc(nbucket, sizeof(*bl))) == NULL) {
+			warn("calloc failed");
+			return;
+		}
+		for (i = 0; (uint32_t)i < nbucket; i++)
+			for (j = bucket[i]; j > 0 && (uint32_t)j < nchain;
+			     j = chain[j])
+				if (++bl[i] > maxl)
+					maxl = bl[i];
+		if ((c = calloc(maxl + 1, sizeof(*c))) == NULL) {
+			warn("calloc failed");
+			free(bl);
+			return;
+		}
+		for (i = 0; (uint32_t)i < nbucket; i++)
+			c[bl[i]]++;
+		PRT("    bucket    symndx    name\n");
+		for (i = 0; (uint32_t)i < nbucket; i++) {
+			first = 1;
+			for (j = bucket[i]; j > 0 && (uint32_t)j < nchain;
+			     j = chain[j]) {
+				if (first) {
+					PRT("%10d  ", i);
+					first = 0;
+				} else
+					PRT("            ");
+				snprintf(idx, sizeof(idx), "[%d]", j);
+				PRT("%-10s  ", idx);
+				PRT("%s\n", get_symbol_name(ed, s->link, j));
+			}
+		}
+		PRT("\n");
+		total = 0;
+		for (i = 0; (uint32_t)i <= maxl; i++) {
+			total += c[i] * i;
+			PRT("%10u  buckets contain %8d symbols\n", c[i], i);
+		}
+		PRT("%10u  buckets         %8u symbols (globals)\n", nbucket,
+		    total);
+	} else {
+		PRT("\nnbucket:\n\t%u\n", nbucket);
+		PRT("\nnchain:\n\t%u\n\n", nchain);
+		for (i = 0; (uint32_t)i < nbucket; i++)
+			PRT("bucket[%d]:\n\t%u\n\n", i, bucket[i]);
+		for (i = 0; (uint32_t)i < nchain; i++)
+			PRT("chain[%d]:\n\t%u\n\n", i, chain[i]);
+	}
+}
+
+static void
+elf_print_hash_64(struct elfdump *ed, struct section *s)
+{
+	Elf_Data	*data, dst;
+	char		 idx[10];
+	uint64_t	*buf;
+	uint64_t	*bucket, *chain;
+	uint64_t	 nbucket, nchain;
+	uint64_t	*bl, *c, maxl, total;
+	int		 i, j, elferr, first;
+
+	/*
+	 * ALPHA uses 64-bit hash entries. Since libelf assumes that
+	 * .hash section contains only 32-bit entry, an explicit
+	 * gelf_xlatetom is needed here.
+	 */
+	(void) elf_errno();
+	if ((data = elf_rawdata(s->scn, NULL)) == NULL) {
+		elferr = elf_errno();
+		if (elferr != 0)
+			warnx("elf_rawdata failed: %s",
+			    elf_errmsg(elferr));
+		return;
+	}
+	data->d_type = ELF_T_XWORD;
+	memcpy(&dst, data, sizeof(Elf_Data));
+	if (gelf_xlatetom(ed->elf, &dst, data,
+		ed->ehdr.e_ident[EI_DATA]) != &dst) {
+		warnx("gelf_xlatetom failed: %s", elf_errmsg(-1));
+		return;
+	}
+
+	if (dst.d_size < 2 * sizeof(uint64_t)) {
+		warnx(".hash section too small");
+		return;
+	}
+	buf = dst.d_buf;
+	nbucket = buf[0];
+	nchain = buf[1];
+	if (nbucket <= 0 || nchain <= 0) {
+		warnx("Malformed .hash section");
+		return;
+	}
+	if (dst.d_size != (nbucket + nchain + 2) * sizeof(uint64_t)) {
+		warnx("Malformed .hash section");
+		return;
+	}
+	bucket = &buf[2];
+	chain = &buf[2 + nbucket];
+
+	if (ed->options & ED_SOLARIS) {
+		maxl = 0;
+		if ((bl = calloc(nbucket, sizeof(*bl))) == NULL) {
+			warn("calloc failed");
+			return;
+		}
+		for (i = 0; (uint64_t)i < nbucket; i++)
+			for (j = bucket[i]; j > 0 && (uint64_t)j < nchain;
+			     j = chain[j])
+				if (++bl[i] > maxl)
+					maxl = bl[i];
+		if ((c = calloc(maxl + 1, sizeof(*c))) == NULL) {
+			warn("calloc failed");
+			free(bl);
+			return;
+		}
+		for (i = 0; (uint64_t)i < nbucket; i++)
+			c[bl[i]]++;
+		PRT("    bucket    symndx    name\n");
+		for (i = 0; (uint64_t)i < nbucket; i++) {
+			first = 1;
+			for (j = bucket[i]; j > 0 && (uint64_t)j < nchain;
+			     j = chain[j]) {
+				if (first) {
+					PRT("%10d  ", i);
+					first = 0;
+				} else
+					PRT("            ");
+				snprintf(idx, sizeof(idx), "[%d]", j);
+				PRT("%-10s  ", idx);
+				PRT("%s\n", get_symbol_name(ed, s->link, j));
+			}
+		}
+		PRT("\n");
+		total = 0;
+		for (i = 0; (uint64_t)i <= maxl; i++) {
+			total += c[i] * i;
+			PRT("%10ju  buckets contain %8d symbols\n",
+			    (uintmax_t)c[i], i);
+		}
+		PRT("%10ju  buckets         %8ju symbols (globals)\n",
+		    (uintmax_t)nbucket, (uintmax_t)total);
+	} else {
+		PRT("\nnbucket:\n\t%ju\n", (uintmax_t)nbucket);
+		PRT("\nnchain:\n\t%ju\n\n", (uintmax_t)nchain);
+		for (i = 0; (uint64_t)i < nbucket; i++)
+			PRT("bucket[%d]:\n\t%ju\n\n", i, (uintmax_t)bucket[i]);
+		for (i = 0; (uint64_t)i < nchain; i++)
+			PRT("chain[%d]:\n\t%ju\n\n", i, (uintmax_t)chain[i]);
+	}
+
 }
 
 static void
