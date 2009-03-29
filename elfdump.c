@@ -60,8 +60,9 @@ __FBSDID("$FreeBSD: src/usr.bin/elfdump/elfdump.c,v 1.14 2006/01/28 17:58:22 mar
 #define	ED_REL		(1<<7)
 #define	ED_SHDR		(1<<8)
 #define	ED_SYMTAB	(1<<9)
-#define	ED_ALL		((1<<10)-1)
-#define ED_SOLARIS	(1<<10)
+#define ED_CHECKSUM	(1<<10)
+#define	ED_ALL		((1<<11)-1)
+#define ED_SOLARIS	(1<<11)
 
 /*
  * elfdump(1) run control flags.
@@ -701,6 +702,7 @@ static void	elf_print_reloc(struct elfdump *ed);
 static void	elf_print_got(struct elfdump *ed);
 static void	elf_print_note(struct elfdump *ed);
 static void	elf_print_hash(struct elfdump *ed);
+static void	elf_print_checksum(struct elfdump *ed);
 static void	find_gotrel(struct elfdump *ed, struct section *gs,
     struct rel_entry *got);
 static const char *get_symbol_name(struct elfdump *ed, int symtab,
@@ -722,7 +724,7 @@ main(int ac, char **av)
 	memset(ed, 0, sizeof(*ed));
 
 	ed->out = stdout;
-	while ((ch = getopt(ac, av, "acdeiGhnprsSw:")) != -1)
+	while ((ch = getopt(ac, av, "acdeiGhknprsSw:")) != -1)
 		switch (ch) {
 		case 'a':
 			ed->options = ED_ALL;
@@ -744,6 +746,9 @@ main(int ac, char **av)
 			break;
 		case 'h':
 			ed->options |= ED_HASH;
+			break;
+		case 'k':
+			ed->options |= ED_CHECKSUM;
 			break;
 		case 'n':
 			ed->options |= ED_NOTE;
@@ -964,6 +969,8 @@ elf_print_elf(struct elfdump *ed)
 		elf_print_note(ed);
 	if (ed->options & ED_HASH)
 		elf_print_hash(ed);
+	if (ed->options & ED_CHECKSUM)
+		elf_print_checksum(ed);
 }
 
 static void
@@ -1769,9 +1776,16 @@ elf_print_hash(struct elfdump *ed)
 }
 
 static void
+elf_print_checksum(struct elfdump *ed)
+{
+
+	PRT("\nelf checksum: %#lx\n", gelf_checksum(ed->elf));
+}
+
+static void
 usage(void)
 {
-	fprintf(stderr, "usage: elfdump [-a | -cdeGhinprs] [-N name] [-S] "
+	fprintf(stderr, "usage: elfdump [-a | -cdeGhiknprs] [-N name] [-S] "
 	    "[-w file] file...\n");
 	exit(1);
 }
