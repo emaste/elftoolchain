@@ -60,9 +60,10 @@ __FBSDID("$FreeBSD: src/usr.bin/elfdump/elfdump.c,v 1.14 2006/01/28 17:58:22 mar
 #define	ED_REL		(1<<7)
 #define	ED_SHDR		(1<<8)
 #define	ED_SYMTAB	(1<<9)
-#define ED_CHECKSUM	(1<<10)
-#define	ED_ALL		((1<<11)-1)
-#define ED_SOLARIS	(1<<11)
+#define	ED_SYMVER	(1<<10)
+#define	ED_CHECKSUM	(1<<11)
+#define	ED_ALL		((1<<12)-1)
+#define	ED_SOLARIS	(1<<12)
 
 /*
  * elfdump(1) run control flags.
@@ -690,6 +691,9 @@ static void	elf_print_phdr(struct elfdump *ed);
 static void	elf_print_shdr(struct elfdump *ed);
 static void	elf_print_symtab(struct elfdump *ed, int i);
 static void	elf_print_symtabs(struct elfdump *ed);
+static void	elf_print_symver(struct elfdump *ed);
+static void	elf_print_verdef(struct elfdump *ed, struct section *s);
+static void	elf_print_verneed(struct elfdump *ed, struct section *s);
 static void	elf_print_interp(struct elfdump *ed);
 static void	elf_print_dynamic(struct elfdump *ed);
 static void	elf_print_rel_entry(struct elfdump *ed, struct section *s,
@@ -706,8 +710,8 @@ static void	elf_print_hash_64(struct elfdump *ed, struct section *s);
 static void	elf_print_checksum(struct elfdump *ed);
 static void	find_gotrel(struct elfdump *ed, struct section *gs,
     struct rel_entry *got);
-static const char *get_symbol_name(struct elfdump *ed, int symtab,
-    unsigned int i);
+static const char *get_symbol_name(struct elfdump *ed, int symtab, int i);
+static const char *get_string_name(struct elfdump *ed, int strtab, size_t off);
 static void	load_sections(struct elfdump *ed);
 static void	usage(void);
 #ifdef USE_LIBARCHIVE_AR
@@ -725,7 +729,7 @@ main(int ac, char **av)
 	memset(ed, 0, sizeof(*ed));
 
 	ed->out = stdout;
-	while ((ch = getopt(ac, av, "acdeiGhknprsSw:")) != -1)
+	while ((ch = getopt(ac, av, "acdeiGhknprsSvw:")) != -1)
 		switch (ch) {
 		case 'a':
 			ed->options = ED_ALL;
@@ -765,6 +769,9 @@ main(int ac, char **av)
 			break;
 		case 'S':
 			ed->options |= ED_SOLARIS;
+			break;
+		case 'v':
+			ed->options |= ED_SYMVER;
 			break;
 		case 'w':
 			if ((ed->out = fopen(optarg, "w")) == NULL)
@@ -966,6 +973,8 @@ elf_print_elf(struct elfdump *ed)
 		elf_print_got(ed);
 	if (ed->options & ED_SYMTAB)
 		elf_print_symtabs(ed);
+	if (ed->options & ED_SYMVER)
+		elf_print_symver(ed);
 	if (ed->options & ED_NOTE)
 		elf_print_note(ed);
 	if (ed->options & ED_HASH)
@@ -1051,7 +1060,7 @@ load_sections(struct elfdump *ed)
 }
 
 static const char *
-get_symbol_name(struct elfdump *ed, int symtab, unsigned int i)
+get_symbol_name(struct elfdump *ed, int symtab, int i)
 {
 	struct section	*s;
 	const char	*name;
@@ -1072,6 +1081,17 @@ get_symbol_name(struct elfdump *ed, int symtab, unsigned int i)
 	if (gelf_getsym(data, i, &sym) != &sym)
 		return ("");
 	if ((name = elf_strptr(ed->elf, s->link, sym.st_name)) == NULL)
+		return ("");
+
+	return (name);
+}
+
+static const char*
+get_string_name(struct elfdump *ed, int strtab, size_t off)
+{
+	const char *name;
+
+	if ((name = elf_strptr(ed->elf, strtab, off)) == NULL)
 		return ("");
 
 	return (name);
@@ -1910,6 +1930,121 @@ elf_print_hash_64(struct elfdump *ed, struct section *s)
 			PRT("chain[%d]:\n\t%ju\n\n", i, (uintmax_t)chain[i]);
 	}
 
+}
+
+static void
+elf_print_verdef(struct elfdump *ed, struct section *s)
+{
+	Elf_Data	*data;
+	Elf32_Verdef	*vd;
+	Elf32_Verdaux	*vda;
+	uint8_t		*buf, *end, *buf2;
+	int		 i, j, elferr;
+
+	PRT("\nversion definition section (%s):\n", s->name);
+	(void) elf_errno();
+	if ((data = elf_getdata(s->scn, NULL)) == NULL) {
+		elferr = elf_errno();
+		if (elferr != 0)
+			warnx("elf_getdata failed: %s",
+			    elf_errmsg(elferr));
+		return;
+	}
+	buf = data->d_buf;
+	end = buf + data->d_size;
+	i = 0;
+	while (buf + sizeof(Elf32_Verdef) <= end) {
+		vd = (Elf32_Verdef *) (uintptr_t) buf;
+		PRT("\nentry: %d\n", i++);
+		PRT("\tvd_version: %u\n", vd->vd_version);
+		PRT("\tvd_flags: %u\n", vd->vd_flags);
+		PRT("\tvd_ndx: %u\n", vd->vd_ndx);
+		PRT("\tvd_cnt: %u\n", vd->vd_cnt);
+		PRT("\tvd_hash: %u\n", vd->vd_hash);
+		PRT("\tvd_aux: %u\n", vd->vd_aux);
+		PRT("\tvd_next: %u\n\n", vd->vd_next);
+		buf2 = buf + vd->vd_aux;
+		j = 0;
+		while (buf2 + sizeof(Elf32_Verdaux) <= end && j < vd->vd_cnt) {
+			vda = (Elf32_Verdaux *) (uintptr_t) buf2;
+			PRT("\t\tvda: %d\n", j++);
+			PRT("\t\t\tvda_name: %s\n",
+			    get_string_name(ed, s->link, vda->vda_name));
+			PRT("\t\t\tvda_next: %u\n", vda->vda_next);
+			if (vda->vda_next == 0)
+				break;
+			buf2 += vda->vda_next;
+		}
+		if (vd->vd_next == 0)
+			break;
+		buf += vd->vd_next;
+	}
+}
+
+static void
+elf_print_verneed(struct elfdump *ed, struct section *s)
+{
+	Elf_Data	*data;
+	Elf32_Verneed	*vn;
+	Elf32_Vernaux	*vna;
+	uint8_t		*buf, *end, *buf2;
+	int		 i, j, elferr;
+
+	PRT("\nversion need section (%s):\n", s->name);
+	(void) elf_errno();
+	if ((data = elf_getdata(s->scn, NULL)) == NULL) {
+		elferr = elf_errno();
+		if (elferr != 0)
+			warnx("elf_getdata failed: %s",
+			    elf_errmsg(elferr));
+		return;
+	}
+	buf = data->d_buf;
+	end = buf + data->d_size;
+	i = 0;
+	while (buf + sizeof(Elf32_Verneed) <= end) {
+		vn = (Elf32_Verneed *) (uintptr_t) buf;
+		PRT("\nentry: %d\n", i++);
+		PRT("\tvn_version: %u\n", vn->vn_version);
+		PRT("\tvn_cnt: %u\n", vn->vn_cnt);
+		PRT("\tvn_file: %s\n",
+		    get_string_name(ed, s->link, vn->vn_file));
+		PRT("\tvn_aux: %u\n", vn->vn_aux);
+		PRT("\tvn_next: %u\n\n", vn->vn_next);
+		buf2 = buf + vn->vn_aux;
+		j = 0;
+		while (buf2 + sizeof(Elf32_Vernaux) <= end && j < vn->vn_cnt) {
+			vna = (Elf32_Vernaux *) (uintptr_t) buf2;
+			PRT("\t\tvna: %d\n", j++);
+			PRT("\t\t\tvna_hash: %u\n", vna->vna_hash);
+			PRT("\t\t\tvna_flags: %u\n", vna->vna_flags);
+			PRT("\t\t\tvna_other: %u\n", vna->vna_other);
+			PRT("\t\t\tvna_name: %s\n",
+			    get_string_name(ed, s->link, vna->vna_name));
+			PRT("\t\t\tvna_next: %u\n", vna->vna_next);
+			if (vna->vna_next == 0)
+				break;
+			buf2 += vna->vna_next;
+		}
+		if (vn->vn_next == 0)
+			break;
+		buf += vn->vn_next;
+	}
+}
+
+static void
+elf_print_symver(struct elfdump *ed)
+{
+	struct section	*s;
+	int		 i;
+
+	for (i = 0; (size_t)i < ed->shnum; i++) {
+		s = &ed->sl[i];
+		if (s->type == SHT_GNU_verdef)
+			elf_print_verdef(ed, s);
+		if (s->type == SHT_GNU_verneed)
+			elf_print_verneed(ed, s);
+	}
 }
 
 static void
