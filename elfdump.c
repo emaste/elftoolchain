@@ -1938,10 +1938,15 @@ elf_print_verdef(struct elfdump *ed, struct section *s)
 	Elf_Data	*data;
 	Elf32_Verdef	*vd;
 	Elf32_Verdaux	*vda;
+	const char 	*str;
+	char		 idx[10];
 	uint8_t		*buf, *end, *buf2;
-	int		 i, j, elferr;
+	int		 i, j, elferr, count;
 
-	PRT("\nversion definition section (%s):\n", s->name);
+	if (ed->options & ED_SOLARIS)
+		PRT("Version Definition Section:  %s\n", s->name);
+	else
+		PRT("\nversion definition section (%s):\n", s->name);
 	(void) elf_errno();
 	if ((data = elf_getdata(s->scn, NULL)) == NULL) {
 		elferr = elf_errno();
@@ -1953,26 +1958,56 @@ elf_print_verdef(struct elfdump *ed, struct section *s)
 	buf = data->d_buf;
 	end = buf + data->d_size;
 	i = 0;
+	if (ed->options & ED_SOLARIS)
+		PRT("     index  version                     dependency\n");
 	while (buf + sizeof(Elf32_Verdef) <= end) {
 		vd = (Elf32_Verdef *) (uintptr_t) buf;
-		PRT("\nentry: %d\n", i++);
-		PRT("\tvd_version: %u\n", vd->vd_version);
-		PRT("\tvd_flags: %u\n", vd->vd_flags);
-		PRT("\tvd_ndx: %u\n", vd->vd_ndx);
-		PRT("\tvd_cnt: %u\n", vd->vd_cnt);
-		PRT("\tvd_hash: %u\n", vd->vd_hash);
-		PRT("\tvd_aux: %u\n", vd->vd_aux);
-		PRT("\tvd_next: %u\n\n", vd->vd_next);
+		if (ed->options & ED_SOLARIS) {
+			snprintf(idx, sizeof(idx), "[%d]", vd->vd_ndx);
+			PRT("%10s  ", idx);
+		} else {
+			PRT("\nentry: %d\n", i++);
+			PRT("\tvd_version: %u\n", vd->vd_version);
+			PRT("\tvd_flags: %u\n", vd->vd_flags);
+			PRT("\tvd_ndx: %u\n", vd->vd_ndx);
+			PRT("\tvd_cnt: %u\n", vd->vd_cnt);
+			PRT("\tvd_hash: %u\n", vd->vd_hash);
+			PRT("\tvd_aux: %u\n", vd->vd_aux);
+			PRT("\tvd_next: %u\n\n", vd->vd_next);
+		}
 		buf2 = buf + vd->vd_aux;
 		j = 0;
+		count = 0;
 		while (buf2 + sizeof(Elf32_Verdaux) <= end && j < vd->vd_cnt) {
 			vda = (Elf32_Verdaux *) (uintptr_t) buf2;
-			PRT("\t\tvda: %d\n", j++);
-			PRT("\t\t\tvda_name: %s\n",
-			    get_string_name(ed, s->link, vda->vda_name));
-			PRT("\t\t\tvda_next: %u\n", vda->vda_next);
-			if (vda->vda_next == 0)
+			str = get_string_name(ed, s->link, vda->vda_name);
+			if (ed->options & ED_SOLARIS) {
+				if (count == 0)
+					PRT("%-26.26s", str);
+				else if (count == 1)
+					PRT("  %-20.20s", str);
+				else {
+					PRT("\n%40.40s", "");
+					PRT("%s", str);
+				}
+			} else {
+				PRT("\t\tvda: %d\n", j++);
+				PRT("\t\t\tvda_name: %s\n", str);
+				PRT("\t\t\tvda_next: %u\n", vda->vda_next);
+			}
+			if (vda->vda_next == 0) {
+				if (ed->options & ED_SOLARIS) {
+					if (vd->vd_flags & VER_FLG_BASE) {
+						if (count == 0)
+							PRT("%-20.20s", "");
+						PRT("%s", "[ BASE ]");
+					}
+					PRT("\n");
+				}
 				break;
+			}
+			if (ed->options & ED_SOLARIS)
+				count++;
 			buf2 += vda->vda_next;
 		}
 		if (vd->vd_next == 0)
@@ -1988,9 +2023,12 @@ elf_print_verneed(struct elfdump *ed, struct section *s)
 	Elf32_Verneed	*vn;
 	Elf32_Vernaux	*vna;
 	uint8_t		*buf, *end, *buf2;
-	int		 i, j, elferr;
+	int		 i, j, elferr, first;
 
-	PRT("\nversion need section (%s):\n", s->name);
+	if (ed->options & ED_SOLARIS)
+		PRT("\nVersion Needed Section:  %s\n", s->name);
+	else
+		PRT("\nversion need section (%s):\n", s->name);
 	(void) elf_errno();
 	if ((data = elf_getdata(s->scn, NULL)) == NULL) {
 		elferr = elf_errno();
@@ -2002,26 +2040,44 @@ elf_print_verneed(struct elfdump *ed, struct section *s)
 	buf = data->d_buf;
 	end = buf + data->d_size;
 	i = 0;
+	if (ed->options & ED_SOLARIS)
+		PRT("            file                        version\n");
 	while (buf + sizeof(Elf32_Verneed) <= end) {
 		vn = (Elf32_Verneed *) (uintptr_t) buf;
-		PRT("\nentry: %d\n", i++);
-		PRT("\tvn_version: %u\n", vn->vn_version);
-		PRT("\tvn_cnt: %u\n", vn->vn_cnt);
-		PRT("\tvn_file: %s\n",
-		    get_string_name(ed, s->link, vn->vn_file));
-		PRT("\tvn_aux: %u\n", vn->vn_aux);
-		PRT("\tvn_next: %u\n\n", vn->vn_next);
+		if (ed->options & ED_SOLARIS)
+			PRT("            %-26.26s  ",
+			    get_string_name(ed, s->link, vn->vn_file));
+		else {
+			PRT("\nentry: %d\n", i++);
+			PRT("\tvn_version: %u\n", vn->vn_version);
+			PRT("\tvn_cnt: %u\n", vn->vn_cnt);
+			PRT("\tvn_file: %s\n",
+			    get_string_name(ed, s->link, vn->vn_file));
+			PRT("\tvn_aux: %u\n", vn->vn_aux);
+			PRT("\tvn_next: %u\n\n", vn->vn_next);
+		}
 		buf2 = buf + vn->vn_aux;
 		j = 0;
+		first = 1;
 		while (buf2 + sizeof(Elf32_Vernaux) <= end && j < vn->vn_cnt) {
 			vna = (Elf32_Vernaux *) (uintptr_t) buf2;
-			PRT("\t\tvna: %d\n", j++);
-			PRT("\t\t\tvna_hash: %u\n", vna->vna_hash);
-			PRT("\t\t\tvna_flags: %u\n", vna->vna_flags);
-			PRT("\t\t\tvna_other: %u\n", vna->vna_other);
-			PRT("\t\t\tvna_name: %s\n",
-			    get_string_name(ed, s->link, vna->vna_name));
-			PRT("\t\t\tvna_next: %u\n", vna->vna_next);
+			if (ed->options & ED_SOLARIS) {
+				if (!first)
+					PRT("%40.40s", "");
+				else
+					first = 0;
+				PRT("%s\n", get_string_name(ed, s->link,
+				    vna->vna_name));
+			} else {
+				PRT("\t\tvna: %d\n", j++);
+				PRT("\t\t\tvna_hash: %u\n", vna->vna_hash);
+				PRT("\t\t\tvna_flags: %u\n", vna->vna_flags);
+				PRT("\t\t\tvna_other: %u\n", vna->vna_other);
+				PRT("\t\t\tvna_name: %s\n",
+				    get_string_name(ed, s->link,
+					vna->vna_name));
+				PRT("\t\t\tvna_next: %u\n", vna->vna_next);
+			}
 			if (vna->vna_next == 0)
 				break;
 			buf2 += vna->vna_next;
@@ -2057,7 +2113,7 @@ elf_print_checksum(struct elfdump *ed)
 static void
 usage(void)
 {
-	fprintf(stderr, "usage: elfdump [-a | -cdeGhiknprs] [-N name] [-S] "
+	fprintf(stderr, "usage: elfdump [-a | -cdeGhiknprsv] [-N name] [-S] "
 	    "[-w file] file...\n");
 	exit(1);
 }
