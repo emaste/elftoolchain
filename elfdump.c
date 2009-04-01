@@ -66,7 +66,8 @@ ELFDUMP_VCSID("$Id$");
 /* elfdump(1) run control flags. */
 #define	SOLARIS_FMT		(1<<0)
 #define	PRINT_FILENAME		(1<<1)
-#define	SECTIONS_LOADED		(1<<2)
+#define	PRINT_ARSYM		(1<<2)
+#define	SECTIONS_LOADED		(1<<3)
 
 /* Convenient print macro. */
 #define	PRT(...)	fprintf(ed->out, __VA_ARGS__)
@@ -788,7 +789,10 @@ main(int ac, char **av)
 			ed->options |= ED_NOTE;
 			break;
 		case 'N':
-			add_specific_name(ed, optarg);
+			if (!strcmp(optarg, "ARSYM"))
+				ed->flags |= PRINT_ARSYM;
+			else
+				add_specific_name(ed, optarg);
 			break;
 		case 'p':
 			ed->options |= ED_PHDR;
@@ -878,90 +882,17 @@ ac_detect_ar(int fd)
 }
 
 static void
-ac_print_arsym(struct elfdump *ed, int fd)
-{
-	struct archive		*a;
-	struct archive_entry	*entry;
-	struct arsym_entry	*arsym;
-	const char		*name, *b;
-	void			*buff;
-	uint32_t		 cnt;
-	size_t			 size, off;
-	int			 i, r;
-
-	if (lseek(fd, 0, SEEK_SET) == -1)
-		err(EX_IOERR, "lseek failed");
-	if ((a = archive_read_new()) == NULL)
-		errx(EX_SOFTWARE, "%s", archive_error_string(a));
-	archive_read_support_compression_all(a);
-	archive_read_support_format_ar(a);
-	AC(archive_read_open_fd(a, fd, 10240));
-	cnt = 0;
-	size = 0;
-	arsym = NULL;
-	for(off = 8; ; off += sizeof(Elf_Arhdr) + size) {
-		r = archive_read_next_header(a, &entry);
-		if (r == ARCHIVE_FATAL)
-			errx(EX_DATAERR, "%s", archive_error_string(a));
-		if (r == ARCHIVE_EOF)
-			break;
-		if (r == ARCHIVE_WARN || r == ARCHIVE_RETRY)
-			warnx("%s", archive_error_string(a));
-		if (r == ARCHIVE_RETRY)
-			continue;
-		name = archive_entry_pathname(entry);
-		size = archive_entry_size(entry);
-		if (!strcmp(name, "/")) {
-			if (size == 0)
-				continue;
-			if ((buff = malloc(size)) == NULL)
-				err(EX_SOFTWARE, "malloc failed");
-			if (archive_read_data(a, buff, size) != (ssize_t)size) {
-				warnx("%s", archive_error_string(a));
-				free(buff);
-				continue;
-			}
-			b = buff;
-			cnt = be32dec(b);
-			arsym = calloc(cnt, sizeof(*arsym));
-			if (arsym == NULL)
-				err(EX_SOFTWARE, "calloc failed");
-			b += sizeof(uint32_t);
-			for (i = 0; (size_t)i < cnt; i++) {
-				arsym[i].off = be32dec(b);
-				b += sizeof(uint32_t);
-			}
-			for (i = 0; (size_t)i < cnt; i++) {
-				arsym[i].sym_name = strdup(b);
-				if (arsym[i].sym_name == NULL)
-					err(EX_SOFTWARE, "strdup failed");
-				b += strlen(b) + 1;
-			}
-		} else {
-			if (cnt == 0)
-				continue;
-			for (i = 0; (size_t)i < cnt; i++)
-				if (arsym[i].off == off) {
-					arsym[i].mem_name = strdup(name);
-					if (arsym[i].mem_name == NULL)
-						err(EX_SOFTWARE,
-						    "strdup failed");
-				}
-		}
-	}
-
-	(void) ed;
-}
-
-static void
 ac_print_ar(struct elfdump *ed, int fd)
 {
 	struct archive		*a;
 	struct archive_entry	*entry;
+	struct arsym_entry	*arsym;
 	const char		*name;
+	char			 idx[10], *b;
 	void			*buff;
 	size_t			 size;
-	int			 r;
+	uint32_t		 cnt;
+	int			 i, r;
 
 	if (lseek(fd, 0, SEEK_SET) == -1)
 		err(EX_IOERR, "lseek failed");
@@ -980,13 +911,7 @@ ac_print_ar(struct elfdump *ed, int fd)
 			warnx("%s", archive_error_string(a));
 		if (r == ARCHIVE_RETRY)
 			continue;
-
 		name = archive_entry_pathname(entry);
-
-		/* skip pseudo members. */
-		if (!strcmp(name, "/") || !strcmp(name, "//"))
-			continue;
-
 		size = archive_entry_size(entry);
 		if (size == 0)
 			continue;
@@ -997,6 +922,56 @@ ac_print_ar(struct elfdump *ed, int fd)
 		if (archive_read_data(a, buff, size) != (ssize_t)size) {
 			warnx("%s", archive_error_string(a));
 			free(buff);
+			continue;
+		}
+		if (!strcmp(name, "/") && ed->flags & PRINT_ARSYM) {
+			b = buff;
+			cnt = be32dec(b);
+			if (cnt == 0) {
+				free(buff);
+				continue;
+			}
+			arsym = calloc(cnt, sizeof(*arsym));
+			if (arsym == NULL)
+				err(EX_SOFTWARE, "calloc failed");
+			b += sizeof(uint32_t);
+			for (i = 0; (size_t)i < cnt; i++) {
+				arsym[i].off = be32dec(b);
+				b += sizeof(uint32_t);
+			}
+			for (i = 0; (size_t)i < cnt; i++) {
+				arsym[i].sym_name = b;
+				b += strlen(b) + 1;
+			}
+			if (ed->flags & SOLARIS_FMT) {
+				PRT("\nSymbol Table: (archive)\n");
+				PRT("     index    offset    symbol\n");
+			} else
+				PRT("\nsymbol table (archive):\n");
+			for (i = 0; (size_t)i < cnt; i++) {
+				if (ed->flags & SOLARIS_FMT) {
+					snprintf(idx, sizeof(idx), "[%d]", i);
+					PRT("%10s  ", idx);
+					PRT("0x%8.8jx  ",
+					    (uintmax_t)arsym[i].off);
+					PRT("%s\n", arsym[i].sym_name);
+				} else {
+					PRT("\nentry: %d\n", i);
+					PRT("\toffset: %#jx\n",
+					    (uintmax_t)arsym[i].off);
+					PRT("\tsymbol: %s\n",
+					    arsym[i].sym_name);
+				}
+			}
+			free(arsym);
+			free(buff);
+			/* No need to continue if we only dump ARSYM. */
+			if (ed->options == ED_SYMTAB &&
+			    STAILQ_EMPTY(&ed->snl)) {
+				AC(archive_read_close(a));
+				AC(archive_read_finish(a));
+				return;
+			}
 			continue;
 		}
 		if ((ed->elf = elf_memory(buff, size)) == NULL) {
@@ -1482,21 +1457,10 @@ elf_print_symtab(struct elfdump *ed, int i)
 static void
 elf_print_symtabs(struct elfdump *ed)
 {
-	int i, fd;
+	int i;
 
 	if ((ed->flags & SECTIONS_LOADED) == 0 || ed->shnum == 0)
 		return;
-
-	if (ed->archive != NULL &&
-	    (STAILQ_EMPTY(&ed->snl) || find_specific_name(ed, "ARSYM"))) {
-		if ((fd = open(ed->filename, O_RDONLY)) == -1) {
-			warn("open %s failed", ed->filename);
-			return;
-		}
-#ifdef	USE_LIBARCHIVE_AR
-		ac_print_arsym(ed, fd);
-#endif
-	}
 
 	for (i = 0; (size_t)i < ed->shnum; i++)
 		if ((ed->sl[i].type == SHT_SYMTAB ||
