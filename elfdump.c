@@ -252,6 +252,21 @@ static const char *p_flags[] = {
 	"PF_X|PF_W|PF_R"
 };
 
+static const char *
+sh_name(struct elfdump *ed, int ndx)
+{
+	switch (ndx) {
+	case SHN_UNDEF: return "UNDEF";
+	case SHN_ABS: return "ABS";
+	case SHN_COMMON: return "COM";
+	default:
+		if ((uint64_t)ndx < ed->shnum)
+			return (ed->sl[ndx].name);
+		else
+			return "UNKNOWN";
+	}
+}
+
 /* http://www.sco.com/developers/gabi/latest/ch4.sheader.html#sh_type */
 static const char *
 sh_types(u_int64_t sht) {
@@ -300,8 +315,20 @@ static const char *st_types[] = {
 	"STT_NOTYPE", "STT_OBJECT", "STT_FUNC", "STT_SECTION", "STT_FILE"
 };
 
+static const char *st_types_S[] = {
+	"NOTY", "OBJT", "FUNC", "SECT", "FILE"
+};
+
 static const char *st_bindings[] = {
 	"STB_LOCAL", "STB_GLOBAL", "STB_WEAK"
+};
+
+static const char *st_bindings_S[] = {
+	"LOCL", "GLOB", "WEAK"
+};
+
+static unsigned char st_others[] = {
+	'D', 'I', 'H', 'P'
 };
 
 static const char *
@@ -1234,17 +1261,50 @@ elf_print_shdr(struct elfdump *ed)
 }
 
 static void
+get_versym(struct elfdump *ed, uint16_t **vs, int *nvs)
+{
+	struct section	*s;
+	Elf_Data	*data;
+	int		 i, elferr;
+
+	for (i = 0; (size_t)i < ed->shnum; i++) {
+		s = &ed->sl[i];
+		if (s->type == SHT_GNU_versym)
+			break;
+	}
+	if ((size_t)i >= ed->shnum) {
+		*vs = NULL;
+		return;
+	}
+	(void) elf_errno();
+	if ((data = elf_getdata(s->scn, NULL)) == NULL) {
+		elferr = elf_errno();
+		if (elferr != 0)
+			warnx("elf_getdata failed: %s", elf_errmsg(elferr));
+		*vs = NULL;
+		return;
+	}
+
+	*vs = data->d_buf;
+	*nvs = data->d_size / s->entsize;
+}
+
+static void
 elf_print_symtab(struct elfdump *ed, int i)
 {
 	struct section	*s;
 	const char	*name;
+	uint16_t	*vs;
+	char		 idx[10];
 	Elf_Data	*data;
 	GElf_Sym	 sym;
-	int		 len, j, strndx, elferr;
+	int		 len, j, elferr, nvs;
 
 	s = &ed->sl[i];
-	strndx = s->link;
-	PRT("\nsymbol table (%s):\n", s->name);
+	if (ed->options & ED_SOLARIS)
+		PRT("\nSymbol Table Section:  %s\n", s->name);
+	else
+		PRT("\nsymbol table (%s):\n", s->name);
 	(void) elf_errno();
 	if ((data = elf_getdata(s->scn, NULL)) == NULL) {
 		elferr = elf_errno();
@@ -1253,24 +1313,51 @@ elf_print_symtab(struct elfdump *ed, int i)
 		return;
 	}
 
+	vs = NULL;
+	nvs = 0;
 	len = data->d_size / s->entsize;
+	if (ed->options & ED_SOLARIS) {
+		if (ed->ec == ELFCLASS32)
+			PRT("     index        value       ");
+		else
+			PRT("     index        value           ");
+		PRT("size     type bind oth ver shndx       name\n");
+		get_versym(ed, &vs, &nvs);
+		if (vs != NULL && nvs != len) {
+			warnx("#symbol not equal to #versym");
+			vs = NULL;
+		}
+	}
 	for (j = 0; j < len; j++) {
 		if (gelf_getsym(data, j, &sym) != &sym) {
 			warnx("gelf_getsym failed: %s", elf_errmsg(-1));
 			continue;
 		}
-		if ((name = elf_strptr(ed->elf, strndx, sym.st_name)) ==
-		    NULL)
-			name = "";
-		PRT("\n");
-		PRT("entry: %d\n", j);
-		PRT("\tst_name: %s\n", name);
-		PRT("\tst_value: %#jx\n", sym.st_value);
-		PRT("\tst_size: %ju\n", (uintmax_t)sym.st_size);
-		PRT("\tst_info: %s %s\n",
-		    st_types[GELF_ST_TYPE(sym.st_info)],
-		    st_bindings[GELF_ST_BIND(sym.st_info)]);
-		PRT("\tst_shndx: %ju\n", (uintmax_t)sym.st_shndx);
+		name = get_string_name(ed, s->link, sym.st_name);
+		if (ed->options & ED_SOLARIS) {
+			snprintf(idx, sizeof(idx), "[%d]", j);
+			PRT("%10s      ", idx);
+			PRT("0x%8.8jx ", (uintmax_t)sym.st_value);
+			if (ed->ec == ELFCLASS32)
+				PRT("0x%8.8jx  ", (uintmax_t)sym.st_size);
+			else
+				PRT("0x%12.12jx  ", (uintmax_t)sym.st_size);
+			PRT("%s ", st_types_S[GELF_ST_TYPE(sym.st_info)]);
+			PRT("%s  ", st_bindings_S[GELF_ST_BIND(sym.st_info)]);
+			PRT("%c  ", st_others[sym.st_other]);
+			PRT("%3u ", (vs == NULL ? 0 : vs[j]));
+			PRT("%-11.11s ", sh_name(ed, sym.st_shndx));
+			PRT("%s\n", name);
+		} else {
+			PRT("\nentry: %d\n", j);
+			PRT("\tst_name: %s\n", name);
+			PRT("\tst_value: %#jx\n", (uintmax_t)sym.st_value);
+			PRT("\tst_size: %ju\n", (uintmax_t)sym.st_size);
+			PRT("\tst_info: %s %s\n",
+			    st_types[GELF_ST_TYPE(sym.st_info)],
+			    st_bindings[GELF_ST_BIND(sym.st_info)]);
+			PRT("\tst_shndx: %ju\n", (uintmax_t)sym.st_shndx);
+		}
 	}
 }
 
