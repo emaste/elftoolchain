@@ -46,11 +46,9 @@
 
 #include "config.h"
 
-ELFDUMP_VCSID("$Id");
+ELFDUMP_VCSID("$Id$");
 
-/*
- * elfdump(1) options.
- */
+/* elfdump(1) options. */
 #define	ED_DYN		(1<<0)
 #define	ED_EHDR		(1<<1)
 #define	ED_GOT		(1<<2)
@@ -64,20 +62,16 @@ ELFDUMP_VCSID("$Id");
 #define	ED_SYMVER	(1<<10)
 #define	ED_CHECKSUM	(1<<11)
 #define	ED_ALL		((1<<12)-1)
-#define	ED_SOLARIS	(1<<12)
 
-/*
- * elfdump(1) run control flags.
- */
-#define	DISPLAY_FILENAME	0x0001
-#define	SECTIONS_LOADED		0x0002
+/* elfdump(1) run control flags. */
+#define	SOLARIS_FMT		(1<<0)
+#define	PRINT_FILENAME		(1<<1)
+#define	SECTIONS_LOADED		(1<<2)
 
 /* Convenient print macro. */
 #define	PRT(...)	fprintf(ed->out, __VA_ARGS__)
 
-/*
- * Internal data structure for sections.
- */
+/* Internal data structure for sections. */
 struct section {
 	const char	*name;		/* section name */
 	Elf_Scn		*scn;		/* section scn */
@@ -92,9 +86,12 @@ struct section {
 	uint32_t	 info;		/* section info ndx */
 };
 
-/*
- * Structure encapsulates the global data for readelf(1).
- */
+struct spec_name {
+	const char	*name;
+	STAILQ_ENTRY(spec_name)	sn_list;
+};
+
+/* Structure encapsulates the global data for readelf(1). */
 struct elfdump {
 	FILE		*out;		/* output redirection. */
 	const char	*filename;	/* current processing file. */
@@ -106,6 +103,7 @@ struct elfdump {
 	int		 ec;		/* ELF class. */
 	size_t		 shnum;		/* #sections. */
 	struct section	*sl;		/* list of sections. */
+	STAILQ_HEAD(, spec_name) snl;	/* list of names specified by -N. */
 };
 
 /* Relocation entry. */
@@ -712,6 +710,7 @@ r_type(unsigned int mach, unsigned int type)
 	}
 }
 
+static void	add_specific_name(struct elfdump *ed, const char *name);
 static void	elf_print_object(struct elfdump *ed);
 static void	elf_print_elf(struct elfdump *ed);
 static void	elf_print_ehdr(struct elfdump *ed);
@@ -738,8 +737,10 @@ static void	elf_print_hash_64(struct elfdump *ed, struct section *s);
 static void	elf_print_checksum(struct elfdump *ed);
 static void	find_gotrel(struct elfdump *ed, struct section *gs,
     struct rel_entry *got);
+static int	find_specific_name(struct elfdump *ed, const char *name);
 static const char *get_symbol_name(struct elfdump *ed, int symtab, int i);
 static const char *get_string_name(struct elfdump *ed, int strtab, size_t off);
+static void	get_versym(struct elfdump *ed, int i, uint16_t **vs, int *nvs);
 static void	load_sections(struct elfdump *ed);
 static void	usage(void);
 #ifdef USE_LIBARCHIVE_AR
@@ -755,9 +756,9 @@ main(int ac, char **av)
 
 	ed = &ed_storage;
 	memset(ed, 0, sizeof(*ed));
-
+	STAILQ_INIT(&ed->snl);
 	ed->out = stdout;
-	while ((ch = getopt(ac, av, "acdeiGhknprsSvw:")) != -1)
+	while ((ch = getopt(ac, av, "acdeiGhknN:prsSvw:")) != -1)
 		switch (ch) {
 		case 'a':
 			ed->options = ED_ALL;
@@ -786,6 +787,9 @@ main(int ac, char **av)
 		case 'n':
 			ed->options |= ED_NOTE;
 			break;
+		case 'N':
+			add_specific_name(ed, optarg);
+			break;
 		case 'p':
 			ed->options |= ED_PHDR;
 			break;
@@ -796,7 +800,7 @@ main(int ac, char **av)
 			ed->options |= ED_SYMTAB;
 			break;
 		case 'S':
-			ed->options |= ED_SOLARIS;
+			ed->flags |= SOLARIS_FMT;
 			break;
 		case 'v':
 			ed->options |= ED_SYMVER;
@@ -813,11 +817,14 @@ main(int ac, char **av)
 	ac -= optind;
 	av += optind;
 
+	if (ed->flags & SOLARIS_FMT && ed->options == 0)
+		ed->options = ED_ALL;
+
 	if (ac == 0 || ed->options == 0)
 		usage();
 
 	if (ac > 1)
-		ed->flags |= DISPLAY_FILENAME;
+		ed->flags |= PRINT_FILENAME;
 
 	if (elf_version(EV_CURRENT) == EV_NONE)
 		errx(EX_SOFTWARE, "ELF library initialization failed: %s",
@@ -834,6 +841,14 @@ main(int ac, char **av)
 }
 
 #ifdef USE_LIBARCHIVE_AR
+
+/* Archive symbol table entry. */
+struct arsym_entry {
+	char *sym_name;
+	char *mem_name;
+	size_t off;
+};
+
 /*
  * Convenient wrapper for general libarchive error handling.
  */
@@ -860,6 +875,82 @@ ac_detect_ar(int fd)
 	archive_read_finish(a);
 
 	return (r == ARCHIVE_OK);
+}
+
+static void
+ac_print_arsym(struct elfdump *ed, int fd)
+{
+	struct archive		*a;
+	struct archive_entry	*entry;
+	struct arsym_entry	*arsym;
+	const char		*name, *b;
+	void			*buff;
+	uint32_t		 cnt;
+	size_t			 size, off;
+	int			 i, r;
+
+	if (lseek(fd, 0, SEEK_SET) == -1)
+		err(EX_IOERR, "lseek failed");
+	if ((a = archive_read_new()) == NULL)
+		errx(EX_SOFTWARE, "%s", archive_error_string(a));
+	archive_read_support_compression_all(a);
+	archive_read_support_format_ar(a);
+	AC(archive_read_open_fd(a, fd, 10240));
+	cnt = 0;
+	size = 0;
+	arsym = NULL;
+	for(off = 8; ; off += sizeof(Elf_Arhdr) + size) {
+		r = archive_read_next_header(a, &entry);
+		if (r == ARCHIVE_FATAL)
+			errx(EX_DATAERR, "%s", archive_error_string(a));
+		if (r == ARCHIVE_EOF)
+			break;
+		if (r == ARCHIVE_WARN || r == ARCHIVE_RETRY)
+			warnx("%s", archive_error_string(a));
+		if (r == ARCHIVE_RETRY)
+			continue;
+		name = archive_entry_pathname(entry);
+		size = archive_entry_size(entry);
+		if (!strcmp(name, "/")) {
+			if (size == 0)
+				continue;
+			if ((buff = malloc(size)) == NULL)
+				err(EX_SOFTWARE, "malloc failed");
+			if (archive_read_data(a, buff, size) != (ssize_t)size) {
+				warnx("%s", archive_error_string(a));
+				free(buff);
+				continue;
+			}
+			b = buff;
+			cnt = be32dec(b);
+			arsym = calloc(cnt, sizeof(*arsym));
+			if (arsym == NULL)
+				err(EX_SOFTWARE, "calloc failed");
+			b += sizeof(uint32_t);
+			for (i = 0; (size_t)i < cnt; i++) {
+				arsym[i].off = be32dec(b);
+				b += sizeof(uint32_t);
+			}
+			for (i = 0; (size_t)i < cnt; i++) {
+				arsym[i].sym_name = strdup(b);
+				if (arsym[i].sym_name == NULL)
+					err(EX_SOFTWARE, "strdup failed");
+				b += strlen(b) + 1;
+			}
+		} else {
+			if (cnt == 0)
+				continue;
+			for (i = 0; (size_t)i < cnt; i++)
+				if (arsym[i].off == off) {
+					arsym[i].mem_name = strdup(name);
+					if (arsym[i].mem_name == NULL)
+						err(EX_SOFTWARE,
+						    "strdup failed");
+				}
+		}
+	}
+
+	(void) ed;
 }
 
 static void
@@ -892,31 +983,31 @@ ac_print_ar(struct elfdump *ed, int fd)
 
 		name = archive_entry_pathname(entry);
 
-		/* TODO: handle option '-c' here. */
-
 		/* skip pseudo members. */
-		if (strcmp(name, "/") == 0 || strcmp(name, "//") == 0)
+		if (!strcmp(name, "/") || !strcmp(name, "//"))
 			continue;
 
 		size = archive_entry_size(entry);
-		if (size > 0) {
-			if ((buff = malloc(size)) == NULL)
-				err(EX_SOFTWARE, "malloc failed");
-			if (archive_read_data(a, buff, size) != (ssize_t)size) {
-				warnx("%s", archive_error_string(a));
-				free(buff);
-				continue;
-			}
-			if ((ed->elf = elf_memory(buff, size)) == NULL) {
-				warnx("elf_memroy() failed: %s",
-				    elf_errmsg(-1));
-				free(buff);
-				continue;
-			}
-			printf("\n%s(%s):\n", ed->archive, name);
-			elf_print_elf(ed);
-			free(buff);
+		if (size == 0)
+			continue;
+		if ((buff = malloc(size)) == NULL) {
+			warn("malloc failed");
+			continue;
 		}
+		if (archive_read_data(a, buff, size) != (ssize_t)size) {
+			warnx("%s", archive_error_string(a));
+			free(buff);
+			continue;
+		}
+		if ((ed->elf = elf_memory(buff, size)) == NULL) {
+			warnx("elf_memroy() failed: %s",
+			      elf_errmsg(-1));
+			free(buff);
+			continue;
+		}
+		printf("\n%s(%s):\n", ed->archive, name);
+		elf_print_elf(ed);
+		free(buff);
 	}
 	AC(archive_read_close(a));
 	AC(archive_read_finish(a));
@@ -954,7 +1045,7 @@ elf_print_object(struct elfdump *ed)
 		warnx("Not an ELF file.");
 		return;
 	case ELF_K_ELF:
-		if ((ed->flags & DISPLAY_FILENAME) != 0)
+		if (ed->flags & PRINT_FILENAME)
 			printf("\n%s:\n", ed->filename);
 		elf_print_elf(ed);
 		break;
@@ -1087,6 +1178,32 @@ load_sections(struct elfdump *ed)
 	ed->flags |= SECTIONS_LOADED;
 }
 
+static void
+add_specific_name(struct elfdump *ed, const char *name)
+{
+	struct spec_name *sn;
+
+	if ((sn = malloc(sizeof(*sn))) == NULL) {
+		warn("malloc failed");
+		return;
+	}
+	sn->name = name;
+	STAILQ_INSERT_TAIL(&ed->snl, sn, sn_list);
+}
+
+static int
+find_specific_name(struct elfdump *ed, const char *name)
+{
+	struct spec_name *sn;
+
+	STAILQ_FOREACH(sn, &ed->snl, sn_list) {
+		if (!strcmp(sn->name, name))
+			return (1);
+	}
+
+	return (0);
+}
+
 static const char *
 get_symbol_name(struct elfdump *ed, int symtab, int i)
 {
@@ -1128,7 +1245,7 @@ get_string_name(struct elfdump *ed, int strtab, size_t off)
 static void
 elf_print_ehdr(struct elfdump *ed)
 {
-	if (ed->options & ED_SOLARIS) {
+	if (ed->flags & SOLARIS_FMT) {
 		PRT("\nELF Header:\n");
 		PRT("  ei_magic:   { %#x, %c, %c, %c }\n",
 		    ed->ehdr.e_ident[0], ed->ehdr.e_ident[1],
@@ -1183,7 +1300,7 @@ elf_print_phdr(struct elfdump *ed)
 		warnx("elf_getphnum failed: %s", elf_errmsg(-1));
 		return;
 	}
-	if ((ed->options & ED_SOLARIS) == 0)
+	if ((ed->flags & SOLARIS_FMT) == 0)
 		PRT("\nprogram header:\n");
 	for (i = 0; (u_int64_t) i < phnum; i++) {
 		if (gelf_getphdr(ed->elf, i, &ph) != &ph) {
@@ -1191,7 +1308,7 @@ elf_print_phdr(struct elfdump *ed)
 			continue;
 		}
 
-		if (ed->options & ED_SOLARIS) {
+		if (ed->flags & SOLARIS_FMT) {
 			PRT("\nProgram Header[%d]\n", i);
 			PRT("    p_vaddr:      %#-14jx", (uintmax_t)ph.p_vaddr);
 			PRT("  p_flags:    [ %s ]\n", p_flags[ph.p_flags]);
@@ -1226,11 +1343,11 @@ elf_print_shdr(struct elfdump *ed)
 
 	if ((ed->flags & SECTIONS_LOADED) == 0)
 		return;
-	if ((ed->flags & ED_SOLARIS) == 0)
+	if ((ed->flags & SOLARIS_FMT) == 0)
 		PRT("\nsection header:\n");
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
-		if (ed->options & ED_SOLARIS) {
+		if (ed->flags & SOLARIS_FMT) {
 			if (i == 0)
 				continue;
 			PRT("\nSection Header[%d]:", i);
@@ -1262,18 +1379,18 @@ elf_print_shdr(struct elfdump *ed)
 }
 
 static void
-get_versym(struct elfdump *ed, uint16_t **vs, int *nvs)
+get_versym(struct elfdump *ed, int i, uint16_t **vs, int *nvs)
 {
 	struct section	*s;
 	Elf_Data	*data;
-	int		 i, elferr;
+	int		 j, elferr;
 
-	for (i = 0; (size_t)i < ed->shnum; i++) {
-		s = &ed->sl[i];
-		if (s->type == SHT_GNU_versym)
+	for (j = 0; (size_t)j < ed->shnum; j++) {
+		s = &ed->sl[j];
+		if (s->type == SHT_GNU_versym && s->link == (uint32_t)i)
 			break;
 	}
-	if ((size_t)i >= ed->shnum) {
+	if ((size_t)j >= ed->shnum) {
 		*vs = NULL;
 		return;
 	}
@@ -1302,7 +1419,7 @@ elf_print_symtab(struct elfdump *ed, int i)
 	int		 len, j, elferr, nvs;
 
 	s = &ed->sl[i];
-	if (ed->options & ED_SOLARIS)
+	if (ed->flags & SOLARIS_FMT)
 		PRT("\nSymbol Table Section:  %s\n", s->name);
 	else
 		PRT("\nsymbol table (%s):\n", s->name);
@@ -1317,13 +1434,13 @@ elf_print_symtab(struct elfdump *ed, int i)
 	vs = NULL;
 	nvs = 0;
 	len = data->d_size / s->entsize;
-	if (ed->options & ED_SOLARIS) {
+	if (ed->flags & SOLARIS_FMT) {
 		if (ed->ec == ELFCLASS32)
 			PRT("     index        value       ");
 		else
 			PRT("     index        value           ");
 		PRT("size     type bind oth ver shndx       name\n");
-		get_versym(ed, &vs, &nvs);
+		get_versym(ed, i, &vs, &nvs);
 		if (vs != NULL && nvs != len) {
 			warnx("#symbol not equal to #versym");
 			vs = NULL;
@@ -1335,7 +1452,7 @@ elf_print_symtab(struct elfdump *ed, int i)
 			continue;
 		}
 		name = get_string_name(ed, s->link, sym.st_name);
-		if (ed->options & ED_SOLARIS) {
+		if (ed->flags & SOLARIS_FMT) {
 			snprintf(idx, sizeof(idx), "[%d]", j);
 			PRT("%10s      ", idx);
 			PRT("0x%8.8jx ", (uintmax_t)sym.st_value);
@@ -1365,15 +1482,28 @@ elf_print_symtab(struct elfdump *ed, int i)
 static void
 elf_print_symtabs(struct elfdump *ed)
 {
-	int i;
+	int i, fd;
 
 	if ((ed->flags & SECTIONS_LOADED) == 0 || ed->shnum == 0)
 		return;
-	for (i = 0; (size_t)i < ed->shnum; i++) {
-		if (ed->sl[i].type == SHT_SYMTAB ||
-		    ed->sl[i].type == SHT_DYNSYM)
-			elf_print_symtab(ed, i);
+
+	if (ed->archive != NULL &&
+	    (STAILQ_EMPTY(&ed->snl) || find_specific_name(ed, "ARSYM"))) {
+		if ((fd = open(ed->filename, O_RDONLY)) == -1) {
+			warn("open %s failed", ed->filename);
+			return;
+		}
+#ifdef	USE_LIBARCHIVE_AR
+		ac_print_arsym(ed, fd);
+#endif
 	}
+
+	for (i = 0; (size_t)i < ed->shnum; i++)
+		if ((ed->sl[i].type == SHT_SYMTAB ||
+		    ed->sl[i].type == SHT_DYNSYM) &&
+		    (STAILQ_EMPTY(&ed->snl) ||
+		    find_specific_name(ed, ed->sl[i].name)))
+			elf_print_symtab(ed, i);
 }
 
 static void
@@ -1390,13 +1520,14 @@ elf_print_dynamic(struct elfdump *ed)
 		return;
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
-		if (s->type == SHT_DYNAMIC)
+		if (s->type == SHT_DYNAMIC &&
+		    (STAILQ_EMPTY(&ed->snl) || find_specific_name(ed, s->name)))
 			break;
 	}
 	if ((size_t)i >= ed->shnum)
 		return;
 
-	if (ed->options & ED_SOLARIS) {
+	if (ed->flags & SOLARIS_FMT) {
 		PRT("Dynamic Section:  %s\n", s->name);
 		PRT("     index  tag               value\n");
 	} else
@@ -1415,7 +1546,7 @@ elf_print_dynamic(struct elfdump *ed)
 			continue;
 		}
 
-		if (ed->options & ED_SOLARIS) {
+		if (ed->flags & SOLARIS_FMT) {
 			snprintf(idx, sizeof(idx), "[%d]", i);
 			PRT("%10s  %-16s ", idx, d_tags(dyn.d_tag));
 		} else {
@@ -1430,7 +1561,7 @@ elf_print_dynamic(struct elfdump *ed)
 			if ((name = elf_strptr(ed->elf, s->link,
 				    dyn.d_un.d_val)) == NULL)
 				name = "";
-			if (ed->options & ED_SOLARIS)
+			if (ed->flags & SOLARIS_FMT)
 				PRT("%#-16jx %s\n", (uintmax_t)dyn.d_un.d_val,
 				    name);
 			else
@@ -1445,7 +1576,7 @@ elf_print_dynamic(struct elfdump *ed)
 		case DT_RELSZ:
 		case DT_RELENT:
 		case DT_PLTREL:
-			if (ed->options & ED_SOLARIS)
+			if (ed->flags & SOLARIS_FMT)
 				PRT("%jx\n", (uintmax_t)dyn.d_un.d_val);
 			else
 				PRT("\td_val: %ju\n",
@@ -1459,7 +1590,7 @@ elf_print_dynamic(struct elfdump *ed)
 		case DT_FINI:
 		case DT_REL:
 		case DT_JMPREL:
-			if (ed->options & ED_SOLARIS)
+			if (ed->flags & SOLARIS_FMT)
 				PRT("%#jx\n", dyn.d_un.d_ptr);
 			else
 				PRT("\td_ptr: %#jx\n", dyn.d_un.d_ptr);
@@ -1469,7 +1600,7 @@ elf_print_dynamic(struct elfdump *ed)
 		case DT_DEBUG:
 		case DT_TEXTREL:
 		default:
-			if (ed->options & ED_SOLARIS)
+			if (ed->flags & SOLARIS_FMT)
 				PRT("\n");
 			break;
 		}
@@ -1481,7 +1612,7 @@ elf_print_rel_entry(struct elfdump *ed, struct section *s, int j,
     struct rel_entry *r)
 {
 
-	if (ed->options & ED_SOLARIS) {
+	if (ed->flags & SOLARIS_FMT) {
 		PRT("\t%-28s ", r_type(ed->ehdr.e_machine,
 			GELF_R_TYPE(r->u_r.rel.r_info)));
 		PRT("%#-11jx ", (uintmax_t)r->u_r.rel.r_offset);
@@ -1506,7 +1637,7 @@ elf_print_rela(struct elfdump *ed, struct section *s, Elf_Data *data)
 	struct rel_entry	r;
 	int			j, len;
 
-	if (ed->options & ED_SOLARIS) {
+	if (ed->flags & SOLARIS_FMT) {
 		PRT("\nRelocation Section:  %s\n", s->name);
 		PRT("\ttype                          offset     addend  "
 		    "section        with respect to\n");
@@ -1533,7 +1664,7 @@ elf_print_rel(struct elfdump *ed, struct section *s, Elf_Data *data)
 	struct rel_entry	r;
 	int			j, len;
 
-	if (ed->options & ED_SOLARIS) {
+	if (ed->flags & SOLARIS_FMT) {
 		PRT("\nRelocation Section:  %s\n", s->name);
 		PRT("\ttype                          offset     "
 		    "section        with respect to\n");
@@ -1563,7 +1694,9 @@ elf_print_reloc(struct elfdump *ed)
 		return;
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
-		if (s->type == SHT_REL || s->type == SHT_RELA) {
+		if ((s->type == SHT_REL || s->type == SHT_RELA) &&
+		    (STAILQ_EMPTY(&ed->snl) ||
+		    find_specific_name(ed, s->name))) {
 			(void) elf_errno();
 			if ((data = elf_getdata(s->scn, NULL)) == NULL) {
 				elferr = elf_errno();
@@ -1674,13 +1807,14 @@ elf_print_got(struct elfdump *ed)
 		return;
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
-		if (s->name && !strcmp(s->name, ".got"))
+		if (s->name && !strcmp(s->name, ".got") &&
+		    (STAILQ_EMPTY(&ed->snl) || find_specific_name(ed, s->name)))
 			break;
 	}
 	if ((size_t)i >= ed->shnum)
 		return;
 
-	if (ed->options & ED_SOLARIS)
+	if (ed->flags & SOLARIS_FMT)
 		PRT("\nGlobal Offset Table Section:  %s  (%jd entries)\n",
 		    s->name, s->sz / s->entsize);
 	else
@@ -1710,14 +1844,14 @@ elf_print_got(struct elfdump *ed)
 		return;
 	}
 	len = dst.d_size / s->entsize;
-	if (ed->options & ED_SOLARIS) {
+	if (ed->flags & SOLARIS_FMT) {
 		/*
 		 * In verbose/Solaris mode, we search the relocation sections
 		 * and try to find the corresponding reloc entry for each .got
 		 * section entry.
 		 */
 		if ((got = calloc(len, sizeof(struct rel_entry))) == NULL) {
-			warn("malloc failed");
+			warn("calloc failed");
 			return;
 		}
 		find_gotrel(ed, s, got);
@@ -1777,7 +1911,8 @@ elf_print_note(struct elfdump *ed)
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if (s->type == SHT_NOTE && s->name &&
-		    !strcmp(s->name, ".note.ABI-tag"))
+		    !strcmp(s->name, ".note.ABI-tag") &&
+		    (STAILQ_EMPTY(&ed->snl) || find_specific_name(ed, s->name)))
 			break;
 	}
 	if ((size_t)i >= ed->shnum)
@@ -1827,12 +1962,13 @@ elf_print_hash(struct elfdump *ed)
 	/* Find .hash section. */
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
-		if (s->type == SHT_HASH)
+		if (s->type == SHT_HASH &&
+		    (STAILQ_EMPTY(&ed->snl) || find_specific_name(ed, s->name)))
 			break;
 	}
 	if ((size_t)i >= ed->shnum)
 		return;
-	if (ed->options & ED_SOLARIS)
+	if (ed->flags & SOLARIS_FMT)
 		PRT("\nHash Section:  %s\n", s->name);
 	else
 		PRT("\nhash table (%s):\n", s->name);
@@ -1866,7 +2002,7 @@ elf_print_hash(struct elfdump *ed)
 	bucket = &buf[2];
 	chain = &buf[2 + nbucket];
 
-	if (ed->options & ED_SOLARIS) {
+	if (ed->flags & SOLARIS_FMT) {
 		maxl = 0;
 		if ((bl = calloc(nbucket, sizeof(*bl))) == NULL) {
 			warn("calloc failed");
@@ -1967,7 +2103,7 @@ elf_print_hash_64(struct elfdump *ed, struct section *s)
 	bucket = &buf[2];
 	chain = &buf[2 + nbucket];
 
-	if (ed->options & ED_SOLARIS) {
+	if (ed->flags & SOLARIS_FMT) {
 		maxl = 0;
 		if ((bl = calloc(nbucket, sizeof(*bl))) == NULL) {
 			warn("calloc failed");
@@ -2031,7 +2167,7 @@ elf_print_verdef(struct elfdump *ed, struct section *s)
 	uint8_t		*buf, *end, *buf2;
 	int		 i, j, elferr, count;
 
-	if (ed->options & ED_SOLARIS)
+	if (ed->flags & SOLARIS_FMT)
 		PRT("Version Definition Section:  %s\n", s->name);
 	else
 		PRT("\nversion definition section (%s):\n", s->name);
@@ -2046,11 +2182,11 @@ elf_print_verdef(struct elfdump *ed, struct section *s)
 	buf = data->d_buf;
 	end = buf + data->d_size;
 	i = 0;
-	if (ed->options & ED_SOLARIS)
+	if (ed->flags & SOLARIS_FMT)
 		PRT("     index  version                     dependency\n");
 	while (buf + sizeof(Elf32_Verdef) <= end) {
 		vd = (Elf32_Verdef *) (uintptr_t) buf;
-		if (ed->options & ED_SOLARIS) {
+		if (ed->flags & SOLARIS_FMT) {
 			snprintf(idx, sizeof(idx), "[%d]", vd->vd_ndx);
 			PRT("%10s  ", idx);
 		} else {
@@ -2069,7 +2205,7 @@ elf_print_verdef(struct elfdump *ed, struct section *s)
 		while (buf2 + sizeof(Elf32_Verdaux) <= end && j < vd->vd_cnt) {
 			vda = (Elf32_Verdaux *) (uintptr_t) buf2;
 			str = get_string_name(ed, s->link, vda->vda_name);
-			if (ed->options & ED_SOLARIS) {
+			if (ed->flags & SOLARIS_FMT) {
 				if (count == 0)
 					PRT("%-26.26s", str);
 				else if (count == 1)
@@ -2084,7 +2220,7 @@ elf_print_verdef(struct elfdump *ed, struct section *s)
 				PRT("\t\t\tvda_next: %u\n", vda->vda_next);
 			}
 			if (vda->vda_next == 0) {
-				if (ed->options & ED_SOLARIS) {
+				if (ed->flags & SOLARIS_FMT) {
 					if (vd->vd_flags & VER_FLG_BASE) {
 						if (count == 0)
 							PRT("%-20.20s", "");
@@ -2094,7 +2230,7 @@ elf_print_verdef(struct elfdump *ed, struct section *s)
 				}
 				break;
 			}
-			if (ed->options & ED_SOLARIS)
+			if (ed->flags & SOLARIS_FMT)
 				count++;
 			buf2 += vda->vda_next;
 		}
@@ -2113,7 +2249,7 @@ elf_print_verneed(struct elfdump *ed, struct section *s)
 	uint8_t		*buf, *end, *buf2;
 	int		 i, j, elferr, first;
 
-	if (ed->options & ED_SOLARIS)
+	if (ed->flags & SOLARIS_FMT)
 		PRT("\nVersion Needed Section:  %s\n", s->name);
 	else
 		PRT("\nversion need section (%s):\n", s->name);
@@ -2128,11 +2264,11 @@ elf_print_verneed(struct elfdump *ed, struct section *s)
 	buf = data->d_buf;
 	end = buf + data->d_size;
 	i = 0;
-	if (ed->options & ED_SOLARIS)
+	if (ed->flags & SOLARIS_FMT)
 		PRT("            file                        version\n");
 	while (buf + sizeof(Elf32_Verneed) <= end) {
 		vn = (Elf32_Verneed *) (uintptr_t) buf;
-		if (ed->options & ED_SOLARIS)
+		if (ed->flags & SOLARIS_FMT)
 			PRT("            %-26.26s  ",
 			    get_string_name(ed, s->link, vn->vn_file));
 		else {
@@ -2149,7 +2285,7 @@ elf_print_verneed(struct elfdump *ed, struct section *s)
 		first = 1;
 		while (buf2 + sizeof(Elf32_Vernaux) <= end && j < vn->vn_cnt) {
 			vna = (Elf32_Vernaux *) (uintptr_t) buf2;
-			if (ed->options & ED_SOLARIS) {
+			if (ed->flags & SOLARIS_FMT) {
 				if (!first)
 					PRT("%40.40s", "");
 				else
@@ -2184,6 +2320,8 @@ elf_print_symver(struct elfdump *ed)
 
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
+		if (!STAILQ_EMPTY(&ed->snl) && !find_specific_name(ed, s->name))
+			continue;
 		if (s->type == SHT_GNU_verdef)
 			elf_print_verdef(ed, s);
 		if (s->type == SHT_GNU_verneed)
@@ -2201,7 +2339,7 @@ elf_print_checksum(struct elfdump *ed)
 static void
 usage(void)
 {
-	fprintf(stderr, "usage: elfdump [-a | -cdeGhiknprsv] [-N name] [-S] "
+	fprintf(stderr, "usage: elfdump [-S] [-a | -cdeGhiknprsv] [-N name] "
 	    "[-w file] file...\n");
 	exit(1);
 }
