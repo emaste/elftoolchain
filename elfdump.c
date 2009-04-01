@@ -27,11 +27,8 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/elfdump/elfdump.c,v 1.14 2006/01/28 17:58:22 marcel Exp $");
-
 #include <sys/param.h>
 #include <sys/stat.h>
-#include <sys/endian.h>
 #include <err.h>
 #include <fcntl.h>
 #include <gelf.h>
@@ -46,6 +43,10 @@ __FBSDID("$FreeBSD: src/usr.bin/elfdump/elfdump.c,v 1.14 2006/01/28 17:58:22 mar
 #include <archive.h>
 #include <archive_entry.h>
 #endif	/* USE_LIBARCHIVE_AR */
+
+#include "config.h"
+
+ELFDUMP_VCSID("$Id");
 
 /*
  * elfdump(1) options.
