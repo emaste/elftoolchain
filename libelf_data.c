@@ -81,15 +81,15 @@ _libelf_xlate_shtype(uint32_t sht)
 		return (ELF_T_WORD);
 #endif
 #if	defined(SHT_SUNW_verdef)
-	case SHT_SUNW_verdef:	/* == SHT_SUNW_verdef */
+	case SHT_SUNW_verdef:	/* == SHT_GNU_verdef */
 		return (ELF_T_VDEF);
 #endif
 #if	defined(SHT_SUNW_verneed)
-	case SHT_SUNW_verneed:	/* == SHT_SUNW_verneed */
+	case SHT_SUNW_verneed:	/* == SHT_GNU_verneed */
 		return (ELF_T_VNEED);
 #endif
 #if	defined(SHT_SUNW_versym)
-	case SHT_SUNW_versym:	/* == SHT_SUNW_versym */
+	case SHT_SUNW_versym:	/* == SHT_GNU_versym */
 		return (ELF_T_HALF);
 #endif
 #if	defined(SHT_SUNW_move)
