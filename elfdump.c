@@ -1002,7 +1002,7 @@ ac_print_ar(struct elfdump *ed, int fd)
 	AC(archive_read_finish(a));
 }
 
-#else
+#else  /* USE_LIBARCHIVE_AR */
 
 static void
 elf_print_ar(struct elfdump *ed, int fd)
@@ -1921,10 +1921,8 @@ elf_print_got(struct elfdump *ed)
 		 * and try to find the corresponding reloc entry for each .got
 		 * section entry.
 		 */
-		if ((got = calloc(len, sizeof(struct rel_entry))) == NULL) {
-			warn("calloc failed");
-			return;
-		}
+		if ((got = calloc(len, sizeof(struct rel_entry))) == NULL)
+			err(EX_SOFTWARE, "calloc failed");
 		find_gotrel(ed, s, got);
 		if (ed->ec == ELFCLASS32) {
 			PRT(" ndx     addr      value    reloc              ");
@@ -2075,20 +2073,15 @@ elf_print_hash(struct elfdump *ed)
 
 	if (ed->flags & SOLARIS_FMT) {
 		maxl = 0;
-		if ((bl = calloc(nbucket, sizeof(*bl))) == NULL) {
-			warn("calloc failed");
-			return;
-		}
+		if ((bl = calloc(nbucket, sizeof(*bl))) == NULL)
+			err(EX_SOFTWARE, "calloc failed");
 		for (i = 0; (uint32_t)i < nbucket; i++)
 			for (j = bucket[i]; j > 0 && (uint32_t)j < nchain;
 			     j = chain[j])
 				if (++bl[i] > maxl)
 					maxl = bl[i];
-		if ((c = calloc(maxl + 1, sizeof(*c))) == NULL) {
-			warn("calloc failed");
-			free(bl);
-			return;
-		}
+		if ((c = calloc(maxl + 1, sizeof(*c))) == NULL)
+			err(EX_SOFTWARE, "calloc failed");
 		for (i = 0; (uint32_t)i < nbucket; i++)
 			c[bl[i]]++;
 		PRT("    bucket    symndx    name\n");
@@ -2176,20 +2169,15 @@ elf_print_hash_64(struct elfdump *ed, struct section *s)
 
 	if (ed->flags & SOLARIS_FMT) {
 		maxl = 0;
-		if ((bl = calloc(nbucket, sizeof(*bl))) == NULL) {
-			warn("calloc failed");
-			return;
-		}
+		if ((bl = calloc(nbucket, sizeof(*bl))) == NULL)
+			err(EX_SOFTWARE, "calloc failed");
 		for (i = 0; (uint64_t)i < nbucket; i++)
 			for (j = bucket[i]; j > 0 && (uint64_t)j < nchain;
 			     j = chain[j])
 				if (++bl[i] > maxl)
 					maxl = bl[i];
-		if ((c = calloc(maxl + 1, sizeof(*c))) == NULL) {
-			warn("calloc failed");
-			free(bl);
-			return;
-		}
+		if ((c = calloc(maxl + 1, sizeof(*c))) == NULL)
+			err(EX_SOFTWARE, "calloc failed");
 		for (i = 0; (uint64_t)i < nbucket; i++)
 			c[bl[i]]++;
 		PRT("    bucket    symndx    name\n");
@@ -2412,5 +2400,5 @@ usage(void)
 {
 	fprintf(stderr, "usage: elfdump [-S] [-a | -cdeGhiknprsv] [-N name] "
 	    "[-w file] file...\n");
-	exit(1);
+	exit(EX_USAGE);
 }
