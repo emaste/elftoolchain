@@ -29,6 +29,7 @@
 #include <sys/cdefs.h>
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <ar.h>
 #include <err.h>
 #include <fcntl.h>
 #include <gelf.h>
@@ -67,7 +68,8 @@ ELFDUMP_VCSID("$Id$");
 #define	SOLARIS_FMT		(1<<0)
 #define	PRINT_FILENAME		(1<<1)
 #define	PRINT_ARSYM		(1<<2)
-#define	SECTIONS_LOADED		(1<<3)
+#define	ONLY_ARSYM		(1<<3)
+#define	SECTIONS_LOADED		(1<<4)
 
 /* Convenient print macro. */
 #define	PRT(...)	fprintf(ed->out, __VA_ARGS__)
@@ -100,6 +102,9 @@ struct elfdump {
 	int		 options;	/* command line options. */
 	int		 flags;		/* run control flags. */
 	Elf		*elf;		/* underlying ELF descriptor. */
+#ifndef USE_LIBARCHIVE_AR
+	Elf		*ar;		/* ar(1) archive descriptor. */
+#endif
 	GElf_Ehdr	 ehdr;		/* ELF header. */
 	int		 ec;		/* ELF class. */
 	size_t		 shnum;		/* #sections. */
@@ -711,7 +716,7 @@ r_type(unsigned int mach, unsigned int type)
 	}
 }
 
-static void	add_specific_name(struct elfdump *ed, const char *name);
+static void	add_name(struct elfdump *ed, const char *name);
 static void	elf_print_object(struct elfdump *ed);
 static void	elf_print_elf(struct elfdump *ed);
 static void	elf_print_ehdr(struct elfdump *ed);
@@ -738,22 +743,25 @@ static void	elf_print_hash_64(struct elfdump *ed, struct section *s);
 static void	elf_print_checksum(struct elfdump *ed);
 static void	find_gotrel(struct elfdump *ed, struct section *gs,
     struct rel_entry *got);
-static int	find_specific_name(struct elfdump *ed, const char *name);
+static struct spec_name	*find_name(struct elfdump *ed, const char *name);
 static const char *get_symbol_name(struct elfdump *ed, int symtab, int i);
 static const char *get_string_name(struct elfdump *ed, int strtab, size_t off);
 static void	get_versym(struct elfdump *ed, int i, uint16_t **vs, int *nvs);
 static void	load_sections(struct elfdump *ed);
 static void	usage(void);
-#ifdef USE_LIBARCHIVE_AR
+#ifdef	USE_LIBARCHIVE_AR
 static int	ac_detect_ar(int fd);
 static void	ac_print_ar(struct elfdump *ed, int fd);
-#endif
+#else
+static void	elf_print_ar(struct elfdump *ed, int fd);
+#endif	/* USE_LIBARCHIVE_AR */
 
 int
 main(int ac, char **av)
 {
-	struct elfdump	*ed, ed_storage;
-	int		 ch, i;
+	struct elfdump		*ed, ed_storage;
+	struct spec_name	*sn;
+	int			 ch, i;
 
 	ed = &ed_storage;
 	memset(ed, 0, sizeof(*ed));
@@ -789,10 +797,7 @@ main(int ac, char **av)
 			ed->options |= ED_NOTE;
 			break;
 		case 'N':
-			if (!strcmp(optarg, "ARSYM"))
-				ed->flags |= PRINT_ARSYM;
-			else
-				add_specific_name(ed, optarg);
+			add_name(ed, optarg);
 			break;
 		case 'p':
 			ed->options |= ED_PHDR;
@@ -823,13 +828,20 @@ main(int ac, char **av)
 
 	if (ed->flags & SOLARIS_FMT && ed->options == 0)
 		ed->options = ED_ALL;
-
+	sn = NULL;
+	if (ed->options & ED_SYMTAB &&
+	    (STAILQ_EMPTY(&ed->snl) || (sn = find_name(ed, "ARSYM")) != NULL)) {
+		ed->flags |= PRINT_ARSYM;
+		if (sn != NULL) {
+			STAILQ_REMOVE(&ed->snl, sn, spec_name, sn_list);
+			if (STAILQ_EMPTY(&ed->snl))
+				ed->flags |= ONLY_ARSYM;
+		}
+	}
 	if (ac == 0 || ed->options == 0)
 		usage();
-
 	if (ac > 1)
 		ed->flags |= PRINT_FILENAME;
-
 	if (elf_version(EV_CURRENT) == EV_NONE)
 		errx(EX_SOFTWARE, "ELF library initialization failed: %s",
 		    elf_errmsg(-1));
@@ -966,8 +978,7 @@ ac_print_ar(struct elfdump *ed, int fd)
 			free(arsym);
 			free(buff);
 			/* No need to continue if we only dump ARSYM. */
-			if (ed->options == ED_SYMTAB &&
-			    STAILQ_EMPTY(&ed->snl)) {
+			if (ed->flags & ONLY_ARSYM) {
 				AC(archive_read_close(a));
 				AC(archive_read_finish(a));
 				return;
@@ -980,13 +991,105 @@ ac_print_ar(struct elfdump *ed, int fd)
 			free(buff);
 			continue;
 		}
-		printf("\n%s(%s):\n", ed->archive, name);
-		elf_print_elf(ed);
+		if (elf_kind(ed->elf) == ELF_K_ELF) {
+			printf("\n%s(%s):\n", ed->archive, name);
+			elf_print_elf(ed);
+		}
+		elf_end(ed->elf);
 		free(buff);
 	}
 	AC(archive_read_close(a));
 	AC(archive_read_finish(a));
 }
+
+#else
+
+static void
+elf_print_ar(struct elfdump *ed, int fd)
+{
+	Elf		*e;
+	Elf_Arhdr	*arh;
+	Elf_Arsym	*arsym;
+	Elf_Cmd		 cmd;
+	char		 idx[10];
+	size_t		 cnt;
+	int		 i;
+
+	ed->ar = ed->elf;
+
+	if (ed->flags & PRINT_ARSYM) {
+		cnt = 0;
+		if ((arsym = elf_getarsym(ed->ar, &cnt)) == NULL) {
+			warnx("elf_getarsym failed: %s", elf_errmsg(-1));
+			goto print_members;
+		}
+		if (cnt == 0)
+			goto print_members;
+		if (ed->flags & SOLARIS_FMT) {
+			PRT("\nSymbol Table: (archive)\n");
+			PRT("     index    offset    member name and symbol\n");
+		} else
+			PRT("\nsymbol table (archive):\n");
+		for (i = 0; (size_t)i < cnt - 1; i++) {
+			if (elf_rand(ed->ar, arsym[i].as_off) !=
+			    arsym[i].as_off) {
+				warnx("elf_rand failed: %s", elf_errmsg(-1));
+				break;
+			}
+			if ((e = elf_begin(fd, ELF_C_READ, ed->ar)) == NULL) {
+				warnx("elf_begin failed: %s", elf_errmsg(-1));
+				break;
+			}
+			if ((arh = elf_getarhdr(e)) == NULL) {
+				warnx("elf_getarhdr failed: %s",
+				    elf_errmsg(-1));
+				break;
+			}
+			if (ed->flags & SOLARIS_FMT) {
+				snprintf(idx, sizeof(idx), "[%d]", i);
+				PRT("%10s  ", idx);
+				PRT("0x%8.8jx  ",
+				    (uintmax_t)arsym[i].as_off);
+				PRT("(%s):%s\n", arh->ar_name,
+				    arsym[i].as_name);
+			} else {
+				PRT("\nentry: %d\n", i);
+				PRT("\toffset: %#jx\n",
+				    (uintmax_t)arsym[i].as_off);
+				PRT("\tmember: %s\n", arh->ar_name);
+				PRT("\tsymbol: %s\n", arsym[i].as_name);
+			}
+			elf_end(e);
+		}
+
+		if (ed->flags & ONLY_ARSYM)
+			return;
+	}
+
+print_members:
+
+	/* Rewind the archive. */
+	if (elf_rand(ed->ar, SARMAG) != SARMAG) {
+		warnx("elf_rand failed: %s", elf_errmsg(-1));
+		return;
+	}
+
+	cmd = ELF_C_READ;
+	while ((ed->elf = elf_begin(fd, cmd, ed->ar)) != NULL) {
+		if (elf_kind(ed->elf) == ELF_K_ELF) {
+			if ((arh = elf_getarhdr(ed->elf)) == NULL) {
+				warnx("elf_getarhdr failed: %s",
+				    elf_errmsg(-1));
+				break;
+			}
+			printf("\n%s(%s):\n", ed->archive, arh->ar_name);
+			elf_print_elf(ed);
+		}
+		cmd = elf_next(ed->elf);
+		elf_end(ed->elf);
+	}
+}
+
 #endif	/* USE_LIBARCHIVE_AR */
 
 static void
@@ -1025,7 +1128,10 @@ elf_print_object(struct elfdump *ed)
 		elf_print_elf(ed);
 		break;
 	case ELF_K_AR:
-		/* dump_ar(re); */
+#ifndef	USE_LIBARCHIVE_AR
+		ed->archive = ed->filename;
+		elf_print_ar(ed, fd);
+#endif
 		break;
 	default:
 		warnx("Internal: libelf returned unknown elf kind.");
@@ -1154,9 +1260,12 @@ load_sections(struct elfdump *ed)
 }
 
 static void
-add_specific_name(struct elfdump *ed, const char *name)
+add_name(struct elfdump *ed, const char *name)
 {
 	struct spec_name *sn;
+
+	if (find_name(ed, name))
+		return;
 
 	if ((sn = malloc(sizeof(*sn))) == NULL) {
 		warn("malloc failed");
@@ -1166,17 +1275,17 @@ add_specific_name(struct elfdump *ed, const char *name)
 	STAILQ_INSERT_TAIL(&ed->snl, sn, sn_list);
 }
 
-static int
-find_specific_name(struct elfdump *ed, const char *name)
+static struct spec_name *
+find_name(struct elfdump *ed, const char *name)
 {
 	struct spec_name *sn;
 
 	STAILQ_FOREACH(sn, &ed->snl, sn_list) {
 		if (!strcmp(sn->name, name))
-			return (1);
+			return (sn);
 	}
 
-	return (0);
+	return (NULL);
 }
 
 static const char *
@@ -1465,8 +1574,7 @@ elf_print_symtabs(struct elfdump *ed)
 	for (i = 0; (size_t)i < ed->shnum; i++)
 		if ((ed->sl[i].type == SHT_SYMTAB ||
 		    ed->sl[i].type == SHT_DYNSYM) &&
-		    (STAILQ_EMPTY(&ed->snl) ||
-		    find_specific_name(ed, ed->sl[i].name)))
+		    (STAILQ_EMPTY(&ed->snl) || find_name(ed, ed->sl[i].name)))
 			elf_print_symtab(ed, i);
 }
 
@@ -1485,7 +1593,7 @@ elf_print_dynamic(struct elfdump *ed)
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if (s->type == SHT_DYNAMIC &&
-		    (STAILQ_EMPTY(&ed->snl) || find_specific_name(ed, s->name)))
+		    (STAILQ_EMPTY(&ed->snl) || find_name(ed, s->name)))
 			break;
 	}
 	if ((size_t)i >= ed->shnum)
@@ -1659,8 +1767,7 @@ elf_print_reloc(struct elfdump *ed)
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if ((s->type == SHT_REL || s->type == SHT_RELA) &&
-		    (STAILQ_EMPTY(&ed->snl) ||
-		    find_specific_name(ed, s->name))) {
+		    (STAILQ_EMPTY(&ed->snl) || find_name(ed, s->name))) {
 			(void) elf_errno();
 			if ((data = elf_getdata(s->scn, NULL)) == NULL) {
 				elferr = elf_errno();
@@ -1772,7 +1879,7 @@ elf_print_got(struct elfdump *ed)
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if (s->name && !strcmp(s->name, ".got") &&
-		    (STAILQ_EMPTY(&ed->snl) || find_specific_name(ed, s->name)))
+		    (STAILQ_EMPTY(&ed->snl) || find_name(ed, s->name)))
 			break;
 	}
 	if ((size_t)i >= ed->shnum)
@@ -1876,7 +1983,7 @@ elf_print_note(struct elfdump *ed)
 		s = &ed->sl[i];
 		if (s->type == SHT_NOTE && s->name &&
 		    !strcmp(s->name, ".note.ABI-tag") &&
-		    (STAILQ_EMPTY(&ed->snl) || find_specific_name(ed, s->name)))
+		    (STAILQ_EMPTY(&ed->snl) || find_name(ed, s->name)))
 			break;
 	}
 	if ((size_t)i >= ed->shnum)
@@ -1927,7 +2034,7 @@ elf_print_hash(struct elfdump *ed)
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if (s->type == SHT_HASH &&
-		    (STAILQ_EMPTY(&ed->snl) || find_specific_name(ed, s->name)))
+		    (STAILQ_EMPTY(&ed->snl) || find_name(ed, s->name)))
 			break;
 	}
 	if ((size_t)i >= ed->shnum)
@@ -2284,7 +2391,7 @@ elf_print_symver(struct elfdump *ed)
 
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
-		if (!STAILQ_EMPTY(&ed->snl) && !find_specific_name(ed, s->name))
+		if (!STAILQ_EMPTY(&ed->snl) && !find_name(ed, s->name))
 			continue;
 		if (s->type == SHT_GNU_verdef)
 			elf_print_verdef(ed, s);
