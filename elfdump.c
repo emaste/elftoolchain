@@ -43,7 +43,7 @@
 #ifdef USE_LIBARCHIVE_AR
 #include <archive.h>
 #include <archive_entry.h>
-#endif	/* USE_LIBARCHIVE_AR */
+#endif
 
 #include "config.h"
 
@@ -861,7 +861,6 @@ main(int ac, char **av)
 /* Archive symbol table entry. */
 struct arsym_entry {
 	char *sym_name;
-	char *mem_name;
 	size_t off;
 };
 
@@ -936,6 +935,13 @@ ac_print_ar(struct elfdump *ed, int fd)
 			free(buff);
 			continue;
 		}
+
+		/*
+		 * Note that when processing arsym via libarchive, there is
+		 * no way to tell which member a certain symbol belongs to,
+		 * since we can not just "lseek" to a member offset and read
+		 * the member header.
+		 */
 		if (!strcmp(name, "/") && ed->flags & PRINT_ARSYM) {
 			b = buff;
 			cnt = be32dec(b);
@@ -1062,6 +1068,7 @@ elf_print_ar(struct elfdump *ed, int fd)
 			elf_end(e);
 		}
 
+		/* No need to continue if we only dump ARSYM. */
 		if (ed->flags & ONLY_ARSYM)
 			return;
 	}
