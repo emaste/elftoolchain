@@ -69,7 +69,6 @@ ELFDUMP_VCSID("$Id$");
 #define	PRINT_FILENAME		(1<<1)
 #define	PRINT_ARSYM		(1<<2)
 #define	ONLY_ARSYM		(1<<3)
-#define	SECTIONS_LOADED		(1<<4)
 
 /* Convenient print macro. */
 #define	PRT(...)	fprintf(ed->out, __VA_ARGS__)
@@ -1162,7 +1161,9 @@ elf_print_elf(struct elfdump *ed)
 		return;
 	}
 
-	load_sections(ed);
+	if (ed->options & (ED_SHDR | ED_DYN | ED_REL | ED_GOT | ED_SYMTAB |
+	    ED_SYMVER | ED_NOTE | ED_HASH))
+		load_sections(ed);
 
 	if (ed->options & ED_EHDR)
 		elf_print_ehdr(ed);
@@ -1199,10 +1200,6 @@ load_sections(struct elfdump *ed)
 	GElf_Shdr	 sh;
 	size_t		 shstrndx, ndx;
 	int		 elferr;
-
-
-	if (ed->flags & SECTIONS_LOADED)
-		return;
 
 	/* Allocate storage for internal section list. */
 	if (!elf_getshnum(ed->elf, &ed->shnum)) {
@@ -1262,8 +1259,6 @@ load_sections(struct elfdump *ed)
 	elferr = elf_errno();
 	if (elferr != 0)
 		warnx("elf_nextscn failed: %s", elf_errmsg(elferr));
-
-	ed->flags |= SECTIONS_LOADED;
 }
 
 static void
@@ -1432,8 +1427,6 @@ elf_print_shdr(struct elfdump *ed)
 	struct section *s;
 	int i;
 
-	if ((ed->flags & SECTIONS_LOADED) == 0)
-		return;
 	if ((ed->flags & SOLARIS_FMT) == 0)
 		PRT("\nsection header:\n");
 	for (i = 0; (size_t)i < ed->shnum; i++) {
@@ -1575,9 +1568,6 @@ elf_print_symtabs(struct elfdump *ed)
 {
 	int i;
 
-	if ((ed->flags & SECTIONS_LOADED) == 0 || ed->shnum == 0)
-		return;
-
 	for (i = 0; (size_t)i < ed->shnum; i++)
 		if ((ed->sl[i].type == SHT_SYMTAB ||
 		    ed->sl[i].type == SHT_DYNSYM) &&
@@ -1595,8 +1585,6 @@ elf_print_dynamic(struct elfdump *ed)
 	GElf_Dyn	 dyn;
 	int		 elferr, i, len;
 
-	if ((ed->flags & SECTIONS_LOADED) == 0 || ed->shnum == 0)
-		return;
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if (s->type == SHT_DYNAMIC &&
@@ -1769,8 +1757,6 @@ elf_print_reloc(struct elfdump *ed)
 	Elf_Data	*data;
 	int		 i, elferr;
 
-	if ((ed->flags & SECTIONS_LOADED) == 0 || ed->shnum == 0)
-		return;
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if ((s->type == SHT_REL || s->type == SHT_RELA) &&
@@ -1880,9 +1866,6 @@ elf_print_got(struct elfdump *ed)
 	Elf_Data		*data, dst;
 	int			 elferr, i, len;
 	
-
-	if ((ed->flags & SECTIONS_LOADED) == 0 || ed->shnum == 0)
-		return;
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if (s->name && !strcmp(s->name, ".got") &&
