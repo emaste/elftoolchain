@@ -737,8 +737,10 @@ static void	elf_print_rel(struct elfdump *ed, struct section *s,
 static void	elf_print_reloc(struct elfdump *ed);
 static void	elf_print_got(struct elfdump *ed);
 static void	elf_print_note(struct elfdump *ed);
+static void	elf_print_svr4_hash(struct elfdump *ed, struct section *s);
+static void	elf_print_svr4_hash64(struct elfdump *ed, struct section *s);
+static void	elf_print_gnu_hash(struct elfdump *ed, struct section *s);
 static void	elf_print_hash(struct elfdump *ed);
-static void	elf_print_hash_64(struct elfdump *ed, struct section *s);
 static void	elf_print_checksum(struct elfdump *ed);
 static void	find_gotrel(struct elfdump *ed, struct section *gs,
     struct rel_entry *got);
@@ -2007,34 +2009,20 @@ elf_print_note(struct elfdump *ed)
 }
 
 static void
-elf_print_hash(struct elfdump *ed)
+elf_print_svr4_hash(struct elfdump *ed, struct section *s)
 {
-	struct section	*s;
 	Elf_Data	*data;
-	char		 idx[10];
 	uint32_t	*buf;
 	uint32_t	*bucket, *chain;
 	uint32_t	 nbucket, nchain;
 	uint32_t	*bl, *c, maxl, total;
-	int		 i, j, elferr, first;
+	int		 i, j, first, elferr;
+	char		 idx[10];
 
-	/* Find .hash section. */
-	for (i = 0; (size_t)i < ed->shnum; i++) {
-		s = &ed->sl[i];
-		if (s->type == SHT_HASH &&
-		    (STAILQ_EMPTY(&ed->snl) || find_name(ed, s->name)))
-			break;
-	}
-	if ((size_t)i >= ed->shnum)
-		return;
 	if (ed->flags & SOLARIS_FMT)
 		PRT("\nHash Section:  %s\n", s->name);
 	else
 		PRT("\nhash table (%s):\n", s->name);
-	if (ed->ehdr.e_machine == EM_ALPHA && s->entsize == 8) {
-		elf_print_hash_64(ed, s);
-		return;
-	}
 	(void) elf_errno();
 	if ((data = elf_getdata(s->scn, NULL)) == NULL) {
 		elferr = elf_errno();
@@ -2098,8 +2086,8 @@ elf_print_hash(struct elfdump *ed)
 		PRT("%10u  buckets         %8u symbols (globals)\n", nbucket,
 		    total);
 	} else {
-		PRT("\nnbucket:\n\t%u\n", nbucket);
-		PRT("\nnchain:\n\t%u\n\n", nchain);
+		PRT("\nnbucket: %u\n", nbucket);
+		PRT("nchain: %u\n\n", nchain);
 		for (i = 0; (uint32_t)i < nbucket; i++)
 			PRT("bucket[%d]:\n\t%u\n\n", i, bucket[i]);
 		for (i = 0; (uint32_t)i < nchain; i++)
@@ -2108,16 +2096,20 @@ elf_print_hash(struct elfdump *ed)
 }
 
 static void
-elf_print_hash_64(struct elfdump *ed, struct section *s)
+elf_print_svr4_hash64(struct elfdump *ed, struct section *s)
 {
 	Elf_Data	*data, dst;
-	char		 idx[10];
 	uint64_t	*buf;
 	uint64_t	*bucket, *chain;
 	uint64_t	 nbucket, nchain;
 	uint64_t	*bl, *c, maxl, total;
 	int		 i, j, elferr, first;
+	char		 idx[10];
 
+	if (ed->flags & SOLARIS_FMT)
+		PRT("\nHash Section:  %s\n", s->name);
+	else
+		PRT("\nhash table (%s):\n", s->name);
 	/*
 	 * ALPHA uses 64-bit hash entries. Since libelf assumes that
 	 * .hash section contains only 32-bit entry, an explicit
@@ -2195,14 +2187,140 @@ elf_print_hash_64(struct elfdump *ed, struct section *s)
 		PRT("%10ju  buckets         %8ju symbols (globals)\n",
 		    (uintmax_t)nbucket, (uintmax_t)total);
 	} else {
-		PRT("\nnbucket:\n\t%ju\n", (uintmax_t)nbucket);
-		PRT("\nnchain:\n\t%ju\n\n", (uintmax_t)nchain);
+		PRT("\nnbucket: %ju\n", (uintmax_t)nbucket);
+		PRT("nchain: %ju\n\n", (uintmax_t)nchain);
 		for (i = 0; (uint64_t)i < nbucket; i++)
 			PRT("bucket[%d]:\n\t%ju\n\n", i, (uintmax_t)bucket[i]);
 		for (i = 0; (uint64_t)i < nchain; i++)
 			PRT("chain[%d]:\n\t%ju\n\n", i, (uintmax_t)chain[i]);
 	}
 
+}
+
+static void
+elf_print_gnu_hash(struct elfdump *ed, struct section *s)
+{
+	struct section	*ds;
+	Elf_Data	*data;
+	uint32_t	*buf;
+	uint32_t	*bucket, *chain;
+	uint32_t	 nbucket, nchain, symndx, maskwords, shift2;
+	uint32_t	*bl, *c, maxl, total;
+	int		 i, j, first, elferr, dynsymcount;
+	char		 idx[10];
+
+	if (ed->flags & SOLARIS_FMT)
+		PRT("\nGNU Hash Section:  %s\n", s->name);
+	else
+		PRT("\ngnu hash table (%s):\n", s->name);
+	(void) elf_errno();
+	if ((data = elf_getdata(s->scn, NULL)) == NULL) {
+		elferr = elf_errno();
+		if (elferr != 0)
+			warnx("elf_getdata failed: %s",
+			    elf_errmsg(elferr));
+		return;
+	}
+	if (data->d_size < 4 * sizeof(uint32_t)) {
+		warnx(".gnu.hash section too small");
+		return;
+	}
+	buf = data->d_buf;
+	nbucket = buf[0];
+	symndx = buf[1];
+	maskwords = buf[2];
+	shift2 = buf[3];
+	buf += 4;
+
+	ds = &ed->sl[s->link];
+	dynsymcount = ds->sz / ds->entsize;
+	nchain = dynsymcount - symndx;
+
+	if (data->d_size != 4 * sizeof(uint32_t) + maskwords *
+	    (ed->ec == ELFCLASS32 ? sizeof(uint32_t) : sizeof(uint64_t)) +
+	    (nbucket + nchain) * sizeof(uint32_t)) {
+		warnx("Malformed .gnu.hash section");
+		return;
+	}
+
+	bucket = buf + (ed->ec == ELFCLASS32 ? maskwords : maskwords * 2);
+	chain = bucket + nbucket;
+
+	if (ed->flags & SOLARIS_FMT) {
+		maxl = 0;
+		if ((bl = calloc(nbucket, sizeof(*bl))) == NULL)
+			err(EX_SOFTWARE, "calloc failed");
+		for (i = 0; (uint32_t)i < nbucket; i++)
+			for (j = bucket[i];
+			     j > 0 && (uint32_t)j - symndx < nchain;
+			     j++) {
+				if (++bl[i] > maxl)
+					maxl = bl[i];
+				if (chain[j - symndx] & 1)
+					break;
+			}
+		if ((c = calloc(maxl + 1, sizeof(*c))) == NULL)
+			err(EX_SOFTWARE, "calloc failed");
+		for (i = 0; (uint32_t)i < nbucket; i++)
+			c[bl[i]]++;
+		PRT("    bucket    symndx    name\n");
+		for (i = 0; (uint32_t)i < nbucket; i++) {
+			first = 1;
+			for (j = bucket[i];
+			     j > 0 && (uint32_t)j - symndx < nchain;
+			     j++) {
+				if (first) {
+					PRT("%10d  ", i);
+					first = 0;
+				} else
+					PRT("            ");
+				snprintf(idx, sizeof(idx), "[%d]", j );
+				PRT("%-10s  ", idx);
+				PRT("%s\n", get_symbol_name(ed, s->link, j));
+				if (chain[j - symndx] & 1)
+					break;
+			}
+		}
+		PRT("\n");
+		total = 0;
+		for (i = 0; (uint32_t)i <= maxl; i++) {
+			total += c[i] * i;
+			PRT("%10u  buckets contain %8d symbols\n", c[i], i);
+		}
+		PRT("%10u  buckets         %8u symbols (globals)\n", nbucket,
+		    total);
+	} else {
+		PRT("\nnbucket: %u\n", nbucket);
+		PRT("symndx: %u\n", symndx);
+		PRT("maskwords: %u\n", maskwords);
+		PRT("shift2: %u\n", shift2);
+		PRT("nchain: %u\n\n", nchain);
+		for (i = 0; (uint32_t)i < nbucket; i++)
+			PRT("bucket[%d]:\n\t%u\n\n", i, bucket[i]);
+		for (i = 0; (uint32_t)i < nchain; i++)
+			PRT("chain[%d]:\n\t%u\n\n", i, chain[i]);
+	}
+}
+
+static void
+elf_print_hash(struct elfdump *ed)
+{
+	struct section	*s;
+	int		 i;
+
+	for (i = 0; (size_t)i < ed->shnum; i++) {
+		s = &ed->sl[i];
+		if ((s->type == SHT_HASH || s->type == SHT_GNU_HASH) &&
+		    (STAILQ_EMPTY(&ed->snl) || find_name(ed, s->name))) {
+			if (s->type == SHT_GNU_HASH)
+				elf_print_gnu_hash(ed, s);
+			else if (ed->ehdr.e_machine == EM_ALPHA &&
+			    s->entsize == 8)
+				elf_print_svr4_hash64(ed, s);
+			else
+				elf_print_svr4_hash(ed, s);
+		}
+	}
 }
 
 static void
