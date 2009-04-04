@@ -425,7 +425,7 @@ _libelf_ar_process_symtab(Elf *e, size_t *count)
 {
 	size_t n, nentries, off;
 	Elf_Arsym *symtab, *sym;
-	char  *p, *s, *end;
+	unsigned char *p, *s, *end;
 
 	assert(e != NULL);
 	assert(count != NULL);
