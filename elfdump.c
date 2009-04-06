@@ -746,7 +746,7 @@ static void	find_gotrel(struct elfdump *ed, struct section *gs,
     struct rel_entry *got);
 static struct spec_name	*find_name(struct elfdump *ed, const char *name);
 static const char *get_symbol_name(struct elfdump *ed, int symtab, int i);
-static const char *get_string_name(struct elfdump *ed, int strtab, size_t off);
+static const char *get_string(struct elfdump *ed, int strtab, size_t off);
 static void	get_versym(struct elfdump *ed, int i, uint16_t **vs, int *nvs);
 static void	load_sections(struct elfdump *ed);
 static void	usage(void);
@@ -869,10 +869,15 @@ struct arsym_entry {
  * Convenient wrapper for general libarchive error handling.
  */
 #define	AC(CALL) do {							\
-	if ((CALL))							\
-		errx(EX_SOFTWARE, "%s", archive_error_string(a));	\
+	if ((CALL)) {							\
+		warnx(EX_SOFTWARE, "%s", archive_error_string(a));	\
+		return;							\
+	}								\
 } while (0)
 
+/*
+ * Detect an ar(1) archive using libarchive(3).
+ */
 static int
 ac_detect_ar(int fd)
 {
@@ -893,6 +898,9 @@ ac_detect_ar(int fd)
 	return (r == ARCHIVE_OK);
 }
 
+/*
+ * Dump an ar(1) archive using libarchive(3).
+ */
 static void
 ac_print_ar(struct elfdump *ed, int fd)
 {
@@ -998,6 +1006,7 @@ ac_print_ar(struct elfdump *ed, int fd)
 			free(buff);
 			continue;
 		}
+		/* Skip non-ELF member. */
 		if (elf_kind(ed->elf) == ELF_K_ELF) {
 			printf("\n%s(%s):\n", ed->archive, name);
 			elf_print_elf(ed);
@@ -1011,6 +1020,9 @@ ac_print_ar(struct elfdump *ed, int fd)
 
 #else  /* USE_LIBARCHIVE_AR */
 
+/*
+ * Dump an ar(1) archive.
+ */
 static void
 elf_print_ar(struct elfdump *ed, int fd)
 {
@@ -1082,8 +1094,10 @@ print_members:
 		return;
 	}
 
+	/* Dump each member of the archive. */
 	cmd = ELF_C_READ;
 	while ((ed->elf = elf_begin(fd, cmd, ed->ar)) != NULL) {
+		/* Skip non-ELF member. */
 		if (elf_kind(ed->elf) == ELF_K_ELF) {
 			if ((arh = elf_getarhdr(ed->elf)) == NULL) {
 				warnx("elf_getarhdr failed: %s",
@@ -1100,6 +1114,9 @@ print_members:
 
 #endif	/* USE_LIBARCHIVE_AR */
 
+/*
+ * Dump an object. (ELF object or ar(1) archive)
+ */
 static void
 elf_print_object(struct elfdump *ed)
 {
@@ -1111,9 +1128,6 @@ elf_print_object(struct elfdump *ed)
 	}
 
 #ifdef	USE_LIBARCHIVE_AR
-	/*
-	 * Detect and process ar(1) archive using libarchive.
-	 */
 	if (ac_detect_ar(fd)) {
 		ed->archive = ed->filename;
 		ac_print_ar(ed, fd);
@@ -1149,11 +1163,13 @@ elf_print_object(struct elfdump *ed)
 	elf_end(ed->elf);
 }
 
+/*
+ * Dump an ELF object.
+ */
 static void
 elf_print_elf(struct elfdump *ed)
 {
 
-	/* Fetch ELF header. No need to continue if this fails. */
 	if (gelf_getehdr(ed->elf, &ed->ehdr) == NULL) {
 		warnx("gelf_getehdr failed: %s", elf_errmsg(-1));
 		return;
@@ -1193,6 +1209,10 @@ elf_print_elf(struct elfdump *ed)
 		elf_print_checksum(ed);
 }
 
+/*
+ * Read the section headers from ELF object and store them in the
+ * internal cache.
+ */
 static void
 load_sections(struct elfdump *ed)
 {
@@ -1203,27 +1223,24 @@ load_sections(struct elfdump *ed)
 	size_t		 shstrndx, ndx;
 	int		 elferr;
 
-	/* Allocate storage for internal section list. */
 	if (!elf_getshnum(ed->elf, &ed->shnum)) {
 		warnx("elf_getshnum failed: %s", elf_errmsg(-1));
 		return;
 	}
 	if (ed->sl != NULL)
 		free(ed->sl);
+	if (ed->shnum == 0)
+		return;
 	if ((ed->sl = calloc(ed->shnum, sizeof(*ed->sl))) == NULL)
 		err(EX_SOFTWARE, "calloc failed");
-
-	/* Get the index of .shstrtab section. */
 	if (!elf_getshstrndx(ed->elf, &shstrndx)) {
 		warnx("elf_getshstrndx failed: %s", elf_errmsg(-1));
 		return;
 	}
-
 	if ((scn = elf_getscn(ed->elf, 0)) == NULL) {
 		warnx("elf_getscn failed: %s", elf_errmsg(-1));
 		return;
 	}
-
 	(void) elf_errno();
 	do {
 		if (gelf_getshdr(scn, &sh) == NULL) {
@@ -1263,6 +1280,9 @@ load_sections(struct elfdump *ed)
 		warnx("elf_nextscn failed: %s", elf_errmsg(elferr));
 }
 
+/*
+ * Add a name to the '-N' name list.
+ */
 static void
 add_name(struct elfdump *ed, const char *name)
 {
@@ -1270,7 +1290,6 @@ add_name(struct elfdump *ed, const char *name)
 
 	if (find_name(ed, name))
 		return;
-
 	if ((sn = malloc(sizeof(*sn))) == NULL) {
 		warn("malloc failed");
 		return;
@@ -1279,6 +1298,9 @@ add_name(struct elfdump *ed, const char *name)
 	STAILQ_INSERT_TAIL(&ed->snl, sn, sn_list);
 }
 
+/*
+ * Lookup a name in the '-N' name list.
+ */
 static struct spec_name *
 find_name(struct elfdump *ed, const char *name)
 {
@@ -1292,6 +1314,10 @@ find_name(struct elfdump *ed, const char *name)
 	return (NULL);
 }
 
+/*
+ * Retrieve the name of a symbol using the section index of the symbol
+ * table and the index of the symbol within that table.
+ */
 static const char *
 get_symbol_name(struct elfdump *ed, int symtab, int i)
 {
@@ -1319,8 +1345,11 @@ get_symbol_name(struct elfdump *ed, int symtab, int i)
 	return (name);
 }
 
+/*
+ * Retrieve a string using string table section index and the string offset.
+ */
 static const char*
-get_string_name(struct elfdump *ed, int strtab, size_t off)
+get_string(struct elfdump *ed, int strtab, size_t off)
 {
 	const char *name;
 
@@ -1330,6 +1359,9 @@ get_string_name(struct elfdump *ed, int strtab, size_t off)
 	return (name);
 }
 
+/*
+ * Dump the ELF Executable Header.
+ */
 static void
 elf_print_ehdr(struct elfdump *ed)
 {
@@ -1377,6 +1409,9 @@ elf_print_ehdr(struct elfdump *ed)
 	}
 }
 
+/*
+ * Dump the ELF Program Header Table.
+ */
 static void
 elf_print_phdr(struct elfdump *ed)
 {
@@ -1395,7 +1430,6 @@ elf_print_phdr(struct elfdump *ed)
 			warnx("elf_getphdr failed: %s", elf_errmsg(-1));
 			continue;
 		}
-
 		if (ed->flags & SOLARIS_FMT) {
 			PRT("\nProgram Header[%d]\n", i);
 			PRT("    p_vaddr:      %#-14jx", (uintmax_t)ph.p_vaddr);
@@ -1423,6 +1457,9 @@ elf_print_phdr(struct elfdump *ed)
 	}
 }
 
+/*
+ * Dump the ELF Section Header Table.
+ */
 static void
 elf_print_shdr(struct elfdump *ed)
 {
@@ -1464,6 +1501,10 @@ elf_print_shdr(struct elfdump *ed)
 	}
 }
 
+/*
+ * Retrieve the content of the corresponding SHT_GNU_versym section for
+ * a symbol table section.
+ */
 static void
 get_versym(struct elfdump *ed, int i, uint16_t **vs, int *nvs)
 {
@@ -1493,6 +1534,9 @@ get_versym(struct elfdump *ed, int i, uint16_t **vs, int *nvs)
 	*nvs = data->d_size / s->entsize;
 }
 
+/*
+ * Dump the symbol table section.
+ */
 static void
 elf_print_symtab(struct elfdump *ed, int i)
 {
@@ -1516,7 +1560,6 @@ elf_print_symtab(struct elfdump *ed, int i)
 			warnx("elf_getdata failed: %s", elf_errmsg(elferr));
 		return;
 	}
-
 	vs = NULL;
 	nvs = 0;
 	len = data->d_size / s->entsize;
@@ -1537,7 +1580,7 @@ elf_print_symtab(struct elfdump *ed, int i)
 			warnx("gelf_getsym failed: %s", elf_errmsg(-1));
 			continue;
 		}
-		name = get_string_name(ed, s->link, sym.st_name);
+		name = get_string(ed, s->link, sym.st_name);
 		if (ed->flags & SOLARIS_FMT) {
 			snprintf(idx, sizeof(idx), "[%d]", j);
 			PRT("%10s      ", idx);
@@ -1565,6 +1608,9 @@ elf_print_symtab(struct elfdump *ed, int i)
 	}
 }
 
+/*
+ * Dump the symbol tables. (.dynsym and .symtab)
+ */
 static void
 elf_print_symtabs(struct elfdump *ed)
 {
@@ -1577,6 +1623,9 @@ elf_print_symtabs(struct elfdump *ed)
 			elf_print_symtab(ed, i);
 }
 
+/*
+ * Dump the content of .dynamic section.
+ */
 static void
 elf_print_dynamic(struct elfdump *ed)
 {
@@ -1676,6 +1725,9 @@ elf_print_dynamic(struct elfdump *ed)
 	}
 }
 
+/*
+ * Dump a .rel/.rela section entry.
+ */
 static void
 elf_print_rel_entry(struct elfdump *ed, struct section *s, int j,
     struct rel_entry *r)
@@ -1700,6 +1752,9 @@ elf_print_rel_entry(struct elfdump *ed, struct section *s, int j,
 	}
 }
 
+/*
+ * Dump a relocation section of type SHT_RELA.
+ */
 static void
 elf_print_rela(struct elfdump *ed, struct section *s, Elf_Data *data)
 {
@@ -1727,6 +1782,9 @@ elf_print_rela(struct elfdump *ed, struct section *s, Elf_Data *data)
 	}
 }
 
+/*
+ * Dump a relocation section of type SHT_REL.
+ */
 static void
 elf_print_rel(struct elfdump *ed, struct section *s, Elf_Data *data)
 {
@@ -1752,6 +1810,9 @@ elf_print_rel(struct elfdump *ed, struct section *s, Elf_Data *data)
 	}
 }
 
+/*
+ * Dump relocation sections.
+ */
 static void
 elf_print_reloc(struct elfdump *ed)
 {
@@ -1779,6 +1840,9 @@ elf_print_reloc(struct elfdump *ed)
 	}
 }
 
+/*
+ * Dump the content of PT_INTERP segment.
+ */
 static void
 elf_print_interp(struct elfdump *ed)
 {
@@ -1807,6 +1871,9 @@ elf_print_interp(struct elfdump *ed)
 	}
 }
 
+/*
+ * Search the relocation sections for entries refering to the .got section.
+ */
 static void
 find_gotrel(struct elfdump *ed, struct section *gs, struct rel_entry *got)
 {
@@ -1855,11 +1922,12 @@ find_gotrel(struct elfdump *ed, struct section *gs, struct rel_entry *got)
 				memcpy(&got[k], &r, sizeof(struct rel_entry));
 			}
 		}
-
-			
 	}
 }
 
+/*
+ * Dump the content of Global Offset Table section. (.got)
+ */
 static void
 elf_print_got(struct elfdump *ed)
 {
@@ -1867,7 +1935,7 @@ elf_print_got(struct elfdump *ed)
 	struct rel_entry	*got;
 	Elf_Data		*data, dst;
 	int			 elferr, i, len;
-	
+
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if (s->name && !strcmp(s->name, ".got") &&
@@ -1876,7 +1944,6 @@ elf_print_got(struct elfdump *ed)
 	}
 	if ((size_t)i >= ed->shnum)
 		return;
-
 	if (ed->flags & SOLARIS_FMT)
 		PRT("\nGlobal Offset Table Section:  %s  (%jd entries)\n",
 		    s->name, s->sz / s->entsize);
@@ -1956,6 +2023,9 @@ elf_print_got(struct elfdump *ed)
 	}
 }
 
+/*
+ * Dump the content of .note.ABI-tag section.
+ */
 static void
 elf_print_note(struct elfdump *ed)
 {
@@ -1967,7 +2037,7 @@ elf_print_note(struct elfdump *ed)
 	uint32_t	 desc;
 	size_t		 count;
 	int		 elferr, i;
-	char		*src;
+	char		*src, idx[10];
 
 	for (i = 0; (size_t)i < ed->shnum; i++) {
 		s = &ed->sl[i];
@@ -1978,8 +2048,10 @@ elf_print_note(struct elfdump *ed)
 	}
 	if ((size_t)i >= ed->shnum)
 		return;
-
-	PRT("\nnote (%s):\n", s->name);
+	if (ed->flags & SOLARIS_FMT)
+		PRT("\nNote Section:  %s\n", s->name);
+	else
+		PRT("\nnote (%s):\n", s->name);
 	(void) elf_errno();
 	if ((data = elf_getdata(s->scn, NULL)) == NULL) {
 		elferr = elf_errno();
@@ -1995,19 +2067,48 @@ elf_print_note(struct elfdump *ed)
 		descsz = en->n_descsz;
 		src += sizeof(Elf_Note);
 		count -= sizeof(Elf_Note);
-		PRT("\t%s ", src);
+		if (ed->flags & SOLARIS_FMT) {
+			PRT("\n    type   %#x\n", en->n_type);
+			PRT("    namesz %#x:\n", en->n_namesz);
+			PRT("%s\n", src);
+		} else
+			PRT("\t%s ", src);
 		src += roundup2(namesz, 4);
 		count -= roundup2(namesz, 4);
-		if (ed->ehdr.e_ident[EI_DATA] == ELFDATA2MSB)
-			desc = be32dec(src);
-		else
-			desc = le32dec(src);
-		PRT("%d\n", desc);
+
+		/*
+		 * Note that we dump the whole desc part if we're in
+		 * "Solaris mode", while in the normal mode, we only look
+		 * at the first 4 bytes (a 32bit word) of the desc, i.e,
+		 * we assume that it's always a FreeBSD version number.
+		 */
+		if (ed->flags & SOLARIS_FMT) {
+			PRT("    descsz %#x:", en->n_descsz);
+			for (i = 0; (uint32_t)i < descsz; i++) {
+				if ((i & 0xF) == 0) {
+					snprintf(idx, sizeof(idx), "desc[%d]",
+					    i);
+					PRT("\n      %-9s", idx);
+				} else if ((i & 0x3) == 0)
+					PRT("  ");
+				PRT(" %2.2x", src[i]);
+			}
+			PRT("\n");
+		} else {
+			if (ed->ehdr.e_ident[EI_DATA] == ELFDATA2MSB)
+				desc = be32dec(src);
+			else
+				desc = le32dec(src);
+			PRT("%d\n", desc);
+		}
 		src += roundup2(descsz, 4);
 		count -= roundup2(descsz, 4);
 	}
 }
 
+/*
+ * Dump a hash table.
+ */
 static void
 elf_print_svr4_hash(struct elfdump *ed, struct section *s)
 {
@@ -2095,6 +2196,9 @@ elf_print_svr4_hash(struct elfdump *ed, struct section *s)
 	}
 }
 
+/*
+ * Dump a 64bit hash table.
+ */
 static void
 elf_print_svr4_hash64(struct elfdump *ed, struct section *s)
 {
@@ -2110,6 +2214,7 @@ elf_print_svr4_hash64(struct elfdump *ed, struct section *s)
 		PRT("\nHash Section:  %s\n", s->name);
 	else
 		PRT("\nhash table (%s):\n", s->name);
+
 	/*
 	 * ALPHA uses 64-bit hash entries. Since libelf assumes that
 	 * .hash section contains only 32-bit entry, an explicit
@@ -2130,7 +2235,6 @@ elf_print_svr4_hash64(struct elfdump *ed, struct section *s)
 		warnx("gelf_xlatetom failed: %s", elf_errmsg(-1));
 		return;
 	}
-
 	if (dst.d_size < 2 * sizeof(uint64_t)) {
 		warnx(".hash section too small");
 		return;
@@ -2197,6 +2301,9 @@ elf_print_svr4_hash64(struct elfdump *ed, struct section *s)
 
 }
 
+/*
+ * Dump a GNU hash table.
+ */
 static void
 elf_print_gnu_hash(struct elfdump *ed, struct section *s)
 {
@@ -2231,18 +2338,15 @@ elf_print_gnu_hash(struct elfdump *ed, struct section *s)
 	maskwords = buf[2];
 	shift2 = buf[3];
 	buf += 4;
-
 	ds = &ed->sl[s->link];
 	dynsymcount = ds->sz / ds->entsize;
 	nchain = dynsymcount - symndx;
-
 	if (data->d_size != 4 * sizeof(uint32_t) + maskwords *
 	    (ed->ec == ELFCLASS32 ? sizeof(uint32_t) : sizeof(uint64_t)) +
 	    (nbucket + nchain) * sizeof(uint32_t)) {
 		warnx("Malformed .gnu.hash section");
 		return;
 	}
-
 	bucket = buf + (ed->ec == ELFCLASS32 ? maskwords : maskwords * 2);
 	chain = bucket + nbucket;
 
@@ -2302,6 +2406,9 @@ elf_print_gnu_hash(struct elfdump *ed, struct section *s)
 	}
 }
 
+/*
+ * Dump hash tables.
+ */
 static void
 elf_print_hash(struct elfdump *ed)
 {
@@ -2323,6 +2430,9 @@ elf_print_hash(struct elfdump *ed)
 	}
 }
 
+/*
+ * Dump the content of a Version Definition(SHT_GNU_Verdef) Section.
+ */
 static void
 elf_print_verdef(struct elfdump *ed, struct section *s)
 {
@@ -2371,7 +2481,7 @@ elf_print_verdef(struct elfdump *ed, struct section *s)
 		count = 0;
 		while (buf2 + sizeof(Elf32_Verdaux) <= end && j < vd->vd_cnt) {
 			vda = (Elf32_Verdaux *) (uintptr_t) buf2;
-			str = get_string_name(ed, s->link, vda->vda_name);
+			str = get_string(ed, s->link, vda->vda_name);
 			if (ed->flags & SOLARIS_FMT) {
 				if (count == 0)
 					PRT("%-26.26s", str);
@@ -2407,6 +2517,9 @@ elf_print_verdef(struct elfdump *ed, struct section *s)
 	}
 }
 
+/*
+ * Dump the content of a Version Needed(SHT_GNU_Verneed) Section.
+ */
 static void
 elf_print_verneed(struct elfdump *ed, struct section *s)
 {
@@ -2430,20 +2543,20 @@ elf_print_verneed(struct elfdump *ed, struct section *s)
 	}
 	buf = data->d_buf;
 	end = buf + data->d_size;
-	i = 0;
 	if (ed->flags & SOLARIS_FMT)
 		PRT("            file                        version\n");
+	i = 0;
 	while (buf + sizeof(Elf32_Verneed) <= end) {
 		vn = (Elf32_Verneed *) (uintptr_t) buf;
 		if (ed->flags & SOLARIS_FMT)
 			PRT("            %-26.26s  ",
-			    get_string_name(ed, s->link, vn->vn_file));
+			    get_string(ed, s->link, vn->vn_file));
 		else {
 			PRT("\nentry: %d\n", i++);
 			PRT("\tvn_version: %u\n", vn->vn_version);
 			PRT("\tvn_cnt: %u\n", vn->vn_cnt);
 			PRT("\tvn_file: %s\n",
-			    get_string_name(ed, s->link, vn->vn_file));
+			    get_string(ed, s->link, vn->vn_file));
 			PRT("\tvn_aux: %u\n", vn->vn_aux);
 			PRT("\tvn_next: %u\n\n", vn->vn_next);
 		}
@@ -2457,7 +2570,7 @@ elf_print_verneed(struct elfdump *ed, struct section *s)
 					PRT("%40.40s", "");
 				else
 					first = 0;
-				PRT("%s\n", get_string_name(ed, s->link,
+				PRT("%s\n", get_string(ed, s->link,
 				    vna->vna_name));
 			} else {
 				PRT("\t\tvna: %d\n", j++);
@@ -2465,8 +2578,7 @@ elf_print_verneed(struct elfdump *ed, struct section *s)
 				PRT("\t\t\tvna_flags: %u\n", vna->vna_flags);
 				PRT("\t\t\tvna_other: %u\n", vna->vna_other);
 				PRT("\t\t\tvna_name: %s\n",
-				    get_string_name(ed, s->link,
-					vna->vna_name));
+				    get_string(ed, s->link, vna->vna_name));
 				PRT("\t\t\tvna_next: %u\n", vna->vna_next);
 			}
 			if (vna->vna_next == 0)
@@ -2479,6 +2591,9 @@ elf_print_verneed(struct elfdump *ed, struct section *s)
 	}
 }
 
+/*
+ * Dump the symbol-versioning sections.
+ */
 static void
 elf_print_symver(struct elfdump *ed)
 {
@@ -2496,6 +2611,9 @@ elf_print_symver(struct elfdump *ed)
 	}
 }
 
+/*
+ * Dump the ELF checksum. See gelf_checksum(3) for details.
+ */
 static void
 elf_print_checksum(struct elfdump *ed)
 {
