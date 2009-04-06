@@ -34,9 +34,11 @@
 files
 .Sh SYNOPSIS
 .Nm
-.Fl a | cdeGhinprs
+.Op Fl S
+.Fl a | cdeGhiknprsv
+.Op Fl N Ar name
 .Op Fl w Ar file
-.Ar file
+.Ar file ...
 .Sh DESCRIPTION
 The
 .Nm
@@ -65,12 +67,23 @@ Dump the dynamic interpreter.
 Dump the ELF checksum.
 .It Fl n
 Dump note sections.
+.It Fl N Ar name
+Only dump the section with the specific
+.Ar name .
+Archive symbol table can be specified with
+the special section name ARSYM.
 .It Fl p
 Dump the program header.
 .It Fl r
 Dump relocations.
 .It Fl s
 Dump the symbol table.
+.It Fl S
+Output in the Solaris
+.Nm
+format.
+.It Fl v
+Dump the symbol-versioning sections.
 .It Fl w Ar file
 Write output to a
 .Ar file
@@ -85,9 +98,26 @@ of the
 command:
 .Pp
 .Dl "elfdump -a -w output /bin/ls"
+.Pp
+To dump the content of '.dynsym' symbol table:
+.Pp
+.Dl "elfdump -s -N .dynsym /bin/ls"
+.Pp
+To dump the archive symbol table,
+but not the symbol tables of archive members:
+.Pp
+.Dl "elfdump -s -N ARSYM /usr/lib/libelf.a"
+.Pp
+To dump the content of .got section and
+the symbol-versioning sections in Solaris
+.Nm
+format:
+.Pp
+.Dl "elfdump -S -Gv /bin/ls"
 .Sh SEE ALSO
 .Xr objdump 1 ,
-.Xr readelf 1
+.Xr readelf 1 ,
+.Xr elf 3
 .Rs
 .%A "AT&T Unix Systems Labs"
 .%T "System V Application Binary Interface"
@@ -110,6 +140,11 @@ libelf library.
 This
 manual page was written by
 .An David O'Brien Aq obrien@FreeBSD.org .
+.Pp
+.An Kai Wang Aq kaiw@FreeBSD.org
+rewrote it using the
+.Lb libelf
+and implemented additional functionalities.
 .Sh BUGS
 Does not fully implement the
 .Tn ELF
