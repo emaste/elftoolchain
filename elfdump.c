@@ -870,7 +870,7 @@ struct arsym_entry {
  */
 #define	AC(CALL) do {							\
 	if ((CALL)) {							\
-		warnx(EX_SOFTWARE, "%s", archive_error_string(a));	\
+		warnx("%s", archive_error_string(a));			\
 		return;							\
 	}								\
 } while (0)
@@ -1227,8 +1227,10 @@ load_sections(struct elfdump *ed)
 		warnx("elf_getshnum failed: %s", elf_errmsg(-1));
 		return;
 	}
-	if (ed->sl != NULL)
+	if (ed->sl != NULL) {
 		free(ed->sl);
+		ed->sl = NULL;
+	}
 	if (ed->shnum == 0)
 		return;
 	if ((ed->sl = calloc(ed->shnum, sizeof(*ed->sl))) == NULL)
@@ -1502,7 +1504,7 @@ elf_print_shdr(struct elfdump *ed)
 }
 
 /*
- * Retrieve the content of the corresponding SHT_GNU_versym section for
+ * Retrieve the content of the corresponding SHT_SUNW_versym section for
  * a symbol table section.
  */
 static void
@@ -1514,7 +1516,7 @@ get_versym(struct elfdump *ed, int i, uint16_t **vs, int *nvs)
 
 	for (j = 0; (size_t)j < ed->shnum; j++) {
 		s = &ed->sl[j];
-		if (s->type == SHT_GNU_versym && s->link == (uint32_t)i)
+		if (s->type == SHT_SUNW_versym && s->link == (uint32_t)i)
 			break;
 	}
 	if ((size_t)j >= ed->shnum) {
@@ -2431,7 +2433,7 @@ elf_print_hash(struct elfdump *ed)
 }
 
 /*
- * Dump the content of a Version Definition(SHT_GNU_Verdef) Section.
+ * Dump the content of a Version Definition(SHT_SUNW_Verdef) Section.
  */
 static void
 elf_print_verdef(struct elfdump *ed, struct section *s)
@@ -2518,7 +2520,7 @@ elf_print_verdef(struct elfdump *ed, struct section *s)
 }
 
 /*
- * Dump the content of a Version Needed(SHT_GNU_Verneed) Section.
+ * Dump the content of a Version Needed(SHT_SUNW_Verneed) Section.
  */
 static void
 elf_print_verneed(struct elfdump *ed, struct section *s)
@@ -2604,9 +2606,9 @@ elf_print_symver(struct elfdump *ed)
 		s = &ed->sl[i];
 		if (!STAILQ_EMPTY(&ed->snl) && !find_name(ed, s->name))
 			continue;
-		if (s->type == SHT_GNU_verdef)
+		if (s->type == SHT_SUNW_verdef)
 			elf_print_verdef(ed, s);
-		if (s->type == SHT_GNU_verneed)
+		if (s->type == SHT_SUNW_verneed)
 			elf_print_verneed(ed, s);
 	}
 }

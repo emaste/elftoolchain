@@ -103,4 +103,20 @@ le32dec(const void *pp)
 	return ((p[3] << 24) | (p[2] << 16) | (p[1] << 8) | p[0]);
 }
 
+/*
+ * Supply symbols missing in at least some Linux based systems.
+ */
+
+#ifndef	SHT_SUNW_verdef
+#define	SHT_SUNW_verdef		0x6FFFFFFD
+#endif
+
+#ifndef	SHT_SUNW_verneed
+#define	SHT_SUNW_verneed	0x6FFFFFFE
+#endif
+
+#ifndef	SHT_SUNW_versym
+#define	SHT_SUNW_versym		0x6FFFFFFF
+#endif
+
 #endif /* defined(__linux__) || defined(__GNU__) || defined(__GLIBC__) */
