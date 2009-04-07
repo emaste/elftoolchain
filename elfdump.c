@@ -1252,12 +1252,12 @@ load_sections(struct elfdump *ed)
 			(void) elf_errno();
 			name = "ERROR";
 		}
-		if ((ndx = elf_ndxscn(scn)) == SHN_UNDEF) {
-			if ((elferr = elf_errno()) != 0)
+		if ((ndx = elf_ndxscn(scn)) == SHN_UNDEF)
+			if ((elferr = elf_errno()) != 0) {
 				warnx("elf_ndxscn failed: %s",
 				    elf_errmsg(elferr));
-			continue;
-		}
+				continue;
+			}
 		if (ndx >= ed->shnum) {
 			warnx("section index of '%s' out of range", name);
 			continue;
