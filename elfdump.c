@@ -1368,7 +1368,7 @@ static void
 elf_print_ehdr(struct elfdump *ed)
 {
 	if (ed->flags & SOLARIS_FMT) {
-		PRT("\nELF Header:\n");
+		PRT("\nELF Header\n");
 		PRT("  ei_magic:   { %#x, %c, %c, %c }\n",
 		    ed->ehdr.e_ident[0], ed->ehdr.e_ident[1],
 		    ed->ehdr.e_ident[2], ed->ehdr.e_ident[3]);
@@ -1377,7 +1377,7 @@ elf_print_ehdr(struct elfdump *ed)
 		PRT("  ei_data:      %s\n", ei_data[ed->ehdr.e_ident[EI_DATA]]);
 		PRT("  e_machine:  %-18s", e_machines(ed->ehdr.e_machine));
 		PRT("  e_version:    %s\n", ei_versions[ed->ehdr.e_version]);
-		PRT("  e_type:     %-18s\n", e_types[ed->ehdr.e_type]);
+		PRT("  e_type:     %s\n", e_types[ed->ehdr.e_type]);
 		PRT("  e_flags:    %18d\n", ed->ehdr.e_flags);
 		PRT("  e_entry:    %#18jx", (uintmax_t)ed->ehdr.e_entry);
 		PRT("  e_ehsize: %6d", ed->ehdr.e_ehsize);
@@ -1433,7 +1433,7 @@ elf_print_phdr(struct elfdump *ed)
 			continue;
 		}
 		if (ed->flags & SOLARIS_FMT) {
-			PRT("\nProgram Header[%d]\n", i);
+			PRT("\nProgram Header[%d]:\n", i);
 			PRT("    p_vaddr:      %#-14jx", (uintmax_t)ph.p_vaddr);
 			PRT("  p_flags:    [ %s ]\n", p_flags[ph.p_flags]);
 			PRT("    p_paddr:      %#-14jx", (uintmax_t)ph.p_paddr);
@@ -1570,7 +1570,7 @@ elf_print_symtab(struct elfdump *ed, int i)
 	len = data->d_size / s->entsize;
 	if (ed->flags & SOLARIS_FMT) {
 		if (ed->ec == ELFCLASS32)
-			PRT("     index        value       ");
+			PRT("     index    value       ");
 		else
 			PRT("     index        value           ");
 		PRT("size     type bind oth ver shndx       name\n");
@@ -1588,7 +1588,10 @@ elf_print_symtab(struct elfdump *ed, int i)
 		name = get_string(ed, s->link, sym.st_name);
 		if (ed->flags & SOLARIS_FMT) {
 			snprintf(idx, sizeof(idx), "[%d]", j);
-			PRT("%10s      ", idx);
+			if (ed->ec == ELFCLASS32)
+				PRT("%10s  ", idx);
+			else
+				PRT("%10s      ", idx);
 			PRT("0x%8.8jx ", (uintmax_t)sym.st_value);
 			if (ed->ec == ELFCLASS32)
 				PRT("0x%8.8jx  ", (uintmax_t)sym.st_size);
@@ -1699,8 +1702,13 @@ elf_print_dynamic(struct elfdump *ed)
 		case DT_RELSZ:
 		case DT_RELENT:
 		case DT_PLTREL:
+		case DT_VERDEF:
+		case DT_VERDEFNUM:
+		case DT_VERNEED:
+		case DT_VERNEEDNUM:
+		case DT_VERSYM:
 			if (ed->flags & SOLARIS_FMT)
-				PRT("%jx\n", (uintmax_t)dyn.d_un.d_val);
+				PRT("%#jx\n", (uintmax_t)dyn.d_un.d_val);
 			else
 				PRT("\td_val: %ju\n",
 				    (uintmax_t)dyn.d_un.d_val);
@@ -1713,14 +1721,15 @@ elf_print_dynamic(struct elfdump *ed)
 		case DT_FINI:
 		case DT_REL:
 		case DT_JMPREL:
+		case DT_DEBUG:
 			if (ed->flags & SOLARIS_FMT)
-				PRT("%#jx\n", dyn.d_un.d_ptr);
+				PRT("%#jx\n", (uintmax_t)dyn.d_un.d_ptr);
 			else
-				PRT("\td_ptr: %#jx\n", dyn.d_un.d_ptr);
+				PRT("\td_ptr: %#jx\n",
+				    (uintmax_t)dyn.d_un.d_ptr);
 			break;
 		case DT_NULL:
 		case DT_SYMBOLIC:
-		case DT_DEBUG:
 		case DT_TEXTREL:
 		default:
 			if (ed->flags & SOLARIS_FMT)
