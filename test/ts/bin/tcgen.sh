@@ -2,10 +2,10 @@
 
 usage()
 {
-    echo "Usage: tcgen.sh prog tcdir file"
+    echo "Usage: tcgen.sh prog tcdir file [-S]"
 }
 
-if [ $# != 3 ]; then
+if [ $# -lt 3 ]; then
     usage
     exit 1
 fi
@@ -14,6 +14,9 @@ prog=$1
 tcdir=$2
 file=$3
 rundir=`pwd`
+if [ "$4" = "-S" ]; then
+    ADD_S=yes
+fi
 
 cd "$tcdir"
 rm -f tc
@@ -24,6 +27,9 @@ c=0
 while [ 1 ]; do
     read line || break
     rlt=`echo "$line" | sed -e 's/ *-/@/g' -e 's/  */%/g'`
+    if [ "$ADD_S" = yes ]; then
+	rlt="@S${rlt}"
+    fi
     $prog ${line} > "${rlt}.out" 2> "${rlt}.err"
     c=`expr $c + 1`
     echo "tp$c()" >> tc
