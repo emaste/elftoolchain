@@ -1770,8 +1770,7 @@ elf_print_rela(struct elfdump *ed, struct section *s, Elf_Data *data)
 		PRT("\nRelocation Section:  %s\n", s->name);
 		PRT("        type                          offset     "
 		    "addend  section        with respect to\n");
-	}
-	else
+	} else
 		PRT("\nrelocation with addend (%s):\n", s->name);
 	r.type = SHT_RELA;
 	len = data->d_size / s->entsize;
