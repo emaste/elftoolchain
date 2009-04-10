@@ -259,6 +259,8 @@ static const char *p_flags[] = {
 static const char *
 sh_name(struct elfdump *ed, int ndx)
 {
+	static char num[10];
+
 	switch (ndx) {
 	case SHN_UNDEF: return "UNDEF";
 	case SHN_ABS: return "ABS";
@@ -266,8 +268,10 @@ sh_name(struct elfdump *ed, int ndx)
 	default:
 		if ((uint64_t)ndx < ed->shnum)
 			return (ed->sl[ndx].name);
-		else
-			return "UNKNOWN";
+		else {
+			snprintf(num, sizeof(num), "%d", ndx);
+			return (num);
+		}
 	}
 }
 
