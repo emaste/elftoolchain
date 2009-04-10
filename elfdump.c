@@ -172,6 +172,7 @@ d_tags(uint64_t tag)
 	case 0x6ffffdfe: return "DT_SYMINSZ";
 	case 0x6ffffdff: return "DT_SYMINENT (DT_VALRNGHI)";
 	case 0x6ffffe00: return "DT_ADDRRNGLO";
+	case 0x6ffffef5: return "DT_GNU_HASH";
 	case 0x6ffffef8: return "DT_GNU_CONFLICT";
 	case 0x6ffffef9: return "DT_GNU_LIBLIST";
 	case 0x6ffffefa: return "DT_SUNW_CONFIG";
@@ -298,6 +299,7 @@ sh_types(u_int64_t sht) {
 	case 18: return "SHT_SYMTAB_SHNDX";
 	/* 0x60000000 - 0x6fffffff operating system-specific semantics */
 	case 0x6ffffff0: return "XXX:VERSYM";
+	case 0x6ffffff6: return "SHT_GNU_HASH";
 	case 0x6ffffff7: return "SHT_GNU_LIBLIST";
 	case 0x6ffffffc: return "XXX:VERDEF";
 	case 0x6ffffffd: return "SHT_SUNW(GNU)_verdef";
@@ -1720,6 +1722,7 @@ elf_print_dynamic(struct elfdump *ed)
 			break;
 		case DT_PLTGOT:
 		case DT_HASH:
+		case DT_GNU_HASH:
 		case DT_STRTAB:
 		case DT_SYMTAB:
 		case DT_INIT:
