@@ -1736,11 +1736,11 @@ elf_print_rel_entry(struct elfdump *ed, struct section *s, int j,
 {
 
 	if (ed->flags & SOLARIS_FMT) {
-		PRT("\t%-28s ", r_type(ed->ehdr.e_machine,
+		PRT("        %-27s ", r_type(ed->ehdr.e_machine,
 			GELF_R_TYPE(r->u_r.rel.r_info)));
 		PRT("%#-11jx ", (uintmax_t)r->u_r.rel.r_offset);
 		if (r->type == SHT_RELA)
-			PRT("%-6jd  ", (intmax_t)r->u_r.rela.r_addend);
+			PRT("%7jd  ", (intmax_t)r->u_r.rela.r_addend);
 		PRT("%-14s ", s->name);
 		PRT("%s\n", r->symn);
 	} else {
@@ -1765,8 +1765,8 @@ elf_print_rela(struct elfdump *ed, struct section *s, Elf_Data *data)
 
 	if (ed->flags & SOLARIS_FMT) {
 		PRT("\nRelocation Section:  %s\n", s->name);
-		PRT("\ttype                          offset     addend  "
-		    "section        with respect to\n");
+		PRT("        type                          offset     "
+		    "addend  section        with respect to\n");
 	}
 	else
 		PRT("\nrelocation with addend (%s):\n", s->name);
@@ -1795,7 +1795,7 @@ elf_print_rel(struct elfdump *ed, struct section *s, Elf_Data *data)
 
 	if (ed->flags & SOLARIS_FMT) {
 		PRT("\nRelocation Section:  %s\n", s->name);
-		PRT("\ttype                          offset     "
+		PRT("        type                          offset     "
 		    "section        with respect to\n");
 	} else
 		PRT("\nrelocation (%s):\n", s->name);
