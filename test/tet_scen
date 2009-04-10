@@ -1,0 +1,9 @@
+all
+        "Starting Test Suite"
+	^exec1
+        "Complete Test Suite"
+
+exec1
+	"Starting exec1 Test"
+	/ts/exec1/tc
+	"Complete exec1 Test"
