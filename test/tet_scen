@@ -3,6 +3,7 @@ all
 	^exec1
 	^exec2
 	^dso1
+	^dso2
         "Complete Test Suite"
 
 exec1
@@ -19,3 +20,8 @@ dso1
 	"Starting dso1 Test"
 	/ts/dso1/tc
 	"Complete dso1 Test"
+
+dso2
+	"Starting dso2 Test"
+	/ts/dso2/tc
+	"Complete dso2 Test"
