@@ -1478,7 +1478,10 @@ elf_print_shdr(struct elfdump *ed)
 			PRT("\nSection Header[%d]:", i);
 			PRT("  sh_name: %s\n", s->name);
 			PRT("    sh_addr:      %#-14jx", (uintmax_t)s->addr);
-			PRT("  sh_flags:   [ %s ]\n", sh_flags[s->flags & 0x7]);
+			if (s->flags != 0)
+				PRT("  sh_flags:   [ %s ]\n", sh_flags[s->flags & 0x7]);
+			else
+				PRT("  sh_flags:   0\n");
 			PRT("    sh_size:      %#-14jx", (uintmax_t)s->sz);
 			PRT("  sh_type:    [ %s ]\n", sh_types(s->type));
 			PRT("    sh_offset:    %#-14jx", (uintmax_t)s->off);
