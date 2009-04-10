@@ -1480,7 +1480,7 @@ elf_print_shdr(struct elfdump *ed)
 			PRT("    sh_addr:      %#-14jx", (uintmax_t)s->addr);
 			PRT("  sh_flags:   [ %s ]\n", sh_flags[s->flags & 0x7]);
 			PRT("    sh_size:      %#-14jx", (uintmax_t)s->sz);
-			PRT("  sh_types:   [ %s ]\n", sh_types(s->type));
+			PRT("  sh_type:    [ %s ]\n", sh_types(s->type));
 			PRT("    sh_offset:    %#-14jx", (uintmax_t)s->off);
 			PRT("  sh_entsize: %#jx\n", (uintmax_t)s->entsize);
 			PRT("    sh_link:      %-14u", s->link);
