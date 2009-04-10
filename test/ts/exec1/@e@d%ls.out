@@ -60,6 +60,7 @@ entry: 9
 
 entry: 10
 	d_tag: DT_DEBUG
+	d_ptr: 0
 
 entry: 11
 	d_tag: DT_PLTGOT
@@ -91,12 +92,15 @@ entry: 17
 
 entry: 18
 	d_tag: DT_VERNEED
+	d_val: 4198584
 
 entry: 19
 	d_tag: DT_VERNEEDNUM
+	d_val: 1
 
 entry: 20
 	d_tag: DT_GNU_VERSYM
+	d_val: 4198404
 
 entry: 21
 	d_tag: DT_NULL
