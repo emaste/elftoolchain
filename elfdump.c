@@ -1443,7 +1443,7 @@ elf_print_phdr(struct elfdump *ed)
 			PRT("  p_memsz:    %#jx\n", (uintmax_t)ph.p_memsz);
 			PRT("    p_offset:     %#-14jx",
 			    (uintmax_t)ph.p_offset);
-			PRT("  p_align:    %jd\n", (uintmax_t)ph.p_align);
+			PRT("  p_align:    %#jx\n", (uintmax_t)ph.p_align);
 		} else {
 			PRT("\n");
 			PRT("entry: %d\n", i);
