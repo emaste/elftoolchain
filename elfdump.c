@@ -1750,7 +1750,12 @@ elf_print_rel_entry(struct elfdump *ed, struct section *s, int j,
 		PRT("\n");
 		PRT("entry: %d\n", j);
 		PRT("\tr_offset: %#jx\n", (uintmax_t)r->u_r.rel.r_offset);
-		PRT("\tr_info: %#jx\n", (uintmax_t)r->u_r.rel.r_info);
+		if (ed->ec == ELFCLASS32)
+			PRT("\tr_info: %#jx\n", (uintmax_t)
+			    ELF32_R_INFO(ELF64_R_SYM(r->u_r.rel.r_info),
+			    ELF64_R_TYPE(r->u_r.rel.r_info)));
+		else
+			PRT("\tr_info: %#jx\n", (uintmax_t)r->u_r.rel.r_info);
 		if (r->type == SHT_RELA)
 			PRT("\tr_addend: %jd\n",
 			    (intmax_t)r->u_r.rela.r_addend);
