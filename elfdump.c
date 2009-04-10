@@ -1701,6 +1701,7 @@ elf_print_dynamic(struct elfdump *ed)
 		case DT_RELA:
 		case DT_RELASZ:
 		case DT_RELAENT:
+		case DT_RELACOUNT:
 		case DT_STRSZ:
 		case DT_SYMENT:
 		case DT_RELSZ:
@@ -1752,11 +1753,13 @@ elf_print_rel_entry(struct elfdump *ed, struct section *s, int j,
 {
 
 	if (ed->flags & SOLARIS_FMT) {
-		PRT("        %-27s ", r_type(ed->ehdr.e_machine,
+		PRT("        %-23s ", r_type(ed->ehdr.e_machine,
 			GELF_R_TYPE(r->u_r.rel.r_info)));
-		PRT("%#-11jx ", (uintmax_t)r->u_r.rel.r_offset);
+		PRT("%#12jx ", (uintmax_t)r->u_r.rel.r_offset);
 		if (r->type == SHT_RELA)
-			PRT("%7jd  ", (intmax_t)r->u_r.rela.r_addend);
+			PRT("%#10jx  ", (intmax_t)r->u_r.rela.r_addend);
+		else
+			PRT("    ");
 		PRT("%-14s ", s->name);
 		PRT("%s\n", r->symn);
 	} else {
