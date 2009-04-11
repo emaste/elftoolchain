@@ -265,7 +265,7 @@ sh_name(struct elfdump *ed, int ndx)
 	switch (ndx) {
 	case SHN_UNDEF: return "UNDEF";
 	case SHN_ABS: return "ABS";
-	case SHN_COMMON: return "COM";
+	case SHN_COMMON: return "COMMON";
 	default:
 		if ((uint64_t)ndx < ed->shnum)
 			return (ed->sl[ndx].name);
