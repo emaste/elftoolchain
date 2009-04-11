@@ -1329,6 +1329,7 @@ find_name(struct elfdump *ed, const char *name)
 static const char *
 get_symbol_name(struct elfdump *ed, int symtab, int i)
 {
+	static char	 sname[64];
 	struct section	*s;
 	const char	*name;
 	GElf_Sym	 sym;
@@ -1347,6 +1348,14 @@ get_symbol_name(struct elfdump *ed, int symtab, int i)
 	}
 	if (gelf_getsym(data, i, &sym) != &sym)
 		return ("");
+	if (GELF_ST_TYPE(sym.st_info) == STT_SECTION) {
+		if (sym.st_shndx < ed->shnum) {
+			snprintf(sname, sizeof(sname), "%s (section)",
+			    ed->sl[sym.st_shndx].name);
+			return (sname);
+		} else
+			return ("");
+	}
 	if ((name = elf_strptr(ed->elf, s->link, sym.st_name)) == NULL)
 		return ("");
 
