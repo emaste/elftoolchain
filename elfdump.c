@@ -315,11 +315,39 @@ sh_types(u_int64_t sht) {
 	}
 }
 
-static const char *sh_flags[] = {
-	"", "SHF_WRITE", "SHF_ALLOC", "SHF_WRITE|SHF_ALLOC", "SHF_EXECINSTR",
-	"SHF_WRITE|SHF_EXECINSTR", "SHF_ALLOC|SHF_EXECINSTR",
-	"SHF_WRITE|SHF_ALLOC|SHF_EXECINSTR"
-};
+static const char *
+sh_flags(uint64_t shf)
+{
+	static char	flg[128];
+	int		len;
+
+	flg[0] = '\0';
+	if (shf & SHF_WRITE)
+		strlcat(flg, "SHF_WRITE|", sizeof(flg));
+	if (shf & SHF_ALLOC)
+		strlcat(flg, "SHF_ALLOC|", sizeof(flg));
+	if (shf & SHF_EXECINSTR)
+		strlcat(flg, "SHF_EXECINSTR|", sizeof(flg));
+	if (shf & SHF_MERGE)
+		strlcat(flg, "SHF_MERGE|", sizeof(flg));
+	if (shf & SHF_STRINGS)
+		strlcat(flg, "SHF_STRINGS|", sizeof(flg));
+	if (shf & SHF_INFO_LINK)
+		strlcat(flg, "SHF_INFO_LINK|", sizeof(flg));
+	if (shf & SHF_LINK_ORDER)
+		strlcat(flg, "SHF_LINK_ORDER|", sizeof(flg));
+	if (shf & SHF_OS_NONCONFORMING)
+		strlcat(flg, "SHF_OS_NONCONFORMING|", sizeof(flg));
+	if (shf & SHF_GROUP)
+		strlcat(flg, "SHF_GROUP|", sizeof(flg));
+	if (shf & SHF_TLS)
+		strlcat(flg, "SHF_TLS|", sizeof(flg));
+	len = strlen(flg);
+	if (len > 0)
+		flg[len - 1] = '\0';
+
+	return (flg);
+}
 
 static const char *st_types[] = {
 	"STT_NOTYPE", "STT_OBJECT", "STT_FUNC", "STT_SECTION", "STT_FILE"
@@ -1494,7 +1522,7 @@ elf_print_shdr(struct elfdump *ed)
 			PRT("  sh_name: %s\n", s->name);
 			PRT("    sh_addr:      %#-14jx", (uintmax_t)s->addr);
 			if (s->flags != 0)
-				PRT("  sh_flags:   [ %s ]\n", sh_flags[s->flags & 0x7]);
+				PRT("  sh_flags:   [ %s ]\n", sh_flags(s->flags));
 			else
 				PRT("  sh_flags:   0\n");
 			PRT("    sh_size:      %#-14jx", (uintmax_t)s->sz);
@@ -1509,7 +1537,7 @@ elf_print_shdr(struct elfdump *ed)
 			PRT("entry: %ju\n", (uintmax_t)i);
 			PRT("\tsh_name: %s\n", s->name);
 			PRT("\tsh_type: %s\n", sh_types(s->type));
-			PRT("\tsh_flags: %s\n", sh_flags[s->flags & 0x7]);
+			PRT("\tsh_flags: %s\n", sh_flags(s->flags));
 			PRT("\tsh_addr: %#jx\n", (uintmax_t)s->addr);
 			PRT("\tsh_offset: %ju\n", (uintmax_t)s->off);
 			PRT("\tsh_size: %ju\n", (uintmax_t)s->sz);
