@@ -1769,7 +1769,7 @@ elf_print_rel_entry(struct elfdump *ed, struct section *s, int j,
 			GELF_R_TYPE(r->u_r.rel.r_info)));
 		PRT("%#12jx ", (uintmax_t)r->u_r.rel.r_offset);
 		if (r->type == SHT_RELA)
-			PRT("%#10jx  ", (intmax_t)r->u_r.rela.r_addend);
+			PRT("%10jd  ", (intmax_t)r->u_r.rela.r_addend);
 		else
 			PRT("    ");
 		PRT("%-14s ", s->name);
