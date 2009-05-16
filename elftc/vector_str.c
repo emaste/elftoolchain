@@ -26,9 +26,10 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-#include "vector_str.h"
+#include "_libelftc.h"
 
 /**
  * @file vector_str.c
