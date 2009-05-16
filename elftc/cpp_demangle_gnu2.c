@@ -31,9 +31,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
-#include "_libelftc.h"
+#include "vector_str.h"
+#include "cpp_demangle_gnu2.h"
 
 /**
  * @file cpp_demangle_gnu2.c
