@@ -35,7 +35,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "_libelftc.h"
+#include "cpp_demangle.h"
+#include "vector_str.h"
 
 /**
  * @file cpp_demangle.c
@@ -64,7 +65,7 @@ enum read_cmd {
 };
 
 struct vector_read_cmd {
-	size_t		 size, capacity;
+	size_t		size, capacity;
 	enum read_cmd	*r_container;
 };
 
@@ -80,13 +81,13 @@ struct vector_read_cmd {
  * last_sname - last source name.
  */
 struct cpp_demangle_data {
-	struct vector_str	 output, output_tmp, subst, tmpl;
-	struct vector_str	 class_type;
-	struct vector_read_cmd	 cmd;
-	bool			 paren, pfirst;
-	bool			 mem_rst, mem_vat, mem_cst;
-	int			 func_type;
-	const char		*cur, *last_sname;
+	struct vector_str output, output_tmp, subst, tmpl;
+	struct vector_str class_type;
+	struct vector_read_cmd cmd;
+	bool		paren, pfirst;
+	bool		mem_rst, mem_vat, mem_cst;
+	int		func_type;
+	const char	*cur, *last_sname;
 };
 
 #define	CPP_DEMANGLE_TRY_LIMIT	128
@@ -172,10 +173,12 @@ cpp_demangle_ia64(const char *org)
 		return (NULL);
 
 	if (org_len > 11 && strncmp(org, "_GLOBAL__I_", 11) == 0) {
-		if ((rtn = malloc(org_len + 19)) == NULL)
+		if ((rtn = malloc(sizeof(char) * (org_len + 19))) == NULL)
 			return (NULL);
+
 		snprintf(rtn, org_len + 19,
 		    "global constructors keyed to %s", org + 11);
+
 		return (rtn);
 	}
 
@@ -199,8 +202,10 @@ cpp_demangle_ia64(const char *org)
 		 */
 		if (*ddata.cur == '@' && *(ddata.cur + 1) == '@')
 			break;
+
 		if (cpp_demangle_read_type(&ddata, 1) == 0)
 			goto clean;
+
 		if (limit++ > CPP_DEMANGLE_TRY_LIMIT)
 			goto clean;
 	}
@@ -225,7 +230,6 @@ cpp_demangle_ia64(const char *org)
 		goto clean;
 
 	rtn = vector_str_get_flat(&ddata.output, (size_t *)NULL);
-
 clean:
 	cpp_demangle_data_dest(&ddata);
 
