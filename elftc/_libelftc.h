@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2008 Hyogeol Lee <hyogeollee@gmail.com>
+ * Copyright (c) 2007,2008 Hyogeol Lee <hyogeollee@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,18 +24,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef	GUARD_VECTOR_STR_H
-#define	GUARD_VECTOR_STR_H
+#ifndef	__LIBELFTC_H_
+#define	__LIBELFTC_H_
 
 #include <stdbool.h>
-#include <stdlib.h>
-
-/**
- * @file vector_str.h
- * @brief Dynamic vector data for string.
- *
- * Resemble to std::vector<std::string> in C++.
- */
 
 /** @brief Dynamic vector data for string. */
 struct vector_str {
@@ -106,4 +98,49 @@ bool	vector_str_push_vector_head(struct vector_str *dst,
 char	*vector_str_substr(const struct vector_str *v, size_t begin, size_t end,
 	    size_t *r_len);
 
-#endif /* !GUARD_VECTOR_STR_H */
+/**
+ * @brief Decode the input string by IA-64 C++ ABI style.
+ *
+ * GNU GCC v3 use IA-64 standard ABI.
+ * @return New allocated demangled string or NULL if failed.
+ * @todo 1. Testing and more test case. 2. Code cleaning.
+ */
+char	*cpp_demangle_ia64(const char *);
+
+/**
+ * @brief Test input string is mangled by IA-64 C++ ABI style.
+ *
+ * Test string heads with "_Z" or "_GLOBAL__I_".
+ * @return Return 0 at false.
+ */
+bool	is_cpp_mangled_ia64(const char *);
+
+/**
+ * @brief Decode the input string by the GNU 2 style.
+ *
+ * @return New allocated demangled string or NULL if failed.
+ */
+char *cpp_demangle_gnu2(const char *);
+
+/**
+ * @brief Test input string is encoded by the GNU 2 style.
+ *
+ * @return True if input string is encoded by the GNU 2 style.
+ */
+bool is_cpp_mangled_gnu2(const char *);
+
+/**
+ * @brief Decode the input string by the ARM style.
+ *
+ * @return New allocated demangled string or NULL if failed.
+ */
+char *cpp_demangle_ARM(const char *);
+
+/**
+ * @brief Test input string is encoded by the ARM style.
+ *
+ * @return True if input string is encoded by the ARM style.
+ */
+bool is_cpp_mangled_ARM(const char *);
+
+#endif	/* __LIBELFTC_H */
