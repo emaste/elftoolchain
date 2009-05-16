@@ -35,8 +35,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "cpp_demangle.h"
-#include "vector_str.h"
+#include "_libelftc.h"
 
 /**
  * @file cpp_demangle.c
