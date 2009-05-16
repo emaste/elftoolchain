@@ -2,8 +2,10 @@
 
 LIB=	elftc
 
-SRCS=	cpp_demangle.c cpp_demangle_arm.c \
-	cpp_demangle_gnu2.c vector_str.c
+SRCS=	libelftc_dem_arm.c			\
+	libelftc_dem_gnu2.c			\
+	libelftc_dem_ia64.c			\
+	libelftc_vstr.c
 
 CFLAGS+=	-I. -I${.CURDIR}
 
