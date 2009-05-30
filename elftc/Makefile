@@ -5,7 +5,7 @@ LIB=	elftc
 SRCS=	elftc_demangle.c			\
 	libelftc_dem_arm.c			\
 	libelftc_dem_gnu2.c			\
-	libelftc_dem_ia64.c			\
+	libelftc_dem_gnu3.c			\
 	libelftc_vstr.c
 INCS=	libelftc.h
 
