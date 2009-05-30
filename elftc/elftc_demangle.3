@@ -62,11 +62,11 @@ Function
 .Fn elftc_demangle
 may fail with the following errors:
 .Bl -tag -width "[ELF_E_RESOURCE]"
-.It Bq Er ELF_E_ARGUMENT
+.It Bq Er EINVAL
 Argument
 .Ar mangled_name
 was not a valid mangled name.
-.It Bq Er ELF_E_RESOURCE
+.It Bq Er ENAMETOOLONG
 The output buffer specified by arguments
 .Ar buffer
 and
@@ -75,5 +75,4 @@ are too small to hold the demangled name.
 .El
 .Sh SEE ALSO
 .Xr elf 3 ,
-.Xr elf_errno 3 ,
 .Xr elf_strptr 3
