@@ -29,30 +29,6 @@
 
 #include <stdbool.h>
 
-#define LIBELF_MSG_SIZE	256
-
-struct _libelf_globals {
-	int		libelf_arch;
-	unsigned int	libelf_byteorder;
-	int		libelf_class;
-	int		libelf_error;
-	int		libelf_fillchar;
-	unsigned int	libelf_version;
-	char		libelf_msg[LIBELF_MSG_SIZE];
-};
-
-extern struct _libelf_globals _libelf;
-
-#define	LIBELF_PRIVATE(N)	(_libelf.libelf_##N)
-
-#define	LIBELF_ELF_ERROR_MASK	0xFF
-#define	LIBELF_OS_ERROR_SHIFT	8
-
-#define	LIBELF_SET_ERROR(E, O) do {					\
-	LIBELF_PRIVATE(error) = ((ELF_E_##E & LIBELF_ELF_ERROR_MASK)|	\
-	    ((O) << LIBELF_OS_ERROR_SHIFT));				\
-	} while (0)
-
 /** @brief Dynamic vector data for string. */
 struct vector_str {
 	/** Current size */
