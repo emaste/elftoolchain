@@ -29,6 +29,8 @@
 #ifndef	_LIBELFTC_H_
 #define	_LIBELFTC_H_
 
+__BEGIN_DECLS
 int	elftc_demangle(const char *mangledname, char *buffer, size_t bufsize);
+__END_DECLS
 
 #endif	/* _LIBELFTC_H_ */
