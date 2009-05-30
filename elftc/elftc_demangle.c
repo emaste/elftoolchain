@@ -41,12 +41,12 @@ elftc_demangle(const char *mangledname, char *buffer, size_t bufsize)
 {
 	char *rlt;
 
-	if (mangledname == NULL || !is_cpp_mangled_ia64(mangledname)) {
+	if (mangledname == NULL || !is_cpp_mangled_gnu3(mangledname)) {
 		errno = EINVAL;
 		return (-1);
 	}
 
-	if ((rlt = cpp_demangle_ia64(mangledname)) == NULL) {
+	if ((rlt = cpp_demangle_gnu3(mangledname)) == NULL) {
 		errno = EINVAL;
 		return (-1);
 	}

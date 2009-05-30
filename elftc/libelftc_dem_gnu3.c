@@ -158,10 +158,10 @@ static int	vector_type_qualifier_init(struct vector_type_qualifier *);
 static int	vector_type_qualifier_push(struct vector_type_qualifier *,
 		    enum type_qualifier);
 
-int cpp_demangle_ia64_push_head;
+int cpp_demangle_gnu3_push_head;
 
 char *
-cpp_demangle_ia64(const char *org)
+cpp_demangle_gnu3(const char *org)
 {
 	struct cpp_demangle_data ddata;
 	ssize_t org_len;
@@ -185,7 +185,7 @@ cpp_demangle_ia64(const char *org)
 	if (cpp_demangle_data_init(&ddata, org + 2) == 0)
 		return (NULL);
 
-	cpp_demangle_ia64_push_head = 0;
+	cpp_demangle_gnu3_push_head = 0;
 	rtn = NULL;
 
 	if (cpp_demangle_read_encoding(&ddata) == 0)
@@ -340,7 +340,7 @@ cpp_demangle_push_str(struct cpp_demangle_data *ddata, const char *str,
 	if (ddata == NULL || str == NULL || len == 0)
 		return (0);
 
-	if (cpp_demangle_ia64_push_head > 0)
+	if (cpp_demangle_gnu3_push_head > 0)
 		return (vector_str_push(&ddata->output_tmp, str, len));
 
 	return (vector_str_push(&ddata->output, str, len));
@@ -1414,7 +1414,7 @@ cpp_demangle_read_name(struct cpp_demangle_data *ddata)
 	if (ddata == NULL || *ddata->cur == '\0')
 		return (0);
 
-	output = cpp_demangle_ia64_push_head > 0 ?
+	output = cpp_demangle_gnu3_push_head > 0 ?
 	    &ddata->output_tmp : &ddata->output;
 
 	subst_str = NULL;
@@ -1511,7 +1511,7 @@ cpp_demangle_read_nested_name(struct cpp_demangle_data *ddata)
 		++ddata->cur;
 	}
 
-	output = cpp_demangle_ia64_push_head > 0 ?
+	output = cpp_demangle_gnu3_push_head > 0 ?
 	    &ddata->output_tmp : &ddata->output;
 
 	if (vector_str_init(&v) == false)
@@ -1921,7 +1921,7 @@ cpp_demangle_read_subst_std(struct cpp_demangle_data *ddata)
 
 	ddata->cur += 2;
 
-	output = cpp_demangle_ia64_push_head > 0 ?
+	output = cpp_demangle_gnu3_push_head > 0 ?
 	    &ddata->output_tmp : &ddata->output;
 
 	p_idx = output->size;
@@ -1976,7 +1976,7 @@ cpp_demangle_read_subst_stdtmpl(struct cpp_demangle_data *ddata,
 	if (ddata == NULL || str == NULL || len == 0)
 		return (0);
 
-	output = cpp_demangle_ia64_push_head > 0 ?
+	output = cpp_demangle_gnu3_push_head > 0 ?
 	    &ddata->output_tmp : &ddata->output;
 
 	p_idx = output->size;
@@ -2046,7 +2046,7 @@ cpp_demangle_read_tmpl_args(struct cpp_demangle_data *ddata)
 		return (0);
 
 	limit = 0;
-	v = cpp_demangle_ia64_push_head > 0 ?
+	v = cpp_demangle_gnu3_push_head > 0 ?
 	    &ddata->output_tmp : &ddata->output;
 	for (;;) {
 		idx = v->size;
@@ -2143,7 +2143,7 @@ cpp_demangle_read_type(struct cpp_demangle_data *ddata, int delimit)
 	output = &ddata->output;
 	if (strncmp(ddata->output.container[ddata->output.size - 1], ">", 1)
 	    == 0) {
-		++cpp_demangle_ia64_push_head;
+		++cpp_demangle_gnu3_push_head;
 
 		output = &ddata->output_tmp;
 	} else if (delimit == 1) {
@@ -2501,12 +2501,12 @@ rtn:
 	free(type_str);
 	vector_type_qualifier_dest(&v);
 
-	if (cpp_demangle_ia64_push_head > 0) {
+	if (cpp_demangle_gnu3_push_head > 0) {
 		if (*ddata->cur == 'I' && cpp_demangle_read_tmpl_args(ddata)
 		    == 0)
 			return (0);
 
-		if (--cpp_demangle_ia64_push_head > 0)
+		if (--cpp_demangle_gnu3_push_head > 0)
 			return (1);
 
 		if (vector_str_push(&ddata->output_tmp, " ", 1) == false)
@@ -3376,7 +3376,7 @@ hex_to_dec(char c)
 }
 
 bool
-is_cpp_mangled_ia64(const char *org)
+is_cpp_mangled_gnu3(const char *org)
 {
 	size_t len;
 

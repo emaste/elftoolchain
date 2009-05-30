@@ -105,7 +105,7 @@ char	*vector_str_substr(const struct vector_str *v, size_t begin, size_t end,
  * @return New allocated demangled string or NULL if failed.
  * @todo 1. Testing and more test case. 2. Code cleaning.
  */
-char	*cpp_demangle_ia64(const char *);
+char	*cpp_demangle_gnu3(const char *);
 
 /**
  * @brief Test input string is mangled by IA-64 C++ ABI style.
@@ -113,7 +113,7 @@ char	*cpp_demangle_ia64(const char *);
  * Test string heads with "_Z" or "_GLOBAL__I_".
  * @return Return 0 at false.
  */
-bool	is_cpp_mangled_ia64(const char *);
+bool	is_cpp_mangled_gnu3(const char *);
 
 /**
  * @brief Decode the input string by the GNU 2 style.
