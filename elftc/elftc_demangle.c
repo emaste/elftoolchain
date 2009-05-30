@@ -29,6 +29,7 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <assert.h>
+#include <errno.h>
 #include <libelf.h>
 #include <libelftc.h>
 #include <string.h>
@@ -41,17 +42,17 @@ elftc_demangle(const char *mangledname, char *buffer, size_t bufsize)
 	char *rlt;
 
 	if (mangledname == NULL || !is_cpp_mangled_ia64(mangledname)) {
-		LIBELF_SET_ERROR(ARGUMENT, 0);
+		errno = EINVAL;
 		return (-1);
 	}
 
 	if ((rlt = cpp_demangle_ia64(mangledname)) == NULL) {
-		LIBELF_SET_ERROR(ARGUMENT, 0);
+		errno = EINVAL;
 		return (-1);
 	}
 
 	if (buffer == NULL || bufsize < strlen(rlt) + 1) {
-		LIBELF_SET_ERROR(RESOURCE, 0);
+		errno = ENAMETOOLONG;
 		return (-1);
 	}
 
