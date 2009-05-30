@@ -34,7 +34,7 @@
 .Sh SYNOPSIS
 .In libelf.h
 .Ft int
-.Fn elftc_demangle "const char *mangledname" "char *buffer" "size_t bufsize"
+.Fn elftc_demangle "const char *mangledname" "char *buffer" "size_t bufsize" "unsigned int flags"
 .Sh DESCRIPTION
 Function
 .Fn elftc_demangle
@@ -51,6 +51,9 @@ denotes a programmer-specified area to place the prototype string in.
 Argument
 .Ar bufsize
 specifies the size of the programmer-specified area.
+Argument
+.Ar flags
+specifies the mangling style and the flags that control demangle behaviour.
 .Sh RETURN VALUES
 Function
 .Fn elftc_demangle

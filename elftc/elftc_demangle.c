@@ -36,17 +36,60 @@ __FBSDID("$FreeBSD$");
 
 #include "_libelftc.h"
 
-int
-elftc_demangle(const char *mangledname, char *buffer, size_t bufsize)
+static int
+is_mangled(const char *s, int style)
 {
+
+	switch (style) {
+	case ELFTC_DEM_ARM: return (is_cpp_mangled_ARM(s) ? style : 0);
+	case ELFTC_DEM_GNU2: return (is_cpp_mangled_gnu2(s) ? style : 0);
+	case ELFTC_DEM_GNU3: return (is_cpp_mangled_gnu3(s) ? style : 0);
+	}
+
+	/* No style or invalid style spcified, try to guess. */
+	if (is_cpp_mangled_gnu3(s))
+		return (ELFTC_DEM_GNU3);
+	if (is_cpp_mangled_gnu2(s))
+		return (ELFTC_DEM_GNU2);
+	if (is_cpp_mangled_ARM(s))
+		return (ELFTC_DEM_ARM);
+
+	/* Cannot be demangled. */
+	return (0);
+}
+
+static char *
+demangle(const char *s, int style, int rc)
+{
+
+	(void) rc;			/* XXX */
+	switch (style) {
+	case ELFTC_DEM_ARM: return (cpp_demangle_ARM(s));
+	case ELFTC_DEM_GNU2: return (cpp_demangle_gnu2(s));
+	case ELFTC_DEM_GNU3: return (cpp_demangle_gnu3(s));
+	default:
+		assert(0);
+		return (NULL);
+	}
+}
+
+int
+elftc_demangle(const char *mangledname, char *buffer, size_t bufsize,
+    unsigned int flags)
+{
+	int style, rc;
 	char *rlt;
 
-	if (mangledname == NULL || !is_cpp_mangled_gnu3(mangledname)) {
+	style = flags & 0xFFFF;
+	rc = flags >> 16;
+
+	if (mangledname == NULL ||
+	    ((style = is_mangled(mangledname, style)) == 0)) {
 		errno = EINVAL;
 		return (-1);
 	}
 
-	if ((rlt = cpp_demangle_gnu3(mangledname)) == NULL) {
+	if ((rlt = demangle(mangledname, style, rc)) == NULL) {
 		errno = EINVAL;
 		return (-1);
 	}
