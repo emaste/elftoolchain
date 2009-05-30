@@ -29,8 +29,21 @@
 #ifndef	_LIBELFTC_H_
 #define	_LIBELFTC_H_
 
+/*
+ * Demangler flags.
+ */
+
+/* Name mangling style. */
+#define	ELFTC_DEM_ARM	0x00000001U
+#define ELFTC_DEM_GNU2	0x00000002U
+#define	ELFTC_DEM_GNU3	0x00000004U
+
+/* Demangling behaviour control. */
+#define ELFTC_DEM_NOPARAM	0x00010000U
+
 __BEGIN_DECLS
-int	elftc_demangle(const char *mangledname, char *buffer, size_t bufsize);
+int	elftc_demangle(const char *mangledname, char *buffer, size_t bufsize,
+    unsigned int flags);
 __END_DECLS
 
 #endif	/* _LIBELFTC_H_ */
