@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2009 Kai Wang
+ * Copyright (c) 2008,2009 Kai Wang
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,34 +22,48 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * $FreeBSD: users/kaiwang27/elftc/libelftc.h 392 2009-05-31 19:17:46Z kaiwang27 $
  */
 
-#ifndef	_LIBELFTC_H_
-#define	_LIBELFTC_H_
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-typedef struct _Elf_Target Elf_Target;
+#include <sys/param.h>
+#include <string.h>
+#include <libelftc.h>
 
-/*
- * Demangler flags.
- */
+#include "_libelftc.h"
 
-/* Name mangling style. */
-#define	ELFTC_DEM_ARM	0x00000001U
-#define ELFTC_DEM_GNU2	0x00000002U
-#define	ELFTC_DEM_GNU3	0x00000004U
+Elf_Target *
+elftc_find_target(const char *tgt_name)
+{
+	Elf_Target *tgt;
 
-/* Demangling behaviour control. */
-#define ELFTC_DEM_NOPARAM	0x00010000U
+	for (tgt = targets; tgt->et_name; tgt++)
+		if (!strcmp(tgt_name, tgt->et_name))
+			return (tgt);
 
-__BEGIN_DECLS
-Elf_Target	*elftc_find_target(const char *tgt_name);
-unsigned int	 elftc_target_type(Elf_Target *tgt);
-unsigned int	 elftc_target_byteorder(Elf_Target *tgt);
-unsigned int	 elftc_target_class(Elf_Target *tgt);
-int		 elftc_demangle(const char *mangledname, char *buffer,
-		     size_t bufsize, unsigned int flags);
-__END_DECLS
+	return (NULL);		/* not found */
+}
 
-#endif	/* _LIBELFTC_H_ */
+unsigned int
+elftc_target_type(Elf_Target *tgt)
+{
+
+	return (tgt->et_type);
+}
+
+unsigned int
+elftc_target_byteorder(Elf_Target *tgt)
+{
+
+	return (tgt->et_byteorder);
+}
+
+unsigned int
+elftc_target_class(Elf_Target *tgt)
+{
+
+	return (tgt->et_elfclass);
+}
+
+

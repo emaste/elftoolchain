@@ -43,6 +43,8 @@ struct _Elf_Target {
 	unsigned int	 et_machine;	/* elf target arch. */
 };
 
+extern struct _Elf_Target targets[];
+
 /** @brief Dynamic vector data for string. */
 struct vector_str {
 	/** Current size */
