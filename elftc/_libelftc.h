@@ -1,4 +1,5 @@
 /*-
+ * Copyright (c) 2009 Kai Wang
  * Copyright (c) 2007,2008 Hyogeol Lee <hyogeollee@gmail.com>
  * All rights reserved.
  *
@@ -28,6 +29,19 @@
 #define	__LIBELFTC_H_
 
 #include <stdbool.h>
+
+/* Target types. */
+#define	ET_ELF		0x0001U
+#define	ET_BINARY	0x0001U
+#define	ET_SREC		0x0001U
+
+struct _Elf_Target {
+	const char	*et_name;	/* target name. */
+	unsigned int	 et_type;	/* target type. */
+	unsigned int	 et_byteorder;	/* elf target byteorder. */
+	unsigned int	 et_elfclass;	/* elf target class (32/64bit). */
+	unsigned int	 et_machine;	/* elf target arch. */
+};
 
 /** @brief Dynamic vector data for string. */
 struct vector_str {
