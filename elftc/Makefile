@@ -3,6 +3,7 @@
 LIB=	elftc
 
 SRCS=	elftc_demangle.c			\
+	elftc_target.c				\
 	libelftc_dem_arm.c			\
 	libelftc_dem_gnu2.c			\
 	libelftc_dem_gnu3.c			\

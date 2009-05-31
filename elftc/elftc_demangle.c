@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: users/kaiwang27/elftc/elftc_demangle.c 391 2009-05-30 18:26:22Z kaiwang27 $");
 
 #include <sys/param.h>
 #include <assert.h>
