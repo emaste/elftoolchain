@@ -29,6 +29,8 @@
 #ifndef	_LIBELFTC_H_
 #define	_LIBELFTC_H_
 
+typedef struct _Elf_Target Elf_Target;
+
 /*
  * Demangler flags.
  */
