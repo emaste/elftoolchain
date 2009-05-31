@@ -1,0 +1,14 @@
+/*
+ * $FreeBSD$
+ */
+
+FBSD_1.0 {
+global:
+	elftc_demangle;
+	elftc_find_target;
+	elftc_target_type;
+	elftc_target_byteorder;
+	elftc_target_class;
+local:
+	*;
+};
