@@ -36,6 +36,7 @@ __RCSID("$Id$");
 #include <err.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <libelftc.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -965,12 +966,12 @@ process_symfile:
 static void
 set_output_target(struct elfcopy *ecp, const char *target_name)
 {
-	elf_target *tgt;
+	Elf_Target *tgt;
 
-	if ((tgt = elf_find_target(target_name)) == NULL)
+	if ((tgt = elftc_find_target(target_name)) == NULL)
 		errx(EX_USAGE, "%s: invalid target name", target_name);
-	ecp->oec = elf_target_class(tgt);
-	ecp->oed = elf_target_byteorder(tgt);
+	ecp->oec = elftc_target_class(tgt);
+	ecp->oed = elftc_target_byteorder(tgt);
 }
 
 static void
