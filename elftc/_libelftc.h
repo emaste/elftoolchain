@@ -30,20 +30,16 @@
 
 #include <stdbool.h>
 
-/* Target types. */
-#define	ET_ELF		0x0001U
-#define	ET_BINARY	0x0001U
-#define	ET_SREC		0x0001U
-
-struct _Elf_Target {
-	const char	*et_name;	/* target name. */
-	unsigned int	 et_type;	/* target type. */
-	unsigned int	 et_byteorder;	/* elf target byteorder. */
-	unsigned int	 et_elfclass;	/* elf target class (32/64bit). */
-	unsigned int	 et_machine;	/* elf target arch. */
+struct _Bfd_Target {
+	const char	*bt_name;	/* target name. */
+	unsigned int	 bt_type;	/* target type. */
+	unsigned int	 bt_byteorder;	/* elf target byteorder. */
+	unsigned int	 bt_elfclass;	/* elf target class (32/64bit). */
+	unsigned int	 bt_machine;	/* elf target arch. */
+	unsigned int	 bt_osabi;	/* elf target abi. */
 };
 
-extern struct _Elf_Target targets[];
+extern struct _Bfd_Target targets[];
 
 /** @brief Dynamic vector data for string. */
 struct vector_str {
