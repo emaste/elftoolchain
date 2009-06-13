@@ -44,7 +44,6 @@ __RCSID("$Id$");
 #include <unistd.h>
 
 #include "elfcopy.h"
-#include "target.h"
 
 enum options
 {
@@ -966,12 +965,12 @@ process_symfile:
 static void
 set_output_target(struct elfcopy *ecp, const char *target_name)
 {
-	Elf_Target *tgt;
+	Bfd_Target *tgt;
 
-	if ((tgt = elftc_find_target(target_name)) == NULL)
+	if ((tgt = elftc_find_bfd_target(target_name)) == NULL)
 		errx(EX_USAGE, "%s: invalid target name", target_name);
-	ecp->oec = elftc_target_class(tgt);
-	ecp->oed = elftc_target_byteorder(tgt);
+	ecp->oec = elftc_bfd_target_class(tgt);
+	ecp->oed = elftc_bfd_target_byteorder(tgt);
 }
 
 static void
