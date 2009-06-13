@@ -33,37 +33,37 @@ __FBSDID("$FreeBSD$");
 
 #include "_libelftc.h"
 
-Elf_Target *
-elftc_find_target(const char *tgt_name)
+Bfd_Target *
+elftc_find_bfd_target(const char *tgt_name)
 {
-	Elf_Target *tgt;
+	Bfd_Target *tgt;
 
-	for (tgt = targets; tgt->et_name; tgt++)
-		if (!strcmp(tgt_name, tgt->et_name))
+	for (tgt = targets; tgt->bt_name; tgt++)
+		if (!strcmp(tgt_name, tgt->bt_name))
 			return (tgt);
 
 	return (NULL);		/* not found */
 }
 
-unsigned int
-elftc_target_type(Elf_Target *tgt)
+Bfd_Target_Flavor
+elftc_bfd_target_flavor(Bfd_Target *tgt)
 {
 
-	return (tgt->et_type);
+	return (tgt->bt_type);
 }
 
 unsigned int
-elftc_target_byteorder(Elf_Target *tgt)
+elftc_bfd_target_byteorder(Bfd_Target *tgt)
 {
 
-	return (tgt->et_byteorder);
+	return (tgt->bt_byteorder);
 }
 
 unsigned int
-elftc_target_class(Elf_Target *tgt)
+elftc_bfd_target_class(Bfd_Target *tgt)
 {
 
-	return (tgt->et_elfclass);
+	return (tgt->bt_elfclass);
 }
 
 
