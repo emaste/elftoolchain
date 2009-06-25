@@ -57,6 +57,9 @@ get_strlen_sum(const struct vector_str *v)
 	return (len);
 }
 
+/**
+ * @brief Deallocate resource in vector_str.
+ */
 void
 vector_str_dest(struct vector_str *v)
 {
@@ -70,6 +73,13 @@ vector_str_dest(struct vector_str *v)
 	free(v->container);
 }
 
+/**
+ * @brief Find string in vector_str.
+ * @param v Destination vector.
+ * @param o String to find.
+ * @param l Length of the string.
+ * @return -1 at failed, 0 at not found, 1 at found.
+ */
 int
 vector_str_find(const struct vector_str *v, const char *o, size_t l)
 {
@@ -84,6 +94,14 @@ vector_str_find(const struct vector_str *v, const char *o, size_t l)
 	return (0);
 }
 
+/**
+ * @brief Get new allocated flat string from vector.
+ *
+ * If l is not NULL, return length of the string.
+ * @param v Destination vector.
+ * @param l Length of the string.
+ * @return NULL at failed or NUL terminated new allocated string.
+ */
 char *
 vector_str_get_flat(const struct vector_str *v, size_t *l)
 {
@@ -145,6 +163,10 @@ vector_str_grow(struct vector_str *v)
 	return (true);
 }
 
+/**
+ * @brief Initialize vector_str.
+ * @return false at failed, true at success.
+ */
 bool
 vector_str_init(struct vector_str *v)
 {
@@ -165,6 +187,10 @@ vector_str_init(struct vector_str *v)
 	return (true);
 }
 
+/**
+ * @brief Remove last element in vector_str.
+ * @return false at failed, true at success.
+ */
 bool
 vector_str_pop(struct vector_str *v)
 {
@@ -183,6 +209,10 @@ vector_str_pop(struct vector_str *v)
 	return (true);
 }
 
+/**
+ * @brief Push back string to vector.
+ * @return false at failed, true at success.
+ */
 bool
 vector_str_push(struct vector_str *v, const char *str, size_t len)
 {
@@ -203,6 +233,10 @@ vector_str_push(struct vector_str *v, const char *str, size_t len)
 	return (true);
 }
 
+/**
+ * @brief Push front org vector to det vector.
+ * @return false at failed, true at success.
+ */
 bool
 vector_str_push_vector_head(struct vector_str *dst, struct vector_str *org)
 {
@@ -239,6 +273,12 @@ vector_str_push_vector_head(struct vector_str *dst, struct vector_str *org)
 	return (true);
 }
 
+/**
+ * @brief Get new allocated flat string from vector between begin and end.
+ *
+ * If r_len is not NULL, string length will be returned.
+ * @return NULL at failed or NUL terminated new allocated string.
+ */
 char *
 vector_str_substr(const struct vector_str *v, size_t begin, size_t end,
     size_t *r_len)

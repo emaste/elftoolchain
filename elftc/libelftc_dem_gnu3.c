@@ -160,6 +160,13 @@ static int	vector_type_qualifier_push(struct vector_type_qualifier *,
 
 int cpp_demangle_gnu3_push_head;
 
+/**
+ * @brief Decode the input string by IA-64 C++ ABI style.
+ *
+ * GNU GCC v3 use IA-64 standard ABI.
+ * @return New allocated demangled string or NULL if failed.
+ * @todo 1. Testing and more test case. 2. Code cleaning.
+ */
 char *
 cpp_demangle_gnu3(const char *org)
 {
@@ -3375,6 +3382,12 @@ hex_to_dec(char c)
 	};
 }
 
+/**
+ * @brief Test input string is mangled by IA-64 C++ ABI style.
+ *
+ * Test string heads with "_Z" or "_GLOBAL__I_".
+ * @return Return 0 at false.
+ */
 bool
 is_cpp_mangled_gnu3(const char *org)
 {

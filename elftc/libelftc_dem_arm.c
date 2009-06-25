@@ -84,10 +84,10 @@ static int	read_subst(struct demangle_data *);
 static int	read_subst_iter(struct demangle_data *);
 static bool	read_type(struct demangle_data *);
 
-/*
- * Decode ARM style mangling.
+/**
+ * @brief Decode the input string by the ARM style.
  *
- * Return new allocated string or NULL.
+ * @return New allocated demangled string or NULL if failed.
  */
 char *
 cpp_demangle_ARM(const char *org)
@@ -225,7 +225,11 @@ clean:
 	return (rtn);
 }
 
-/* Test 'org' is encoded ARM style. */
+/**
+ * @brief Test input string is encoded by the ARM style.
+ *
+ * @return True if input string is encoded by the ARM style.
+ */
 bool
 is_cpp_mangled_ARM(const char *org)
 {
