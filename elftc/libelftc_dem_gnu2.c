@@ -82,10 +82,10 @@ static int	read_subst(struct demangle_data *);
 static int	read_subst_iter(struct demangle_data *);
 static bool	read_type(struct demangle_data *);
 
-/*
- * Decode GNU 2 style mangling.
+/**
+ * @brief Decode the input string by the GNU 2 style.
  *
- * Return new allocated string or NULL.
+ * @return New allocated demangled string or NULL if failed.
  */
 char *
 cpp_demangle_gnu2(const char *org)
@@ -240,7 +240,11 @@ clean:
 	return (rtn);
 }
 
-/* Test 'org' is encoded GNU 2 style. */
+/**
+ * @brief Test input string is encoded by the GNU 2 style.
+ *
+ * @return True if input string is encoded by the GNU 2 style.
+ */
 bool
 is_cpp_mangled_gnu2(const char *org)
 {
