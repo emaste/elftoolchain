@@ -139,7 +139,7 @@ init_info(Dwarf_Debug dbg, Dwarf_Error *error)
 
 	while (offset < d->d_size) {
 		/* Allocate memory for the first compilation unit. */
-		if ((cu = calloc(sizeof(struct _Dwarf_CU), 1)) == NULL) {
+		if ((cu = calloc(1, sizeof(struct _Dwarf_CU))) == NULL) {
 			DWARF_SET_ERROR(error, DWARF_E_MEMORY);
 			return DWARF_E_MEMORY;
 		}
@@ -227,8 +227,8 @@ init_info(Dwarf_Debug dbg, Dwarf_Error *error)
 				return DWARF_E_MISSING_ABBREV;
 			}
 
-			if ((ret = dwarf_die_add(cu, level, die_offset,
-			    abnum, ab, &die, error)) != DWARF_E_NONE)
+			if ((ret = die_add(cu, level, die_offset, abnum, ab,
+			    &die, error)) != DWARF_E_NONE)
 				return ret;
 
 			STAILQ_FOREACH(ad, &ab->ab_attrdef, ad_next) {

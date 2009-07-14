@@ -61,6 +61,39 @@ abbrev_add(Dwarf_CU cu, uint64_t entry, uint64_t tag, uint8_t children,
 	return (ret);
 }
 
+static int
+attrdef_add(Dwarf_Abbrev ab, uint64_t attr, uint64_t form, uint64_t adoff,
+    Dwarf_AttrDef *adp, Dwarf_Error *error)
+{
+	Dwarf_AttrDef ad;
+	
+	if (ab == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DWARF_E_ARGUMENT);
+	}
+
+	if ((ad = malloc(sizeof(struct _Dwarf_AttrDef))) == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_MEMORY);
+		return (DWARF_E_MEMORY);
+	}
+
+	/* Initialise the attribute definition structure. */
+	ad->ad_attrib	= attr;
+	ad->ad_form	= form;
+	ad->ad_offset	= adoff;
+
+	/* Add the attribute definition to the list in the abbrev. */
+	STAILQ_INSERT_TAIL(&ab->ab_attrdef, ad, ad_next);
+
+	/* Increase number of attribute counter. */
+	ab->ab_atnum++;
+
+	if (adp != NULL)
+		*adp = ad;
+
+	return (DWARF_E_NONE);
+}
+
 int
 abbrev_init(Dwarf_Debug dbg, Dwarf_CU cu, Dwarf_Error *error)
 {
@@ -101,8 +134,8 @@ abbrev_init(Dwarf_Debug dbg, Dwarf_CU cu, Dwarf_Error *error)
 			attr = read_uleb128(&d, &offset);
 			form = read_uleb128(&d, &offset);
 			if (attr != 0)
-				if ((ret = dwarf_attrdef_add(ab, attr, form,
-				    adoff, NULL, error)) != DWARF_E_NONE)
+				if ((ret = attrdef_add(ab, attr, form, adoff,
+				    NULL, error)) != DWARF_E_NONE)
 					return (ret);
 		} while (attr != 0);
 

@@ -121,9 +121,10 @@ struct _Dwarf_Die {
 	int		die_level;	/* Parent-child level. */
 	uint64_t	die_offset;	/* DIE offset in section. */
 	uint64_t	die_abnum;	/* Abbrev number. */
-	Dwarf_Abbrev	die_a;		/* Abbrev pointer. */
+	Dwarf_Abbrev	die_ab;		/* Abbrev pointer. */
 	Dwarf_CU	die_cu;		/* Compilation unit pointer. */
 	const char	*die_name;	/* Ptr to the name string. */
+	Dwarf_Attribute	*die_attrarray;	/* Array of attributes. */
 	STAILQ_HEAD(, _Dwarf_Attribute)
 			die_attr;	/* List of attributes. */
 	STAILQ_ENTRY(_Dwarf_Die)
@@ -185,6 +186,9 @@ Dwarf_Abbrev	abbrev_find(Dwarf_CU, uint64_t);
 Dwarf_Attribute	attr_find(Dwarf_Die, Dwarf_Half);
 int		attr_init(Dwarf_Debug, Elf_Data **, uint64_t *, Dwarf_CU,
 		    Dwarf_Die, Dwarf_AttrDef, uint64_t, int, Dwarf_Error *);
+int		die_add(Dwarf_CU, int, uint64_t, uint64_t, Dwarf_Abbrev,
+		    Dwarf_Die *, Dwarf_Error *);
+Dwarf_Die	die_find(Dwarf_Die, Dwarf_Unsigned);
 int		elf_read(Dwarf_Debug, Dwarf_Error *);
 uint64_t	read_lsb(Elf_Data **, uint64_t *, int);
 uint64_t	read_msb(Elf_Data **, uint64_t *, int);

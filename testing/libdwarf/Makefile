@@ -18,6 +18,7 @@ SRCS=	\
 	dwarf_loc.c		\
 	libdwarf_abbrev.c	\
 	libdwarf_attr.c		\
+	libdwarf_die.c		\
 	libdwarf_init.c		\
 	libdwarf_rw.c
 

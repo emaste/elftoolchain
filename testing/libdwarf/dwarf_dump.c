@@ -703,7 +703,7 @@ dwarf_dump_die(Dwarf_Die die)
 	printf("<%d><%llx>: Abbrev number: %llu (%s)\n",
 	    die->die_level, (unsigned long long) die->die_offset,
 	    (unsigned long long) die->die_abnum,
-	    get_tag_desc(die->die_a->ab_tag));
+	    get_tag_desc(die->die_ab->ab_tag));
 
 	STAILQ_FOREACH(at, &die->die_attr, at_next)
 		dwarf_dump_at(die, at);

@@ -175,22 +175,34 @@ typedef struct _Dwarf_Error {
 
 /* Function prototype definitions. */
 __BEGIN_DECLS
-Dwarf_Die	dwarf_die_find(Dwarf_Die, Dwarf_Unsigned);
 const char	*dwarf_errmsg(Dwarf_Error *);
 const char	*get_sht_desc(uint32_t);
 const char	*get_attr_desc(uint32_t);
 const char	*get_form_desc(uint32_t);
 const char	*get_tag_desc(uint32_t);
-int		dwarf_attr(Dwarf_Die, Dwarf_Half, Dwarf_Attribute *, Dwarf_Error *);
-int		dwarf_attrdef_add(Dwarf_Abbrev, uint64_t, uint64_t, uint64_t, Dwarf_AttrDef *, Dwarf_Error *);
-int		dwarf_attrval(Dwarf_Die, Dwarf_Half, Dwarf_Attribute *, Dwarf_Error *);
-int		dwarf_attrval_flag(Dwarf_Die, uint64_t, Dwarf_Bool *, Dwarf_Error *);
-int		dwarf_attrval_signed(Dwarf_Die, uint64_t, Dwarf_Signed *, Dwarf_Error *);
-int		dwarf_attrval_string(Dwarf_Die, uint64_t, const char **, Dwarf_Error *);
-int		dwarf_attrval_unsigned(Dwarf_Die, uint64_t, Dwarf_Unsigned *, Dwarf_Error *);
+int		dwarf_arrayorder(Dwarf_Die, Dwarf_Unsigned *, Dwarf_Error *);
+int		dwarf_attr(Dwarf_Die, Dwarf_Half, Dwarf_Attribute *,
+		    Dwarf_Error *);
+int		dwarf_attrlist(Dwarf_Die, Dwarf_Attribute **,
+		    Dwarf_Signed *, Dwarf_Error *);
+int		dwarf_attrval_flag(Dwarf_Die, uint64_t, Dwarf_Bool *,
+		    Dwarf_Error *);
+int		dwarf_attrval_signed(Dwarf_Die, uint64_t, Dwarf_Signed *,
+		    Dwarf_Error *);
+int		dwarf_attrval_string(Dwarf_Die, uint64_t, const char **,
+		    Dwarf_Error *);
+int		dwarf_attrval_unsigned(Dwarf_Die, uint64_t, Dwarf_Unsigned *,
+		    Dwarf_Error *);
+int		dwarf_bitoffset(Dwarf_Die, Dwarf_Unsigned *, Dwarf_Error *);
+int		dwarf_bitsize(Dwarf_Die, Dwarf_Unsigned *, Dwarf_Error *);
+int		dwarf_bytesize(Dwarf_Die, Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_child(Dwarf_Die, Dwarf_Die *, Dwarf_Error *);
-int		dwarf_die_add(Dwarf_CU, int, uint64_t, uint64_t, Dwarf_Abbrev, Dwarf_Die *, Dwarf_Error *);
+int		dwarf_diename(Dwarf_Die, const char **, Dwarf_Error *);
 int		dwarf_dieoffset(Dwarf_Die, Dwarf_Off *, Dwarf_Error *);
+int		dwarf_die_abbrev_code(Dwarf_Die);
+int		dwarf_die_CU_offset(Dwarf_Die, Dwarf_Off *, Dwarf_Error *);
+int		dwarf_die_CU_offset_range(Dwarf_Die, Dwarf_Off *, Dwarf_Off *,
+		    Dwarf_Error *);
 int		dwarf_elf_init(Elf *, int, Dwarf_Debug *, Dwarf_Error *);
 int		dwarf_errno(Dwarf_Error *);
 int		dwarf_finish(Dwarf_Debug *, Dwarf_Error *);
@@ -214,15 +226,22 @@ int		dwarf_get_abbrev_code(Dwarf_Abbrev, Dwarf_Unsigned *,
 int		dwarf_get_abbrev_entry(Dwarf_Abbrev, Dwarf_Signed, Dwarf_Half *,
 		    Dwarf_Signed *, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_get_abbrev_tag(Dwarf_Abbrev, Dwarf_Half *, Dwarf_Error *);
+int		dwarf_hasattr(Dwarf_Die, Dwarf_Half, Dwarf_Bool *,
+		    Dwarf_Error *);
 int		dwarf_hasform(Dwarf_Attribute, Dwarf_Half, Dwarf_Bool *,
 		    Dwarf_Error *);
+int		dwarf_highpc(Dwarf_Die, Dwarf_Addr *, Dwarf_Error *);
 int		dwarf_locdesc(Dwarf_Die, uint64_t, Dwarf_Locdesc **, Dwarf_Signed *, Dwarf_Error *);
 int		dwarf_locdesc_free(Dwarf_Locdesc *, Dwarf_Error *);
+int		dwarf_lowpc(Dwarf_Die, Dwarf_Addr *, Dwarf_Error *);
 int		dwarf_init(int, int, Dwarf_Debug *, Dwarf_Error *);
 int		dwarf_next_cu_header(Dwarf_Debug, Dwarf_Unsigned *, Dwarf_Half *,
 		    Dwarf_Unsigned *, Dwarf_Half *, Dwarf_Unsigned *, Dwarf_Error *);
+int		dwarf_offdie(Dwarf_Debug, Dwarf_Off, Dwarf_Die *,
+		    Dwarf_Error *);
 int		dwarf_op_num(uint8_t, uint8_t *, int);
 int		dwarf_siblingof(Dwarf_Debug, Dwarf_Die, Dwarf_Die *, Dwarf_Error *);
+int		dwarf_srclang(Dwarf_Die, Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_tag(Dwarf_Die, Dwarf_Half *, Dwarf_Error *);
 int		dwarf_whatattr(Dwarf_Attribute, Dwarf_Half *, Dwarf_Error *);
 int		dwarf_whatform(Dwarf_Attribute, Dwarf_Half *, Dwarf_Error *);

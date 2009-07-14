@@ -1,4 +1,5 @@
 /*-
+ * Copyright (c) 2009 Kai Wang
  * Copyright (c) 2007 John Birrell (jb@freebsd.org)
  * All rights reserved.
  *
@@ -22,8 +23,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD: src/lib/libdwarf/dwarf_attr.c,v 1.1 2008/05/22 02:14:23 jb Exp $
  */
 
 #include <stdlib.h>
@@ -32,62 +31,191 @@
 
 int
 dwarf_attr(Dwarf_Die die, Dwarf_Half attr, Dwarf_Attribute *atp,
-    Dwarf_Error *err)
+    Dwarf_Error *error)
 {
 	Dwarf_Attribute at;
-	int ret = DWARF_E_NONE;
-
-	if (err == NULL)
-		return DWARF_E_ERROR;
 
 	if (die == NULL || atp == NULL) {
-		DWARF_SET_ERROR(err, DWARF_E_ARGUMENT);
-		return DWARF_E_ARGUMENT;
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
 	}
 
-	STAILQ_FOREACH(at, &die->die_attr, at_next)
-		if (at->at_attrib == attr)
-			break;
+	if ((at = attr_find(die, attr)) == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
+		return (DW_DLV_NO_ENTRY);
+	}
 
 	*atp = at;
 
-	if (at == NULL) {
-		DWARF_SET_ERROR(err, DWARF_E_NO_ENTRY);
-		ret = DWARF_E_NO_ENTRY;
-	}
-
-	return ret;
+	return (DW_DLV_OK);
 }
 
 int
-dwarf_attrdef_add(Dwarf_Abbrev ab, uint64_t attr, uint64_t form, uint64_t adoff,
-    Dwarf_AttrDef *adp, Dwarf_Error *error)
+dwarf_attrlist(Dwarf_Die die, Dwarf_Attribute **attrbuf,
+    Dwarf_Signed *attrcount, Dwarf_Error *error)
 {
-	Dwarf_AttrDef ad;
-	
-	if (ab == NULL) {
+
+	if (die == NULL || attrbuf == NULL || attrcount == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
-		return (DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
 	}
 
-	if ((ad = malloc(sizeof(struct _Dwarf_AttrDef))) == NULL) {
+	if (die->die_ab->ab_atnum == 0)
+		return (DW_DLV_NO_ENTRY);
+
+	*attrcount = die->die_ab->ab_atnum;
+	if (die->die_attrarray != NULL) {
+		*attrbuf = die->die_attrarray;
+		return (DW_DLV_OK);
+	}
+
+	if ((die->die_attrarray = malloc(*attrcount * sizeof(Dwarf_Attribute)))
+	    == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_MEMORY);
-		return (DWARF_E_MEMORY);
+		return (DW_DLV_ERROR);
 	}
 
-	/* Initialise the attribute definition structure. */
-	ad->ad_attrib	= attr;
-	ad->ad_form	= form;
-	ad->ad_offset	= adoff;
+	*attrbuf = die->die_attrarray;
 
-	/* Add the attribute definition to the list in the abbrev. */
-	STAILQ_INSERT_TAIL(&ab->ab_attrdef, ad, ad_next);
+	return (DW_DLV_OK);
+}
 
-	/* Increase number of attribute counter. */
-	ab->ab_atnum++;
+int
+dwarf_hasattr(Dwarf_Die die, Dwarf_Half attr, Dwarf_Bool *ret_bool,
+    Dwarf_Error *error)
+{
+	if (die == NULL || ret_bool == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
 
-	if (adp != NULL)
-		*adp = ad;
+	*ret_bool = (attr_find(die, attr) != NULL);
 
-	return (DWARF_E_NONE);
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_lowpc(Dwarf_Die die, Dwarf_Addr *ret_lowpc, Dwarf_Error *error)
+{
+	Dwarf_Attribute at;
+
+	if (die == NULL || ret_lowpc == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	if ((at = attr_find(die, DW_AT_low_pc)) == NULL)
+		return (DW_DLV_NO_ENTRY);
+
+	*ret_lowpc = at->u[0].u64;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_highpc(Dwarf_Die die, Dwarf_Addr *ret_highpc, Dwarf_Error *error)
+{
+	Dwarf_Attribute at;
+
+	if (die == NULL || ret_highpc == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	if ((at = attr_find(die, DW_AT_high_pc)) == NULL)
+		return (DW_DLV_NO_ENTRY);
+
+	*ret_highpc = at->u[0].u64;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_bytesize(Dwarf_Die die, Dwarf_Unsigned *ret_size, Dwarf_Error *error)
+{
+	Dwarf_Attribute at;
+
+	if (die == NULL || ret_size == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	if ((at = attr_find(die, DW_AT_byte_size)) == NULL)
+		return (DW_DLV_NO_ENTRY);
+
+	*ret_size = at->u[0].u64;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_bitsize(Dwarf_Die die, Dwarf_Unsigned *ret_size, Dwarf_Error *error)
+{
+	Dwarf_Attribute at;
+
+	if (die == NULL || ret_size == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	if ((at = attr_find(die, DW_AT_bit_size)) == NULL)
+		return (DW_DLV_NO_ENTRY);
+
+	*ret_size = at->u[0].u64;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_bitoffset(Dwarf_Die die, Dwarf_Unsigned *ret_size, Dwarf_Error *error)
+{
+	Dwarf_Attribute at;
+
+	if (die == NULL || ret_size == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	if ((at = attr_find(die, DW_AT_bit_offset)) == NULL)
+		return (DW_DLV_NO_ENTRY);
+
+	*ret_size = at->u[0].u64;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_srclang(Dwarf_Die die, Dwarf_Unsigned *ret_lang, Dwarf_Error *error)
+{
+	Dwarf_Attribute at;
+
+	if (die == NULL || ret_lang == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	if ((at = attr_find(die, DW_AT_language)) == NULL)
+		return (DW_DLV_NO_ENTRY);
+
+	*ret_lang = at->u[0].u64;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_arrayorder(Dwarf_Die die, Dwarf_Unsigned *ret_order, Dwarf_Error *error)
+{
+	Dwarf_Attribute at;
+
+	if (die == NULL || ret_order == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	if ((at = attr_find(die, DW_AT_ordering)) == NULL)
+		return (DW_DLV_NO_ENTRY);
+
+	*ret_order = at->u[0].u64;
+
+	return (DW_DLV_OK);
 }
