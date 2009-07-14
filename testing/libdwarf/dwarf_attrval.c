@@ -181,7 +181,7 @@ dwarf_attrval_unsigned(Dwarf_Die die, uint64_t attr, Dwarf_Unsigned *valp, Dwarf
 		case DW_FORM_ref_udata:
 			val = at->u[0].u64;
 
-			if ((die1 = dwarf_die_find(die, val)) == NULL ||
+			if ((die1 = die_find(die, val)) == NULL ||
 			    (at = attr_find(die1, attr)) == NULL) {
 				DWARF_SET_ERROR(err, DWARF_E_NO_ENTRY);
 				ret = DWARF_E_NO_ENTRY;

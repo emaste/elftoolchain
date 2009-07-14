@@ -1,4 +1,5 @@
 /*-
+ * Copyright (c) 2009 Kai Wang
  * Copyright (c) 2007 John Birrell (jb@freebsd.org)
  * All rights reserved.
  *
@@ -22,115 +23,48 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD: src/lib/libdwarf/dwarf_die.c,v 1.1 2008/05/22 02:14:23 jb Exp $
  */
 
+#include <assert.h>
 #include <stdlib.h>
 #include "_libdwarf.h"
 
-static const char *anon_name = "__anon__";
-
 int
-dwarf_die_add(Dwarf_CU cu, int level, uint64_t offset, uint64_t abnum, Dwarf_Abbrev a, Dwarf_Die *diep, Dwarf_Error *err)
-{
-	Dwarf_Die die;
-	uint64_t key;
-	int ret = DWARF_E_NONE;
-
-	if (cu == NULL || a == NULL) {
-		DWARF_SET_ERROR(err, DWARF_E_ARGUMENT);
-		return DWARF_E_ARGUMENT;
-	}
-
-	if ((die = malloc(sizeof(struct _Dwarf_Die))) == NULL) {
-		DWARF_SET_ERROR(err, DWARF_E_MEMORY);
-		return DWARF_E_MEMORY;
-	}
-
-	/* Initialise the abbrev structure. */
-	die->die_level	= level;
-	die->die_offset	= offset;
-	die->die_abnum	= abnum;
-	die->die_a	= a;
-	die->die_cu	= cu;
-	die->die_name	= anon_name;
-
-	/* Initialise the list of attribute values. */
-	STAILQ_INIT(&die->die_attr);
-
-	/* Add the die to the list in the compilation unit. */
-	STAILQ_INSERT_TAIL(&cu->cu_die, die, die_next);
-
-	/* Add the die to the hash table in the compilation unit. */
-	key = offset % DWARF_DIE_HASH_SIZE;
-	STAILQ_INSERT_TAIL(&cu->cu_die_hash[key], die, die_hash);
-
-	if (diep != NULL)
-		*diep = die;
-
-	return ret;
-}
-
-int
-dwarf_dieoffset(Dwarf_Die die, Dwarf_Off *ret_offset, Dwarf_Error *err __unused)
-{
-	*ret_offset = die->die_offset;
-
-	return DWARF_E_NONE;
-}
-
-int
-dwarf_child(Dwarf_Die die, Dwarf_Die *ret_die, Dwarf_Error *err)
+dwarf_child(Dwarf_Die die, Dwarf_Die *ret_die, Dwarf_Error *error)
 {
 	Dwarf_Die next;
-	int ret = DWARF_E_NONE;
 
 	if (die == NULL || ret_die == NULL) {
-		DWARF_SET_ERROR(err, DWARF_E_ARGUMENT);
-		return DWARF_E_ARGUMENT;
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
 	}
 
 	if ((next = STAILQ_NEXT(die, die_next)) == NULL ||
 	    next->die_level != die->die_level + 1) {
 		*ret_die = NULL;
-		DWARF_SET_ERROR(err, DWARF_E_NO_ENTRY);
-		ret = DWARF_E_NO_ENTRY;
+		DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
+		return (DW_DLV_NO_ENTRY);
 	} else
 		*ret_die = next;
 
-	return ret;
+	return (DW_DLV_OK);
 }
 
 int
-dwarf_tag(Dwarf_Die die, Dwarf_Half *tag, Dwarf_Error *err)
-{
-	Dwarf_Abbrev ab;
-
-	if (die == NULL || tag == NULL || (ab = die->die_a) == NULL) {
-		DWARF_SET_ERROR(err, DWARF_E_ARGUMENT);
-		return DWARF_E_ARGUMENT;
-	}
-
-	*tag = ab->ab_tag;
-
-	return DWARF_E_NONE;
-}
-
-int
-dwarf_siblingof(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Die *caller_ret_die, Dwarf_Error *err)
+dwarf_siblingof(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Die *caller_ret_die,
+    Dwarf_Error *error)
 {
 	Dwarf_Die next;
 	Dwarf_CU cu;
 	int ret;
 
 	if (dbg == NULL || caller_ret_die == NULL) {
-		DWARF_SET_ERROR(err, DWARF_E_ARGUMENT);
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
 		return (DW_DLV_ERROR);
 	}
 
 	if ((cu = dbg->dbg_cu_current) == NULL) {
-		DWARF_SET_ERROR(err, DWARF_E_CU_CURRENT);
+		DWARF_SET_ERROR(error, DWARF_E_CU_CURRENT);
 		return (DW_DLV_ERROR);
 	}
 
@@ -138,7 +72,7 @@ dwarf_siblingof(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Die *caller_ret_die, Dwarf
 	if (die == NULL) {
 		*caller_ret_die = STAILQ_FIRST(&cu->cu_die);
 		if (*caller_ret_die == NULL) {
-			DWARF_SET_ERROR(err, DWARF_E_NO_ENTRY);
+			DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
 			ret = DW_DLV_NO_ENTRY;
 		}
 	} else {
@@ -155,7 +89,7 @@ dwarf_siblingof(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Die *caller_ret_die, Dwarf
 		}
 		if (next == NULL) {
 			*caller_ret_die = NULL;
-			DWARF_SET_ERROR(err, DWARF_E_NO_ENTRY);
+			DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
 			ret = DW_DLV_NO_ENTRY;
 		}
 	}
@@ -163,17 +97,118 @@ dwarf_siblingof(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Die *caller_ret_die, Dwarf
 	return (ret);
 }
 
-Dwarf_Die
-dwarf_die_find(Dwarf_Die die, Dwarf_Unsigned off)
+int
+dwarf_offdie(Dwarf_Debug dbg, Dwarf_Off offset, Dwarf_Die *caller_ret_die,
+    Dwarf_Error *error)
 {
 	Dwarf_CU cu;
-	Dwarf_Die die1;
+	Dwarf_Die die;
 
-	cu = die->die_cu;
-	STAILQ_FOREACH(die1, &cu->cu_die, die_next) {
-		if (die1->die_offset == off)
-			return (die1);
+	if (dbg == NULL || caller_ret_die == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
 	}
 
-	return (NULL);
+	STAILQ_FOREACH(cu, &dbg->dbg_cu, cu_next) {
+		STAILQ_FOREACH(die, &cu->cu_die, die_next)
+			if (die->die_offset == (uint64_t)offset) {
+				*caller_ret_die = die;
+				return (DW_DLV_OK);
+			}
+	}
+
+	return (DW_DLV_NO_ENTRY);
+}
+
+int
+dwarf_tag(Dwarf_Die die, Dwarf_Half *tag, Dwarf_Error *error)
+{
+	Dwarf_Abbrev ab;
+
+	if (die == NULL || tag == NULL || (ab = die->die_ab) == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	*tag = (Dwarf_Half) ab->ab_tag;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_dieoffset(Dwarf_Die die, Dwarf_Off *ret_offset, Dwarf_Error *error)
+{
+
+	if (die == NULL || ret_offset == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	*ret_offset = die->die_offset;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_die_CU_offset(Dwarf_Die die, Dwarf_Off *ret_offset, Dwarf_Error *error)
+{
+	Dwarf_CU cu;
+
+	if (die == NULL || ret_offset == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	cu = die->die_cu;
+	assert(cu != NULL);
+
+	*ret_offset = die->die_offset - cu->cu_offset;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_die_CU_offset_range(Dwarf_Die die, Dwarf_Off *cu_offset,
+    Dwarf_Off *cu_length, Dwarf_Error *error)
+{
+	Dwarf_CU cu;
+
+	if (die == NULL || cu_offset == NULL || cu_length == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	cu = die->die_cu;
+	assert(cu != NULL);
+
+	*cu_offset = cu->cu_offset;
+	*cu_length = cu->cu_length;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_diename(Dwarf_Die die, const char **ret_name, Dwarf_Error *error)
+{
+
+	if (die == NULL || ret_name == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	if (die->die_name == NULL)
+		return (DW_DLV_NO_ENTRY);
+
+	*ret_name = die->die_name;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_die_abbrev_code(Dwarf_Die die)
+{
+
+	assert(die != NULL);
+
+	return (die->die_abnum);
 }

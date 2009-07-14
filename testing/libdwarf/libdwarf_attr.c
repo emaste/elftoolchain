@@ -73,7 +73,7 @@ attr_find(Dwarf_Die die, Dwarf_Half attr)
 			break;
 	}
 
-	return at;
+	return (at);
 }
 
 int

@@ -66,6 +66,9 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 				free(at);
 			}
 
+			if (die->die_attrarray)
+				free(die->die_attrarray);
+
 			STAILQ_REMOVE(&cu->cu_die, die, _Dwarf_Die, die_next);
 			free(die);
 		}
