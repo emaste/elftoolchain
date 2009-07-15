@@ -29,7 +29,8 @@
 #include <stdlib.h>
 #include "_libdwarf.h"
 
-static const char *anon_name = "__anon__";
+/* DIE without a real name will have name "__anon__" */
+const char *anon_name = "__anon__";
 
 int
 die_add(Dwarf_CU cu, int level, uint64_t offset, uint64_t abnum,
@@ -55,6 +56,7 @@ die_add(Dwarf_CU cu, int level, uint64_t offset, uint64_t abnum,
 	die->die_ab	= ab;
 	die->die_cu	= cu;
 	die->die_name	= anon_name;
+	die->die_attrarray = NULL;
 
 	/* Initialise the list of attribute values. */
 	STAILQ_INIT(&die->die_attr);

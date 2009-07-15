@@ -22,15 +22,14 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD: src/lib/libdwarf/dwarf_loc.c,v 1.1 2008/05/22 02:14:23 jb Exp $
  */
 
+#include <assert.h>
 #include <stdlib.h>
 #include "_libdwarf.h"
 
 static int64_t
-dwarf_decode_sleb128(uint8_t **dp)
+decode_sleb128(uint8_t **dp)
 {
 	int64_t ret = 0;
 	uint8_t b;
@@ -55,7 +54,7 @@ dwarf_decode_sleb128(uint8_t **dp)
 }
 
 static uint64_t
-dwarf_decode_uleb128(uint8_t **dp)
+decode_uleb128(uint8_t **dp)
 {
 	uint64_t ret = 0;
 	uint8_t b;
@@ -83,8 +82,8 @@ dwarf_decode_uleb128(uint8_t **dp)
  * zero or more bytes of operands as defined in the standard
  * for each operation type.
  */
-int
-dwarf_op_num(uint8_t pointer_size, uint8_t *p, int len)
+static int
+loc_op_num(uint8_t pointer_size, uint8_t *p, int len)
 {
 	int count = 0;
 	int64_t sval;
@@ -236,7 +235,7 @@ dwarf_op_num(uint8_t pointer_size, uint8_t *p, int len)
 		case DW_OP_plus_uconst:
 		case DW_OP_regx:
 		case DW_OP_piece:
-			uval = dwarf_decode_sleb128(&p);
+			uval = decode_sleb128(&p);
 			break;
 
 		/* Operations with a signed LEB128 operand. */
@@ -274,7 +273,7 @@ dwarf_op_num(uint8_t pointer_size, uint8_t *p, int len)
 		case DW_OP_breg30:
 		case DW_OP_breg31:
 		case DW_OP_fbreg:
-			sval = dwarf_decode_sleb128(&p);
+			sval = decode_sleb128(&p);
 			break;
 
 		/*
@@ -282,8 +281,8 @@ dwarf_op_num(uint8_t pointer_size, uint8_t *p, int len)
 		 * followed by a signed LEB128 operand.
 		 */
 		case DW_OP_bregx:
-			uval = dwarf_decode_uleb128(&p);
-			sval = dwarf_decode_sleb128(&p);
+			uval = decode_uleb128(&p);
+			sval = decode_sleb128(&p);
 			break;
 
 		/* Target address size operand. */
@@ -302,7 +301,7 @@ dwarf_op_num(uint8_t pointer_size, uint8_t *p, int len)
 }
 
 static int
-dwarf_loc_fill(Dwarf_Locdesc *lbuf, uint8_t pointer_size, uint8_t *p, int len)
+loc_fill_loc(Dwarf_Locdesc *lbuf, uint8_t pointer_size, uint8_t *p, int len)
 {
 	int count = 0;
 	int ret = DWARF_E_NONE;
@@ -458,7 +457,7 @@ dwarf_loc_fill(Dwarf_Locdesc *lbuf, uint8_t pointer_size, uint8_t *p, int len)
 		case DW_OP_plus_uconst:
 		case DW_OP_regx:
 		case DW_OP_piece:
-			operand1 = dwarf_decode_sleb128(&p);
+			operand1 = decode_sleb128(&p);
 			break;
 
 		/* Operations with a signed LEB128 operand. */
@@ -496,7 +495,7 @@ dwarf_loc_fill(Dwarf_Locdesc *lbuf, uint8_t pointer_size, uint8_t *p, int len)
 		case DW_OP_breg30:
 		case DW_OP_breg31:
 		case DW_OP_fbreg:
-			operand1 = dwarf_decode_sleb128(&p);
+			operand1 = decode_sleb128(&p);
 			break;
 
 		/*
@@ -504,8 +503,8 @@ dwarf_loc_fill(Dwarf_Locdesc *lbuf, uint8_t pointer_size, uint8_t *p, int len)
 		 * followed by a signed LEB128 operand.
 		 */
 		case DW_OP_bregx:
-			operand1 = dwarf_decode_uleb128(&p);
-			operand2 = dwarf_decode_sleb128(&p);
+			operand1 = decode_uleb128(&p);
+			operand2 = decode_sleb128(&p);
 			break;
 
 		/* Target address size operand. */
@@ -528,86 +527,70 @@ dwarf_loc_fill(Dwarf_Locdesc *lbuf, uint8_t pointer_size, uint8_t *p, int len)
 }
 
 int
-dwarf_locdesc(Dwarf_Die die, uint64_t attr, Dwarf_Locdesc **llbuf, Dwarf_Signed *lenp, Dwarf_Error *err)
+loc_fill_locdesc(Dwarf_Locdesc *llbuf, uint8_t *in, uint64_t in_len,
+    uint8_t pointer_size, Dwarf_Error *error)
 {
-	Dwarf_Attribute at;
-	Dwarf_Locdesc *lbuf;
-	int num;
-	int ret = DWARF_E_NONE;
+	int ret, num;
 
-	if (err == NULL)
-		return DWARF_E_ERROR;
+	assert(llbuf != NULL);
+	assert(in != NULL);
+	assert(in_len > 0);
 
-	if (die == NULL || llbuf == NULL || lenp == NULL) {
-		DWARF_SET_ERROR(err, DWARF_E_ARGUMENT);
-		return DWARF_E_ARGUMENT;
+	/* Compute the number of locations. */
+	if ((num = loc_op_num(pointer_size, in, in_len)) < 0) {
+		DWARF_SET_ERROR(error, DWARF_E_INVALID_EXPR);
+		return (DWARF_E_INVALID_EXPR);
 	}
 
-	if ((at = attr_find(die, attr)) == NULL) {
-		DWARF_SET_ERROR(err, DWARF_E_NO_ENTRY);
-		ret = DWARF_E_NO_ENTRY;
-	} else if ((lbuf = calloc(sizeof(Dwarf_Locdesc), 1)) == NULL) {
-		DWARF_SET_ERROR(err, DWARF_E_MEMORY);
-		ret = DWARF_E_MEMORY;
-	} else {
-		*lenp = 0;
-		switch (at->at_form) {
-		case DW_FORM_block:
-		case DW_FORM_block1:
-		case DW_FORM_block2:
-		case DW_FORM_block4:
-			/* Compute the number of locations: */
-			if ((num = dwarf_op_num(die->die_cu->cu_pointer_size,
-			    at->u[1].u8p, at->u[0].u64)) < 0) {
-				DWARF_SET_ERROR(err, DWARF_E_INVALID_EXPR);
-				ret = DWARF_E_INVALID_EXPR;
+	llbuf->ld_cents = num;
 
-			/* Allocate an array of location structures. */
-			} else if ((lbuf->ld_s =
-			    calloc(sizeof(Dwarf_Loc), num)) == NULL) {
-				DWARF_SET_ERROR(err, DWARF_E_MEMORY);
-				ret = DWARF_E_MEMORY;
-
-			/* Fill the array of location structures. */
-			} else if ((ret = dwarf_loc_fill(lbuf,
-			    die->die_cu->cu_pointer_size,
-			    at->u[1].u8p, at->u[0].u64)) != DWARF_E_NONE) {
-				free(lbuf->ld_s);
-			} else
-				/* Only one descriptor is returned. */
-				*lenp = 1;
-			break;
-		default:
-			printf("%s(%d): form %s not handled\n",__func__,
-			    __LINE__,get_form_desc(at->at_form));
-			DWARF_SET_ERROR(err, DWARF_E_NOT_IMPLEMENTED);
-			ret = DWARF_E_ERROR;
-		}
-
-		if (ret == DWARF_E_NONE) {
-			*llbuf = lbuf;
-		} else
-			free(lbuf);
+	if ((llbuf->ld_s = calloc(num, sizeof(Dwarf_Loc))) == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_MEMORY);
+		return (DWARF_E_MEMORY);
 	}
 
-	return ret;
+	if ((ret = loc_fill_loc(llbuf, pointer_size, in, in_len)) !=
+	    DWARF_E_NONE) {
+		free(llbuf->ld_s);
+		return (ret);
+	}
+
+	return (ret);
 }
 
 int
-dwarf_locdesc_free(Dwarf_Locdesc *lbuf, Dwarf_Error *err)
+loc_fill_locexpr(Dwarf_Locdesc **llbuf, uint8_t *in, uint64_t in_len,
+    uint8_t pointer_size, Dwarf_Error *error)
 {
-	if (err == NULL)
-		return DWARF_E_ERROR;
+	int ret;
 
-	if (lbuf == NULL) {
-		DWARF_SET_ERROR(err, DWARF_E_ARGUMENT);
-		return DWARF_E_ARGUMENT;
+	if ((*llbuf = malloc(sizeof(Dwarf_Locdesc))) == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_MEMORY);
+		return (DWARF_E_MEMORY);
+	}
+	(*llbuf)->ld_lopc = 0;
+	(*llbuf)->ld_hipc = (pointer_size == 4 ? ~0U : ~0ULL);
+
+	ret = loc_fill_locdesc(*llbuf, in, in_len, pointer_size, error);
+	if (ret != DWARF_E_NONE) {
+		free(*llbuf);
+		return (ret);
 	}
 
-	if (lbuf->ld_s != NULL)
-		free(lbuf->ld_s);
+	return (ret);
+}
 
-	free(lbuf);
+int
+loc_add(Dwarf_Die die, Dwarf_Attribute at, Dwarf_Error *error)
+{
+	int ret;
 
-	return DWARF_E_NONE;
+	assert(at->at_ld == NULL);
+	assert(at->u[1].u8p != NULL);
+	assert(at->u[0].u64 > 0);
+
+	ret = loc_fill_locexpr(&at->at_ld, at->u[1].u8p, at->u[0].u64,
+	    die->die_cu->cu_pointer_size, error);
+
+	return (ret);
 }

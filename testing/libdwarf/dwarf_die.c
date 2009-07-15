@@ -27,6 +27,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include "_libdwarf.h"
 
 int
@@ -187,6 +188,8 @@ dwarf_die_CU_offset_range(Dwarf_Die die, Dwarf_Off *cu_offset,
 	return (DW_DLV_OK);
 }
 
+extern char *anon_name;
+
 int
 dwarf_diename(Dwarf_Die die, const char **ret_name, Dwarf_Error *error)
 {
@@ -196,7 +199,7 @@ dwarf_diename(Dwarf_Die die, const char **ret_name, Dwarf_Error *error)
 		return (DW_DLV_ERROR);
 	}
 
-	if (die->die_name == NULL)
+	if (die->die_name == NULL || !strcmp(die->die_name, anon_name))
 		return (DW_DLV_NO_ENTRY);
 
 	*ret_name = die->die_name;

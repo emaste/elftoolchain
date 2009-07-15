@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/lib/libdwarf/_libdwarf.h,v 1.1 2008/05/22 02:14:23 jb Exp $
+ * $FreeBSD$
  */
 
 #ifndef	__LIBDWARF_H_
@@ -98,6 +98,7 @@ struct _Dwarf_Attribute {
 		const char	*s;   		/* String. */
 		uint8_t		*u8p;		/* Block. */
 	} u[2];					/* Value. */
+	Dwarf_Locdesc		*at_ld;		/* at value is locdesc. */
 	STAILQ_ENTRY(_Dwarf_Attribute)
 				at_next;	/* Next attribute. */
 #define	at_attrib	at_ad->ad_attrib
@@ -133,7 +134,15 @@ struct _Dwarf_Die {
 			die_hash;	/* Next die in hash table. */
 };
 
+struct _Dwarf_Loclist {
+	Dwarf_Locdesc 	*ll_ldlist;     /* Ptr to array of locdesc. */
+	int 		ll_ldlen;	/* number of locdesc. */
+	uint64_t	ll_offset;	/* offset in .debug_loc section. */
+	STAILQ_ENTRY(_Dwarf_Loclist) ll_next; /* Next loclist in list. */
+};
+
 struct _Dwarf_CU {
+	Dwarf_Debug	cu_dbg;		/* Ptr to containing dbg. */
 	uint64_t	cu_offset;	/* Offset to the this compilation unit. */
 	uint32_t	cu_length;	/* Length of CU data. */
 	uint32_t	cu_header_length;
@@ -176,6 +185,8 @@ struct _Dwarf_Debug {
 	STAILQ_HEAD(, _Dwarf_CU)
 			dbg_cu;		/* List of compilation units. */
 	Dwarf_CU	dbg_cu_current; /* Ptr to the current compilation unit. */
+	STAILQ_HEAD(, _Dwarf_Loclist)
+			dbg_loclist;	/* List of location list. */
 	uint64_t	(*read)(Elf_Data **, uint64_t *, int);
 	void		(*write)(Elf_Data **, uint64_t *, uint64_t, int);
 };
@@ -190,6 +201,13 @@ int		die_add(Dwarf_CU, int, uint64_t, uint64_t, Dwarf_Abbrev,
 		    Dwarf_Die *, Dwarf_Error *);
 Dwarf_Die	die_find(Dwarf_Die, Dwarf_Unsigned);
 int		elf_read(Dwarf_Debug, Dwarf_Error *);
+int		loc_fill_locdesc(Dwarf_Locdesc *, uint8_t *, uint64_t, uint8_t,
+		    Dwarf_Error *);
+int		loc_fill_locexpr(Dwarf_Locdesc **, uint8_t *, uint64_t, uint8_t,
+		    Dwarf_Error *);
+int		loc_add(Dwarf_Die, Dwarf_Attribute, Dwarf_Error *);
+int		loclist_find(Dwarf_Debug, uint64_t, Dwarf_Loclist *);
+int		loclist_add(Dwarf_Debug, Dwarf_CU, uint64_t, Dwarf_Error *);
 uint64_t	read_lsb(Elf_Data **, uint64_t *, int);
 uint64_t	read_msb(Elf_Data **, uint64_t *, int);
 void		write_lsb(Elf_Data **, uint64_t *, uint64_t, int);
@@ -197,6 +215,6 @@ void		write_msb(Elf_Data **, uint64_t *, uint64_t, int);
 int64_t		read_sleb128(Elf_Data **, uint64_t *);
 uint64_t	read_uleb128(Elf_Data **, uint64_t *);
 const char	*read_string(Elf_Data **, uint64_t *);
-uint8_t		*read_block(Elf_Data **dp, uint64_t *offsetp, uint64_t length);
+uint8_t		*read_block(Elf_Data **, uint64_t *, uint64_t);
 
 #endif /* !__LIBDWARF_H_ */

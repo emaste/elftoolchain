@@ -144,6 +144,9 @@ init_info(Dwarf_Debug dbg, Dwarf_Error *error)
 			return DWARF_E_MEMORY;
 		}
 
+		/* Save a pointer to containing dbg. */
+		cu->cu_dbg = dbg;
+
 		/* Save the offet to this compilation unit: */
 		cu->cu_offset = offset;
 
@@ -251,15 +254,17 @@ int
 elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 {
 	GElf_Shdr shdr;
-	Elf_Scn *scn = NULL;
+	Elf_Scn *scn;
 	char *sname;
 	int i;
-	int ret = DWARF_E_NONE;
+	int ret;
+
+	ret = DWARF_E_NONE;
 
 	/* Get a copy of the ELF header. */
 	if (gelf_getehdr(dbg->dbg_elf, &dbg->dbg_ehdr) == NULL) {
 		DWARF_SET_ELF_ERROR(error, elf_errno());
-		return DWARF_E_ELF;
+		return (DWARF_E_ELF);
 	}
 
 	/* Check the ELF data format: */
@@ -280,21 +285,22 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 	/* Get the section index to the string table. */
 	if (elf_getshstrndx(dbg->dbg_elf, &dbg->dbg_stnum) == 0) {
 		DWARF_SET_ELF_ERROR(error, elf_errno());
-		return DWARF_E_ELF;
+		return (DWARF_E_ELF);
 	}
 
 	/* Look for the debug sections. */
+	scn = NULL;
 	while ((scn = elf_nextscn(dbg->dbg_elf, scn)) != NULL) {
 		/* Get a copy of the section header: */
 		if (gelf_getshdr(scn, &shdr) == NULL) {
 			DWARF_SET_ELF_ERROR(error, elf_errno());
-			return DWARF_E_ELF;
+			return (DWARF_E_ELF);
 		}
 
 		/* Get a pointer to the section name: */
 		if ((sname = elf_strptr(dbg->dbg_elf, dbg->dbg_stnum, shdr.sh_name)) == NULL) {
 			DWARF_SET_ELF_ERROR(error, elf_errno());
-			return DWARF_E_ELF;
+			return (DWARF_E_ELF);
 		}
 
 		/*
@@ -309,7 +315,7 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 				memcpy(&dbg->dbg_s[i].s_shdr, &shdr, sizeof(shdr));
 				if ((dbg->dbg_s[i].s_data = elf_getdata(scn, NULL)) == NULL) {
 					DWARF_SET_ELF_ERROR(error, elf_errno());
-					return DWARF_E_ELF;
+					return (DWARF_E_ELF);
 				}
 				break;
 			}
@@ -321,11 +327,16 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 	    dbg->dbg_s[DWARF_debug_info].s_scn == NULL) {
 		/* Missing debug information. */
 		DWARF_SET_ERROR(error, DWARF_E_DEBUG_INFO);
-		return DWARF_E_DEBUG_INFO;
+		return (DWARF_E_DEBUG_INFO);
 	}
+
+	/* Initialise the loclist. */
+	STAILQ_INIT(&dbg->dbg_loclist);
 
 	/* Initialise the compilation-units: */
 	ret = init_info(dbg, error);
+	if (ret != DWARF_E_NONE)
+		return (ret);
 
-	return ret;
+	return (ret);
 }
