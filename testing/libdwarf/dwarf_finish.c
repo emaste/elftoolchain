@@ -43,24 +43,23 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 	Dwarf_Debug dbg;
 	Dwarf_Die die;
 	Dwarf_Die tdie;
-
-	if (error == NULL)
-		/* Can only return a generic error. */
-		return DWARF_E_ERROR;
+	Dwarf_Loclist ll;
+	Dwarf_Loclist tll;
+	int i;
 
 	if (dbgp == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
-		return DWARF_E_ERROR;
+		return (DW_DLV_ERROR);
 	}
 
 	if ((dbg = *dbgp) == NULL)
-		return DWARF_E_NONE;
+		return (DW_DLV_OK);
 
 	/* Free entries in the compilation unit list. */
 	STAILQ_FOREACH_SAFE(cu, &dbg->dbg_cu, cu_next, tcu) {
 		/* Free entries in the die list */
 		STAILQ_FOREACH_SAFE(die, &cu->cu_die, die_next, tdie) {
-			/* Free entries in the attribute value list */
+			/* Free entries in the attribute list */
 			STAILQ_FOREACH_SAFE(at, &die->die_attr, at_next, tat) {
 				STAILQ_REMOVE(&die->die_attr, at,
 				    _Dwarf_Attribute, at_next);
@@ -94,13 +93,25 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 		free(cu);
 	}
 
+	/* Free loclist list. */
+	STAILQ_FOREACH_SAFE(ll, &dbg->dbg_loclist, ll_next, tll) {
+		STAILQ_REMOVE(&dbg->dbg_loclist, ll, _Dwarf_Loclist, ll_next);
+		if (ll->ll_ldlist != NULL) {
+			for (i = 0; i < ll->ll_ldlen; i++)
+				if (ll->ll_ldlist[i].ld_s)
+					free(ll->ll_ldlist[i].ld_s);
+			free(ll->ll_ldlist);
+		}
+		free(ll);
+	}
+
+	/* Free resources associated with the ELF file. */
 	if (dbg->dbg_elf_close)
-		/* Free resources associated with the ELF file. */
 		elf_end(dbg->dbg_elf);
 
 	free(dbg);
 
 	*dbgp = NULL;
 
-	return DWARF_E_NONE;
+	return (DW_DLV_OK);
 }
