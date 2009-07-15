@@ -46,8 +46,8 @@ abbrev_add(Dwarf_CU cu, uint64_t entry, uint64_t tag, uint8_t children,
 	ab->ab_tag	= tag;
 	ab->ab_children	= children;
 	ab->ab_offset	= aboff;
-	ab->ab_length	= 0;	/* unknown yet. */
-	ab->ab_atnum	= 0;	/* unknown yet. */
+	ab->ab_length	= 0;	/* fill in later. */
+	ab->ab_atnum	= 0;	/* fill in later. */
 
 	/* Initialise the list of attribute definitions. */
 	STAILQ_INIT(&ab->ab_attrdef);
@@ -99,7 +99,7 @@ abbrev_init(Dwarf_Debug dbg, Dwarf_CU cu, Dwarf_Error *error)
 {
 	Dwarf_Abbrev ab;
 	Elf_Data *d;
-	int ret = DWARF_E_NONE;
+	int ret;
 	uint64_t attr;
 	uint64_t entry;
 	uint64_t form;
@@ -109,10 +109,11 @@ abbrev_init(Dwarf_Debug dbg, Dwarf_CU cu, Dwarf_Error *error)
 	uint64_t tag;
 	u_int8_t children;
 
+	ret = DWARF_E_NONE;
+
 	d = dbg->dbg_s[DWARF_debug_abbrev].s_data;
 
 	offset = cu->cu_abbrev_offset;
-
 	while (offset < d->d_size) {
 		aboff = offset;
 

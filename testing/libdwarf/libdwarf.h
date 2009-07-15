@@ -53,6 +53,7 @@ typedef struct _Dwarf_Fde	*Dwarf_Fde;
 typedef struct _Dwarf_Func	*Dwarf_Func;
 typedef struct _Dwarf_Global	*Dwarf_Global;
 typedef struct _Dwarf_Line	*Dwarf_Line;
+typedef struct _Dwarf_Loclist	*Dwarf_Loclist;
 typedef struct _Dwarf_Type	*Dwarf_Type;
 typedef struct _Dwarf_Var	*Dwarf_Var;
 typedef struct _Dwarf_Weak	*Dwarf_Weak;
@@ -151,6 +152,8 @@ enum {
 	DWARF_E_CU_CURRENT,		/* No current compilation unit. */
 	DWARF_E_BAD_FORM,		/* Wrong form type for attribute value. */
 	DWARF_E_INVALID_EXPR,		/* Invalid DWARF expression. */
+	DWARF_E_INVALID_LOCLIST,	/* Invalid loclist data. */
+	DWARF_E_INVALID_ATTR,		/* Invalid attribute. */
 	DWARF_E_NUM			/* Max error number. */
 };
 
@@ -231,15 +234,24 @@ int		dwarf_hasattr(Dwarf_Die, Dwarf_Half, Dwarf_Bool *,
 int		dwarf_hasform(Dwarf_Attribute, Dwarf_Half, Dwarf_Bool *,
 		    Dwarf_Error *);
 int		dwarf_highpc(Dwarf_Die, Dwarf_Addr *, Dwarf_Error *);
-int		dwarf_locdesc(Dwarf_Die, uint64_t, Dwarf_Locdesc **, Dwarf_Signed *, Dwarf_Error *);
+int		dwarf_locdesc(Dwarf_Die, uint64_t, Dwarf_Locdesc **, Dwarf_Signed *,
+		    Dwarf_Error *);
 int		dwarf_locdesc_free(Dwarf_Locdesc *, Dwarf_Error *);
+int		dwarf_loclist(Dwarf_Attribute, Dwarf_Locdesc **, Dwarf_Signed *,
+		    Dwarf_Error *);
+int		dwarf_loclist_n(Dwarf_Attribute, Dwarf_Locdesc **,
+		    Dwarf_Signed *, Dwarf_Error *);
+int		dwarf_loclist_from_expr(Dwarf_Debug, Dwarf_Ptr, Dwarf_Unsigned,
+		    Dwarf_Locdesc **, Dwarf_Signed *, Dwarf_Error *);
+int		dwarf_loclist_from_expr_a(Dwarf_Ptr, Dwarf_Unsigned, Dwarf_Half,
+		    Dwarf_Locdesc **, Dwarf_Signed *, Dwarf_Error *);
+int		dwarf_loclist_from_expr_free(Dwarf_Locdesc *, Dwarf_Error *);
 int		dwarf_lowpc(Dwarf_Die, Dwarf_Addr *, Dwarf_Error *);
 int		dwarf_init(int, int, Dwarf_Debug *, Dwarf_Error *);
 int		dwarf_next_cu_header(Dwarf_Debug, Dwarf_Unsigned *, Dwarf_Half *,
 		    Dwarf_Unsigned *, Dwarf_Half *, Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_offdie(Dwarf_Debug, Dwarf_Off, Dwarf_Die *,
 		    Dwarf_Error *);
-int		dwarf_op_num(uint8_t, uint8_t *, int);
 int		dwarf_siblingof(Dwarf_Debug, Dwarf_Die, Dwarf_Die *, Dwarf_Error *);
 int		dwarf_srclang(Dwarf_Die, Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_tag(Dwarf_Die, Dwarf_Half *, Dwarf_Error *);

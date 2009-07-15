@@ -62,7 +62,10 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 		STAILQ_FOREACH_SAFE(die, &cu->cu_die, die_next, tdie) {
 			/* Free entries in the attribute value list */
 			STAILQ_FOREACH_SAFE(at, &die->die_attr, at_next, tat) {
-				STAILQ_REMOVE(&die->die_attr, at, _Dwarf_Attribute, at_next);
+				STAILQ_REMOVE(&die->die_attr, at,
+				    _Dwarf_Attribute, at_next);
+				if (at->at_ld != NULL)
+					free(at->at_ld);
 				free(at);
 			}
 
@@ -77,11 +80,13 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 		STAILQ_FOREACH_SAFE(ab, &cu->cu_abbrev, ab_next, tab) {
 			/* Free entries in the attribute list */
 			STAILQ_FOREACH_SAFE(ad, &ab->ab_attrdef, ad_next, tad) {
-				STAILQ_REMOVE(&ab->ab_attrdef, ad, _Dwarf_AttrDef, ad_next);
+				STAILQ_REMOVE(&ab->ab_attrdef, ad,
+				    _Dwarf_AttrDef, ad_next);
 				free(ad);
 			}
 
-			STAILQ_REMOVE(&cu->cu_abbrev, ab, _Dwarf_Abbrev, ab_next);
+			STAILQ_REMOVE(&cu->cu_abbrev, ab, _Dwarf_Abbrev,
+			    ab_next);
 			free(ab);
 		}
 
