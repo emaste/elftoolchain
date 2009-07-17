@@ -54,16 +54,26 @@ int
 dwarf_attrlist(Dwarf_Die die, Dwarf_Attribute **attrbuf,
     Dwarf_Signed *attrcount, Dwarf_Error *error)
 {
+	Dwarf_Attribute at;
+	int i;
 
 	if (die == NULL || attrbuf == NULL || attrcount == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
 		return (DW_DLV_ERROR);
 	}
 
-	if (die->die_ab->ab_atnum == 0)
+	if (die->die_ab->ab_atnum == 0) {
+		DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
 		return (DW_DLV_NO_ENTRY);
+	}
 
 	*attrcount = die->die_ab->ab_atnum;
+
+	if (*attrcount == 0) {
+		DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
+		return (DW_DLV_NO_ENTRY);
+	}
+
 	if (die->die_attrarray != NULL) {
 		*attrbuf = die->die_attrarray;
 		return (DW_DLV_OK);
@@ -74,6 +84,10 @@ dwarf_attrlist(Dwarf_Die die, Dwarf_Attribute **attrbuf,
 		DWARF_SET_ERROR(error, DWARF_E_MEMORY);
 		return (DW_DLV_ERROR);
 	}
+
+	for (i = 0, at = STAILQ_FIRST(&die->die_attr);
+	     i < *attrcount && at != NULL; i++, at = STAILQ_NEXT(at, at_next))
+		die->die_attrarray[i] = at;
 
 	*attrbuf = die->die_attrarray;
 

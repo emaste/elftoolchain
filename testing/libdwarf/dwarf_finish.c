@@ -45,6 +45,9 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 	Dwarf_Die tdie;
 	Dwarf_Loclist ll;
 	Dwarf_Loclist tll;
+	Dwarf_LineInfo li;
+	Dwarf_LineFile lf, tlf;
+	Dwarf_Line ln, tln;
 	int i;
 
 	if (dbgp == NULL) {
@@ -87,6 +90,30 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 			STAILQ_REMOVE(&cu->cu_abbrev, ab, _Dwarf_Abbrev,
 			    ab_next);
 			free(ab);
+		}
+
+		/* Free lineinfo. */
+		if (cu->cu_lineinfo != NULL) {
+			li = cu->cu_lineinfo;
+			STAILQ_FOREACH_SAFE(lf, &li->li_lflist, lf_next, tlf) {
+				STAILQ_REMOVE(&li->li_lflist, lf,
+				    _Dwarf_LineFile, lf_next);
+				if (lf->lf_fullpath)
+					free(lf->lf_fullpath);
+				free(lf);
+			}
+			STAILQ_FOREACH_SAFE(ln, &li->li_lnlist, ln_next, tln) {
+				STAILQ_REMOVE(&li->li_lnlist, ln, _Dwarf_Line,
+				    ln_next);
+				free(ln);
+			}
+			if (li->li_oplen)
+				free(li->li_oplen);
+			if (li->li_incdirs)
+				free(li->li_incdirs);
+			if (li->li_lnarray)
+				free(li->li_lnarray);
+			free(li);
 		}
 
 		STAILQ_REMOVE(&dbg->dbg_cu, cu, _Dwarf_CU, cu_next);

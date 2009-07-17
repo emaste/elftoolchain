@@ -199,8 +199,10 @@ dwarf_diename(Dwarf_Die die, const char **ret_name, Dwarf_Error *error)
 		return (DW_DLV_ERROR);
 	}
 
-	if (die->die_name == NULL || !strcmp(die->die_name, anon_name))
+	if (die->die_name == NULL || !strcmp(die->die_name, anon_name)) {
+		DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
 		return (DW_DLV_NO_ENTRY);
+	}
 
 	*ret_name = die->die_name;
 
