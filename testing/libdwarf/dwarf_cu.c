@@ -32,7 +32,6 @@ dwarf_next_cu_header(Dwarf_Debug dbg, Dwarf_Unsigned *cu_header_length,
     Dwarf_Half *cu_pointer_size, Dwarf_Unsigned *cu_next_offset,
     Dwarf_Error *error)
 {
-	Dwarf_CU next;
 
 	if (dbg == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
@@ -41,11 +40,8 @@ dwarf_next_cu_header(Dwarf_Debug dbg, Dwarf_Unsigned *cu_header_length,
 
 	if (dbg->dbg_cu_current == NULL)
 		dbg->dbg_cu_current = STAILQ_FIRST(&dbg->dbg_cu);
-	else if ((next = STAILQ_NEXT(dbg->dbg_cu_current, cu_next)) == NULL) {
-		DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
-		return (DW_DLV_NO_ENTRY);
-	} else
-		dbg->dbg_cu_current = next;
+	else
+		dbg->dbg_cu_current = STAILQ_NEXT(dbg->dbg_cu_current, cu_next);
 
 	if (dbg->dbg_cu_current == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
