@@ -170,6 +170,7 @@ dwarf_attrval_unsigned(Dwarf_Die die, uint64_t attr, Dwarf_Unsigned *valp, Dwarf
 		Dwarf_Unsigned val;
 
 		switch (at->at_form) {
+		case DW_FORM_addr:
 		case DW_FORM_data1:
 		case DW_FORM_data2:
 		case DW_FORM_data4:
@@ -198,6 +199,7 @@ dwarf_attrval_unsigned(Dwarf_Die die, uint64_t attr, Dwarf_Unsigned *valp, Dwarf
 
 	if (ret == DWARF_E_NONE) {
 		switch (at->at_form) {
+		case DW_FORM_addr:
 		case DW_FORM_data1:
 		case DW_FORM_data2:
 		case DW_FORM_data4:
