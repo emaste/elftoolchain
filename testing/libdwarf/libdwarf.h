@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/lib/libdwarf/libdwarf.h,v 1.1 2008/05/22 02:14:23 jb Exp $
+ * $FreeBSD$
  */
 
 #ifndef	_LIBDWARF_H_
@@ -53,6 +53,8 @@ typedef struct _Dwarf_Fde	*Dwarf_Fde;
 typedef struct _Dwarf_Func	*Dwarf_Func;
 typedef struct _Dwarf_Global	*Dwarf_Global;
 typedef struct _Dwarf_Line	*Dwarf_Line;
+typedef struct _Dwarf_LineFile	*Dwarf_LineFile;
+typedef struct _Dwarf_LineInfo	*Dwarf_LineInfo;
 typedef struct _Dwarf_Loclist	*Dwarf_Loclist;
 typedef struct _Dwarf_Type	*Dwarf_Type;
 typedef struct _Dwarf_Var	*Dwarf_Var;
@@ -154,6 +156,7 @@ enum {
 	DWARF_E_INVALID_EXPR,		/* Invalid DWARF expression. */
 	DWARF_E_INVALID_LOCLIST,	/* Invalid loclist data. */
 	DWARF_E_INVALID_ATTR,		/* Invalid attribute. */
+	DWARF_E_INVALID_LINE,		/* Invalid line info data. */
 	DWARF_E_NUM			/* Max error number. */
 };
 
@@ -234,6 +237,16 @@ int		dwarf_hasattr(Dwarf_Die, Dwarf_Half, Dwarf_Bool *,
 int		dwarf_hasform(Dwarf_Attribute, Dwarf_Half, Dwarf_Bool *,
 		    Dwarf_Error *);
 int		dwarf_highpc(Dwarf_Die, Dwarf_Addr *, Dwarf_Error *);
+int		dwarf_line_srcfileno(Dwarf_Line, Dwarf_Unsigned *,
+		    Dwarf_Error *);
+int		dwarf_lineaddr(Dwarf_Line, Dwarf_Addr *, Dwarf_Error *);
+int		dwarf_linebeginstatement(Dwarf_Line, Dwarf_Bool *,
+		    Dwarf_Error *);
+int		dwarf_lineblock(Dwarf_Line, Dwarf_Bool *, Dwarf_Error *);
+int		dwarf_lineendsequence(Dwarf_Line, Dwarf_Bool *, Dwarf_Error *);
+int		dwarf_lineno(Dwarf_Line, Dwarf_Unsigned *, Dwarf_Error *);
+int		dwarf_lineoff(Dwarf_Line, Dwarf_Signed *, Dwarf_Error *);
+int		dwarf_linesrc(Dwarf_Line, const char **, Dwarf_Error *);
 int		dwarf_locdesc(Dwarf_Die, uint64_t, Dwarf_Locdesc **, Dwarf_Signed *,
 		    Dwarf_Error *);
 int		dwarf_locdesc_free(Dwarf_Locdesc *, Dwarf_Error *);
@@ -253,7 +266,11 @@ int		dwarf_next_cu_header(Dwarf_Debug, Dwarf_Unsigned *, Dwarf_Half *,
 int		dwarf_offdie(Dwarf_Debug, Dwarf_Off, Dwarf_Die *,
 		    Dwarf_Error *);
 int		dwarf_siblingof(Dwarf_Debug, Dwarf_Die, Dwarf_Die *, Dwarf_Error *);
+int		dwarf_srcfiles(Dwarf_Die, const char ***, Dwarf_Signed *,
+		    Dwarf_Error *);
 int		dwarf_srclang(Dwarf_Die, Dwarf_Unsigned *, Dwarf_Error *);
+int		dwarf_srclines(Dwarf_Die, Dwarf_Line **, Dwarf_Signed *,
+		    Dwarf_Error *);
 int		dwarf_tag(Dwarf_Die, Dwarf_Half *, Dwarf_Error *);
 int		dwarf_whatattr(Dwarf_Attribute, Dwarf_Half *, Dwarf_Error *);
 int		dwarf_whatform(Dwarf_Attribute, Dwarf_Half *, Dwarf_Error *);

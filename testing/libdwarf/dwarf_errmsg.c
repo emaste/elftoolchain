@@ -47,6 +47,7 @@ const char *_libdwarf_errors[] = {
 	DEFINE_ERROR(INVALID_EXPR,	"Invalid DWARF expression"),
 	DEFINE_ERROR(INVALID_LOCLIST,	"Invalid loclist data"),
 	DEFINE_ERROR(INVALID_ATTR,	"Invalid attribute"),
+	DEFINE_ERROR(INVALID_LINE,	"Invalid line info data"),
 	DEFINE_ERROR(NUM,		"Unknown DWARF error")
 #undef	DEFINE_ERROR
 };

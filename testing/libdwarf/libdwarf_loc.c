@@ -28,53 +28,6 @@
 #include <stdlib.h>
 #include "_libdwarf.h"
 
-static int64_t
-decode_sleb128(uint8_t **dp)
-{
-	int64_t ret = 0;
-	uint8_t b;
-	int shift = 0;
-
-	uint8_t *src = *dp;
-
-	do {
-		b = *src++;
-
-		ret |= ((b & 0x7f) << shift);
-
-		shift += 7;
-	} while ((b & 0x80) != 0);
-
-	if (shift < 32 && (b & 0x40) != 0)
-		ret |= (-1 << shift);
-
-	*dp = src;
-
-	return ret;
-}
-
-static uint64_t
-decode_uleb128(uint8_t **dp)
-{
-	uint64_t ret = 0;
-	uint8_t b;
-	int shift = 0;
-
-	uint8_t *src = *dp;
-
-	do {
-		b = *src++;
-
-		ret |= ((b & 0x7f) << shift);
-
-		shift += 7;
-	} while ((b & 0x80) != 0);
-
-	*dp = src;
-
-	return ret;
-}
-
 /*
  * Given an array of bytes of length 'len' representing a
  * DWARF expression, compute the number of operations based

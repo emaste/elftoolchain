@@ -94,7 +94,6 @@ relocate(Dwarf_Debug dbg, Dwarf_Error *error)
 			return DWARF_E_ELF;
 		}
 
-		/* XXX Why only process SHT_RELA? */
 		if (shdr.sh_type != SHT_RELA || shdr.sh_size == 0)
 			continue;
 
@@ -182,7 +181,8 @@ init_info(Dwarf_Debug dbg, Dwarf_Error *error)
 		cu->cu_length 		= length;
 		cu->cu_header_length	= (dbg->dbg_offsize == 4) ? 4 : 12;
 		cu->cu_version		= dbg->read(&d, &offset, 2);
-		cu->cu_abbrev_offset	= dbg->read(&d, &offset, dbg->dbg_offsize);
+		cu->cu_abbrev_offset	= dbg->read(&d, &offset,
+		    dbg->dbg_offsize);
 		cu->cu_pointer_size	= dbg->read(&d, &offset, 1);
 		cu->cu_next_offset	= next_offset;
 
@@ -272,6 +272,7 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 	case ELFDATA2MSB:
 		dbg->read = read_msb;
 		dbg->write = write_msb;
+		dbg->decode = decode_msb;
 		break;
 
 	case ELFDATA2LSB:
@@ -279,6 +280,7 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 	default:
 		dbg->read = read_lsb;
 		dbg->write = write_lsb;
+		dbg->decode = decode_lsb;
 		break;
 	}
 
@@ -298,7 +300,8 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 		}
 
 		/* Get a pointer to the section name: */
-		if ((sname = elf_strptr(dbg->dbg_elf, dbg->dbg_stnum, shdr.sh_name)) == NULL) {
+		if ((sname = elf_strptr(dbg->dbg_elf, dbg->dbg_stnum,
+		    shdr.sh_name)) == NULL) {
 			DWARF_SET_ELF_ERROR(error, elf_errno());
 			return (DWARF_E_ELF);
 		}
@@ -312,8 +315,10 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 				dbg->dbg_s[i].s_sname = sname;
 				dbg->dbg_s[i].s_shnum = elf_ndxscn(scn);
 				dbg->dbg_s[i].s_scn = scn;
-				memcpy(&dbg->dbg_s[i].s_shdr, &shdr, sizeof(shdr));
-				if ((dbg->dbg_s[i].s_data = elf_getdata(scn, NULL)) == NULL) {
+				memcpy(&dbg->dbg_s[i].s_shdr, &shdr,
+				    sizeof(shdr));
+				if ((dbg->dbg_s[i].s_data =
+				    elf_getdata(scn, NULL)) == NULL) {
 					DWARF_SET_ELF_ERROR(error, elf_errno());
 					return (DWARF_E_ELF);
 				}

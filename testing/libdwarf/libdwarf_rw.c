@@ -55,6 +55,34 @@ read_lsb(Elf_Data **dp, uint64_t *offsetp, int bytes_to_read)
 }
 
 uint64_t
+decode_lsb(uint8_t **dp, int bytes_to_read)
+{
+	uint64_t ret = 0;
+
+	uint8_t *src = *dp;
+
+	switch (bytes_to_read) {
+	case 8:
+		ret |= ((uint64_t) src[4]) << 32 | ((uint64_t) src[5]) << 40;
+		ret |= ((uint64_t) src[6]) << 48 | ((uint64_t) src[7]) << 56;
+	case 4:
+		ret |= ((uint64_t) src[2]) << 16 | ((uint64_t) src[3]) << 24;
+	case 2:
+		ret |= ((uint64_t) src[1]) << 8;
+	case 1:
+		ret |= src[0];
+		break;
+	default:
+		return 0;
+		break;
+	}
+
+	*dp += bytes_to_read;
+
+	return ret;
+}
+
+uint64_t
 read_msb(Elf_Data **dp, uint64_t *offsetp, int bytes_to_read)
 {
 	uint64_t ret = 0;
@@ -84,6 +112,40 @@ read_msb(Elf_Data **dp, uint64_t *offsetp, int bytes_to_read)
 	}
 
 	*offsetp += bytes_to_read;
+
+	return ret;
+}
+
+uint64_t
+decode_msb(uint8_t **dp, int bytes_to_read)
+{
+	uint64_t ret = 0;
+
+	uint8_t *src = *dp;
+
+	switch (bytes_to_read) {
+	case 1:
+		ret = src[0];
+		break;
+	case 2:
+		ret = src[1] | ((uint64_t) src[0]) << 8;
+		break;
+	case 4:
+		ret = src[3] | ((uint64_t) src[2]) << 8;
+		ret |= ((uint64_t) src[1]) << 16 | ((uint64_t) src[0]) << 24;
+		break;
+	case 8:
+		ret = src[7] | ((uint64_t) src[6]) << 8;
+		ret |= ((uint64_t) src[5]) << 16 | ((uint64_t) src[4]) << 24;
+		ret |= ((uint64_t) src[3]) << 32 | ((uint64_t) src[2]) << 40;
+		ret |= ((uint64_t) src[1]) << 48 | ((uint64_t) src[0]) << 56;
+		break;
+	default:
+		return 0;
+		break;
+	}
+
+	*dp += bytes_to_read;
 
 	return ret;
 }
@@ -188,6 +250,53 @@ read_uleb128(Elf_Data **dp, uint64_t *offsetp)
 
 		shift += 7;
 	} while ((b & 0x80) != 0);
+
+	return ret;
+}
+
+int64_t
+decode_sleb128(uint8_t **dp)
+{
+	int64_t ret = 0;
+	uint8_t b;
+	int shift = 0;
+
+	uint8_t *src = *dp;
+
+	do {
+		b = *src++;
+
+		ret |= ((b & 0x7f) << shift);
+
+		shift += 7;
+	} while ((b & 0x80) != 0);
+
+	if (shift < 32 && (b & 0x40) != 0)
+		ret |= (-1 << shift);
+
+	*dp = src;
+
+	return ret;
+}
+
+uint64_t
+decode_uleb128(uint8_t **dp)
+{
+	uint64_t ret = 0;
+	uint8_t b;
+	int shift = 0;
+
+	uint8_t *src = *dp;
+
+	do {
+		b = *src++;
+
+		ret |= ((b & 0x7f) << shift);
+
+		shift += 7;
+	} while ((b & 0x80) != 0);
+
+	*dp = src;
 
 	return ret;
 }

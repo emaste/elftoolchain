@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/lib/libdwarf/dwarf.h,v 1.1 2008/05/22 02:14:23 jb Exp $
+ * $FreeBSD$
  */
 
 #ifndef	_DWARF_H_

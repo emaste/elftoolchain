@@ -141,19 +141,61 @@ struct _Dwarf_Loclist {
 	STAILQ_ENTRY(_Dwarf_Loclist) ll_next; /* Next loclist in list. */
 };
 
+struct _Dwarf_Line {
+	Dwarf_LineInfo	ln_li;		/* Ptr to line info. */
+	Dwarf_Addr	ln_addr;	/* Line address. */
+	Dwarf_Unsigned	ln_fileno;	/* File number. */
+	Dwarf_Unsigned	ln_lineno;	/* Line number. */
+	Dwarf_Signed	ln_column;	/* Column number. */
+	Dwarf_Bool	ln_bblock;	/* Basic block flag. */
+	Dwarf_Bool	ln_stmt;	/* Begin statement flag. */
+	Dwarf_Bool	ln_endseq;	/* End sequence flag. */
+	STAILQ_ENTRY(_Dwarf_Line) ln_next; /* Next line in list. */
+};
+
+struct _Dwarf_LineFile {
+	const char	*lf_fname;	/* Filename. */
+	char		*lf_fullpath;	/* Full pathname of the file. */
+	Dwarf_Unsigned	lf_dirndx;	/* Dir index. */
+	Dwarf_Unsigned	lf_mtime;	/* Modification time. */
+	Dwarf_Unsigned	lf_size;	/* File size. */
+	STAILQ_ENTRY(_Dwarf_LineFile) lf_next; /* Next file in list. */
+};
+
+struct _Dwarf_LineInfo {
+	Dwarf_Unsigned	li_length;	/* Length of line info data. */
+	Dwarf_Half	li_version;	/* Version of line info. */
+	Dwarf_Unsigned	li_hdrlen;	/* Length of line info header. */
+	Dwarf_Small	li_minlen;	/* Minimum instrutction length. */
+	Dwarf_Small	li_defstmt;	/* Default value of is_stmt. */
+	int8_t		li_lbase;    	/* Line base for special opcode. */
+	Dwarf_Small	li_lrange;    	/* Line range for special opcode. */
+	Dwarf_Small	li_opbase;	/* Fisrt std opcode number. */
+	Dwarf_Small	*li_oplen;	/* Array of std opcode len. */
+	const char	**li_incdirs;	/* Array of include dirs. */
+	Dwarf_Unsigned	li_inclen;	/* Length if inc dir array. */
+	const char	**li_lfnarray;	/* Array of file names. */
+	Dwarf_Unsigned	li_lflen;	/* Length of filename array. */
+	STAILQ_HEAD(, _Dwarf_LineFile) li_lflist; /* List of files. */
+	Dwarf_Line	*li_lnarray;	/* Array of lines. */
+	Dwarf_Unsigned	li_lnlen;	/* Length of the line array. */
+	STAILQ_HEAD(, _Dwarf_Line) li_lnlist; /* List of lines. */
+};
+
 struct _Dwarf_CU {
 	Dwarf_Debug	cu_dbg;		/* Ptr to containing dbg. */
-	uint64_t	cu_offset;	/* Offset to the this compilation unit. */
+	uint64_t	cu_offset;	/* Offset to the this CU. */
 	uint32_t	cu_length;	/* Length of CU data. */
 	uint32_t	cu_header_length;
 					/* Length of the CU header. */
 	uint16_t	cu_version;	/* DWARF version. */
 	uint64_t	cu_abbrev_offset;
 					/* Offset into .debug_abbrev. */
-	uint8_t		cu_pointer_size;
-					/* Number of bytes in pointer. */
-	uint64_t	cu_next_offset;
-					/* Offset to the next compilation unit. */
+	uint64_t	cu_lineno_offset;
+					/* Offset into .debug_lineno. */
+	uint8_t		cu_pointer_size;/* Number of bytes in pointer. */
+	uint64_t	cu_next_offset; /* Offset to the next CU. */
+	Dwarf_LineInfo	cu_lineinfo;	/* Ptr to Dwarf_LineInfo. */
 	STAILQ_HEAD(, _Dwarf_Abbrev)
 			cu_abbrev;	/* List of abbrevs. */
 	STAILQ_HEAD(, _Dwarf_Die)
@@ -178,17 +220,18 @@ struct _Dwarf_Debug {
 	GElf_Ehdr	dbg_ehdr;	/* Copy of the ELF header. */
 	int		dbg_elf_close;	/* True if elf_end() required. */
 	int		dbg_mode;	/* Access mode. */
-	size_t		dbg_stnum;	/* Section header string table section number. */
+	size_t		dbg_stnum;	/* String table section number. */
 	int		dbg_offsize;	/* DWARF offset size. */
 	Dwarf_section	dbg_s[DWARF_DEBUG_SNAMES];
 					/* Array of section information. */
 	STAILQ_HEAD(, _Dwarf_CU)
 			dbg_cu;		/* List of compilation units. */
-	Dwarf_CU	dbg_cu_current; /* Ptr to the current compilation unit. */
+	Dwarf_CU	dbg_cu_current; /* Ptr to the current CU. */
 	STAILQ_HEAD(, _Dwarf_Loclist)
 			dbg_loclist;	/* List of location list. */
 	uint64_t	(*read)(Elf_Data **, uint64_t *, int);
 	void		(*write)(Elf_Data **, uint64_t *, uint64_t, int);
+	uint64_t	(*decode)(uint8_t **, int);
 };
 
 /* Internal function prototype definitions. */
@@ -197,10 +240,15 @@ Dwarf_Abbrev	abbrev_find(Dwarf_CU, uint64_t);
 Dwarf_Attribute	attr_find(Dwarf_Die, Dwarf_Half);
 int		attr_init(Dwarf_Debug, Elf_Data **, uint64_t *, Dwarf_CU,
 		    Dwarf_Die, Dwarf_AttrDef, uint64_t, int, Dwarf_Error *);
+uint64_t	decode_lsb(uint8_t **, int);
+uint64_t	decode_msb(uint8_t **, int);
+int64_t		decode_sleb128(uint8_t **);
+uint64_t	decode_uleb128(uint8_t **);
 int		die_add(Dwarf_CU, int, uint64_t, uint64_t, Dwarf_Abbrev,
 		    Dwarf_Die *, Dwarf_Error *);
 Dwarf_Die	die_find(Dwarf_Die, Dwarf_Unsigned);
 int		elf_read(Dwarf_Debug, Dwarf_Error *);
+int		lineno_init(Dwarf_Die, uint64_t, Dwarf_Error *);
 int		loc_fill_locdesc(Dwarf_Locdesc *, uint8_t *, uint64_t, uint8_t,
 		    Dwarf_Error *);
 int		loc_fill_locexpr(Dwarf_Locdesc **, uint8_t *, uint64_t, uint8_t,
