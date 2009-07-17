@@ -70,10 +70,11 @@ static void
 search_func(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Addr addr,
     const char **rlt_func)
 {
-	Dwarf_Die ret_die;
+	Dwarf_Die ret_die, spec_die;
 	Dwarf_Error de;
 	Dwarf_Half tag;
-	Dwarf_Unsigned lopc, hipc;
+	Dwarf_Unsigned lopc, hipc, ref;
+	Dwarf_Attribute sub_at, spec_at;
 	int ret;
 
 	if (*rlt_func != NULL)
@@ -91,7 +92,29 @@ search_func(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Addr addr,
 			goto cont_search;
 
 		/* Found it! */
-		if (dwarf_attrval_string(die, DW_AT_name, rlt_func, &de))
+
+		*rlt_func = "??";
+		ret = dwarf_attr(die, DW_AT_name, &sub_at, &de);
+		if (ret == DW_DLV_ERROR)
+			return;
+		if (ret == DW_DLV_OK) {
+			if (dwarf_formstring(sub_at, rlt_func, &de))
+				*rlt_func = "??";
+			return;
+		}
+
+		/*
+		 * If DW_AT_name is not present, but DW_AT_specification is
+		 * present, then probably the actual name is in the DIE
+		 * referenced by DW_AT_specification.
+		 */
+		if (dwarf_attr(die, DW_AT_specification, &spec_at, &de))
+			return;
+		if (dwarf_global_formref(spec_at, &ref, &de))
+			return;
+		if (dwarf_offdie(dbg, ref, &spec_die, &de))
+			return;
+		if (dwarf_attrval_string(spec_die, DW_AT_name, rlt_func, &de))
 			*rlt_func = "??";
 
 		return;
