@@ -14,9 +14,15 @@ SRCS=	\
 	dwarf_errno.c		\
 	dwarf_finish.c		\
 	dwarf_form.c		\
+	dwarf_funcs.c		\
 	dwarf_init.c		\
 	dwarf_lineno.c		\
 	dwarf_loclist.c		\
+	dwarf_pubnames.c	\
+	dwarf_pubtypes.c	\
+	dwarf_types.c		\
+	dwarf_vars.c		\
+	dwarf_weaks.c		\
 	libdwarf_abbrev.c	\
 	libdwarf_attr.c		\
 	libdwarf_die.c		\
@@ -29,6 +35,9 @@ SRCS=	\
 
 INCS=	dwarf.h libdwarf.h
 
+GENSRCS=	dwarf_pubnames.c dwarf_pubtypes.c dwarf_weaks.c \
+		dwarf_funcs.c dwarf_vars.c dwarf_types.c
+CLEANFILES=	${GENSRCS}
 CFLAGS+=	-I. -I${.CURDIR} -g
 
 SHLIB_MAJOR=	2
@@ -37,4 +46,15 @@ WARNS?=	6
 
 WITHOUT_MAN=	yes
 
+dwarf_pubnames.c:	dwarf_nametbl.m4 dwarf_pubnames.m4
+dwarf_pubtypes.c:	dwarf_nametbl.m4 dwarf_pubtypes.m4
+dwarf_weaks.c:		dwarf_nametbl.m4 dwarf_weaks.m4
+dwarf_funcs.c:		dwarf_nametbl.m4 dwarf_funcs.m4
+dwarf_vars.c:		dwarf_nametbl.m4 dwarf_vars.m4
+dwarf_types.c:		dwarf_nametbl.m4 dwarf_types.m4
+
 .include <bsd.lib.mk>
+
+.SUFFIXES:	.m4 .c
+.m4.c:
+	m4 -D SRCDIR=${.CURDIR} ${.IMPSRC} > ${.TARGET}

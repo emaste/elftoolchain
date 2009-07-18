@@ -343,21 +343,27 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 	if (ret != DWARF_E_NONE)
 		return (ret);
 
-	/* Initialise the .debug_pubnames name lookup table. */
-	if (dbg->dbg_s[DWARF_debug_pubnames].s_scn != NULL) {
-		ret = nametbl_init(dbg, &dbg->dbg_pubnames,
-		    dbg->dbg_s[DWARF_debug_pubnames].s_data, error);
-		if (ret != DWARF_E_NONE)
-			return (ret);
-	}
+#define	INIT_NAMETBL(NDX, TBL)						\
+	do {								\
+		if (dbg->dbg_s[DWARF_debug_##NDX].s_scn != NULL) {	\
+			ret = nametbl_init(dbg, &dbg->dbg_##TBL,	\
+			    dbg->dbg_s[DWARF_debug_##NDX].s_data,	\
+			    error);					\
+			if (ret != DWARF_E_NONE)			\
+				return (ret);				\
+		}							\
+	} while (0)
 
-	/* Initialise the .debug_pubtypes name lookup table. */
-	if (dbg->dbg_s[DWARF_debug_pubtypes].s_scn != NULL) {
-		ret = nametbl_init(dbg, &dbg->dbg_pubtypes,
-		    dbg->dbg_s[DWARF_debug_pubtypes].s_data, error);
-		if (ret != DWARF_E_NONE)
-			return (ret);
-	}
+
+	/* Initialise several name lookup sections, if exist. */
+	INIT_NAMETBL(pubnames, globals);
+	INIT_NAMETBL(pubtypes, pubtypes);
+	INIT_NAMETBL(weaknames, weaks);
+	INIT_NAMETBL(static_func, funcs);
+	INIT_NAMETBL(static_vars, vars);
+	INIT_NAMETBL(types, types);
+
+#undef	INIT_NAMETBL
 
 	return (ret);
 }

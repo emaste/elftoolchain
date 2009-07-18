@@ -247,8 +247,12 @@ struct _Dwarf_Debug {
 	STAILQ_HEAD(, _Dwarf_CU) dbg_cu;/* List of compilation units. */
 	Dwarf_CU	dbg_cu_current; /* Ptr to the current CU. */
 	STAILQ_HEAD(, _Dwarf_Loclist) dbg_loclist; /* List of location list. */
-	Dwarf_NameSec	dbg_pubnames;	/* Ptr to pubnames lookup section. */
+	Dwarf_NameSec	dbg_globals;	/* Ptr to pubnames lookup section. */
 	Dwarf_NameSec	dbg_pubtypes;	/* Ptr to pubtypes lookup section. */
+	Dwarf_NameSec	dbg_weaks;	/* Ptr to weaknames lookup section. */
+	Dwarf_NameSec	dbg_funcs;	/* Ptr to static funcs lookup sect. */
+	Dwarf_NameSec	dbg_vars;	/* Ptr to static vars lookup sect. */
+	Dwarf_NameSec	dbg_types;	/* Ptr to types lookup section. */
 	uint64_t	(*read)(Elf_Data **, uint64_t *, int);
 	void		(*write)(Elf_Data **, uint64_t *, uint64_t, int);
 	uint64_t	(*decode)(uint8_t **, int);

@@ -133,8 +133,8 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 	}
 
 	/* Free name lookup tables. */
-	if (dbg->dbg_pubnames)
-		nametbl_cleanup(dbg->dbg_pubnames);
+	if (dbg->dbg_globals)
+		nametbl_cleanup(dbg->dbg_globals);
 	if (dbg->dbg_pubtypes)
 		nametbl_cleanup(dbg->dbg_pubtypes);
 
