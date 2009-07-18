@@ -83,9 +83,7 @@ dwarf_attrval_string(Dwarf_Die die, uint64_t attr, const char **strp, Dwarf_Erro
 
 	*strp = NULL;
 
-	if (attr == DW_AT_name)
-		*strp = die->die_name;
-	else if ((at = attr_find(die, attr)) == NULL) {
+	if ((at = attr_find(die, attr)) == NULL) {
 		DWARF_SET_ERROR(err, DWARF_E_NO_ENTRY);
 		ret = DWARF_E_NO_ENTRY;
 	} else {

@@ -1,4 +1,5 @@
 /*-
+ * Copyright (c) 2009 Kai Wang
  * Copyright (c) 2007 John Birrell (jb@freebsd.org)
  * All rights reserved.
  *
@@ -182,6 +183,29 @@ struct _Dwarf_LineInfo {
 	STAILQ_HEAD(, _Dwarf_Line) li_lnlist; /* List of lines. */
 };
 
+struct _Dwarf_NamePair {
+	Dwarf_NameTbl	np_nt;		/* Ptr to containing name table. */
+	Dwarf_Unsigned	np_offset;	/* Offset in CU. */
+	const char	*np_name;	/* Object/Type name. */
+	STAILQ_ENTRY(_Dwarf_NamePair) np_next; /* Next pair in the list. */
+};
+
+struct _Dwarf_NameTbl {
+	Dwarf_Unsigned	nt_length;	/* Name lookup table length. */
+	Dwarf_Half	nt_version;	/* Name lookup table version. */
+	Dwarf_CU	nt_cu;		/* Ptr to Ref. CU. */
+	Dwarf_Unsigned	nt_cu_offset;	/* Ref. CU offset in .debug_info */
+	Dwarf_Unsigned	nt_cu_length;	/* Ref. CU length. */
+	STAILQ_HEAD(, _Dwarf_NamePair) nt_nplist; /* List of offset+name pairs. */
+	STAILQ_ENTRY(_Dwarf_NameTbl) nt_next; /* Next name table in the list. */
+};
+
+struct _Dwarf_NameSec {
+	STAILQ_HEAD(, _Dwarf_NameTbl) ns_ntlist; /* List of name tables. */
+	Dwarf_NamePair	*ns_array;	/* Array of pairs of all tables. */
+	Dwarf_Unsigned	ns_len;		/* Length of the pair array. */
+};
+
 struct _Dwarf_CU {
 	Dwarf_Debug	cu_dbg;		/* Ptr to containing dbg. */
 	uint64_t	cu_offset;	/* Offset to the this CU. */
@@ -196,15 +220,11 @@ struct _Dwarf_CU {
 	uint8_t		cu_pointer_size;/* Number of bytes in pointer. */
 	uint64_t	cu_next_offset; /* Offset to the next CU. */
 	Dwarf_LineInfo	cu_lineinfo;	/* Ptr to Dwarf_LineInfo. */
-	STAILQ_HEAD(, _Dwarf_Abbrev)
-			cu_abbrev;	/* List of abbrevs. */
-	STAILQ_HEAD(, _Dwarf_Die)
-			cu_die;		/* List of dies. */
-	STAILQ_HEAD(, _Dwarf_Die)
-			cu_die_hash[DWARF_DIE_HASH_SIZE];
+	STAILQ_HEAD(, _Dwarf_Abbrev) cu_abbrev;	/* List of abbrevs. */
+	STAILQ_HEAD(, _Dwarf_Die) cu_die; /* List of dies. */
+	STAILQ_HEAD(, _Dwarf_Die) cu_die_hash[DWARF_DIE_HASH_SIZE];
 					/* Hash of dies. */
-	STAILQ_ENTRY(_Dwarf_CU)
-			cu_next;	/* Next compilation unit. */
+	STAILQ_ENTRY(_Dwarf_CU) cu_next; /* Next compilation unit. */
 };
 
 typedef struct _Dwarf_section {
@@ -224,11 +244,11 @@ struct _Dwarf_Debug {
 	int		dbg_offsize;	/* DWARF offset size. */
 	Dwarf_section	dbg_s[DWARF_DEBUG_SNAMES];
 					/* Array of section information. */
-	STAILQ_HEAD(, _Dwarf_CU)
-			dbg_cu;		/* List of compilation units. */
+	STAILQ_HEAD(, _Dwarf_CU) dbg_cu;/* List of compilation units. */
 	Dwarf_CU	dbg_cu_current; /* Ptr to the current CU. */
-	STAILQ_HEAD(, _Dwarf_Loclist)
-			dbg_loclist;	/* List of location list. */
+	STAILQ_HEAD(, _Dwarf_Loclist) dbg_loclist; /* List of location list. */
+	Dwarf_NameSec	dbg_pubnames;	/* Ptr to pubnames lookup section. */
+	Dwarf_NameSec	dbg_pubtypes;	/* Ptr to pubtypes lookup section. */
 	uint64_t	(*read)(Elf_Data **, uint64_t *, int);
 	void		(*write)(Elf_Data **, uint64_t *, uint64_t, int);
 	uint64_t	(*decode)(uint8_t **, int);
@@ -256,6 +276,9 @@ int		loc_fill_locexpr(Dwarf_Locdesc **, uint8_t *, uint64_t, uint8_t,
 int		loc_add(Dwarf_Die, Dwarf_Attribute, Dwarf_Error *);
 int		loclist_find(Dwarf_Debug, uint64_t, Dwarf_Loclist *);
 int		loclist_add(Dwarf_Debug, Dwarf_CU, uint64_t, Dwarf_Error *);
+int		nametbl_init(Dwarf_Debug, Dwarf_NameSec *, Elf_Data *,
+		    Dwarf_Error *);
+void		nametbl_cleanup(Dwarf_NameSec);
 uint64_t	read_lsb(Elf_Data **, uint64_t *, int);
 uint64_t	read_msb(Elf_Data **, uint64_t *, int);
 void		write_lsb(Elf_Data **, uint64_t *, uint64_t, int);

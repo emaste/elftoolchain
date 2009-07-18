@@ -24,6 +24,7 @@ SRCS=	\
 	libdwarf_lineno.c	\
 	libdwarf_loc.c		\
 	libdwarf_loclist.c	\
+	libdwarf_nametbl.c	\
 	libdwarf_rw.c
 
 INCS=	dwarf.h libdwarf.h

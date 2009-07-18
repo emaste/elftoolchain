@@ -132,6 +132,12 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 		free(ll);
 	}
 
+	/* Free name lookup tables. */
+	if (dbg->dbg_pubnames)
+		nametbl_cleanup(dbg->dbg_pubnames);
+	if (dbg->dbg_pubtypes)
+		nametbl_cleanup(dbg->dbg_pubtypes);
+
 	/* Free resources associated with the ELF file. */
 	if (dbg->dbg_elf_close)
 		elf_end(dbg->dbg_elf);
