@@ -137,6 +137,14 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 		nametbl_cleanup(dbg->dbg_globals);
 	if (dbg->dbg_pubtypes)
 		nametbl_cleanup(dbg->dbg_pubtypes);
+	if (dbg->dbg_weaks)
+		nametbl_cleanup(dbg->dbg_weaks);
+	if (dbg->dbg_funcs)
+		nametbl_cleanup(dbg->dbg_funcs);
+	if (dbg->dbg_vars)
+		nametbl_cleanup(dbg->dbg_vars);
+	if (dbg->dbg_types)
+		nametbl_cleanup(dbg->dbg_types);
 
 	/* Free resources associated with the ELF file. */
 	if (dbg->dbg_elf_close)
