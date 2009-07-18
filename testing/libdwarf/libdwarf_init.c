@@ -338,10 +338,26 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 	/* Initialise the loclist. */
 	STAILQ_INIT(&dbg->dbg_loclist);
 
-	/* Initialise the compilation-units: */
+	/* Initialise the compilation-units. */
 	ret = init_info(dbg, error);
 	if (ret != DWARF_E_NONE)
 		return (ret);
+
+	/* Initialise the .debug_pubnames name lookup table. */
+	if (dbg->dbg_s[DWARF_debug_pubnames].s_scn != NULL) {
+		ret = nametbl_init(dbg, &dbg->dbg_pubnames,
+		    dbg->dbg_s[DWARF_debug_pubnames].s_data, error);
+		if (ret != DWARF_E_NONE)
+			return (ret);
+	}
+
+	/* Initialise the .debug_pubtypes name lookup table. */
+	if (dbg->dbg_s[DWARF_debug_pubtypes].s_scn != NULL) {
+		ret = nametbl_init(dbg, &dbg->dbg_pubtypes,
+		    dbg->dbg_s[DWARF_debug_pubtypes].s_data, error);
+		if (ret != DWARF_E_NONE)
+			return (ret);
+	}
 
 	return (ret);
 }

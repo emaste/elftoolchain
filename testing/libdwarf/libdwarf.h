@@ -1,4 +1,5 @@
 /*-
+ * Copyright (c) 2009 Kai Wang
  * Copyright (c) 2007 John Birrell (jb@freebsd.org)
  * All rights reserved.
  *
@@ -51,12 +52,15 @@ typedef struct _Dwarf_Debug	*Dwarf_Debug;
 typedef struct _Dwarf_Die	*Dwarf_Die;
 typedef struct _Dwarf_Fde	*Dwarf_Fde;
 typedef struct _Dwarf_Func	*Dwarf_Func;
-typedef struct _Dwarf_Global	*Dwarf_Global;
 typedef struct _Dwarf_Line	*Dwarf_Line;
 typedef struct _Dwarf_LineFile	*Dwarf_LineFile;
 typedef struct _Dwarf_LineInfo	*Dwarf_LineInfo;
 typedef struct _Dwarf_Loclist	*Dwarf_Loclist;
-typedef struct _Dwarf_Type	*Dwarf_Type;
+typedef struct _Dwarf_NamePair	*Dwarf_NamePair;
+typedef struct _Dwarf_NamePair	*Dwarf_Global;
+typedef struct _Dwarf_NamePair	*Dwarf_Type;
+typedef struct _Dwarf_NameTbl	*Dwarf_NameTbl;
+typedef struct _Dwarf_NameSec	*Dwarf_NameSec;
 typedef struct _Dwarf_Var	*Dwarf_Var;
 typedef struct _Dwarf_Weak	*Dwarf_Weak;
 
@@ -232,6 +236,16 @@ int		dwarf_get_abbrev_code(Dwarf_Abbrev, Dwarf_Unsigned *,
 int		dwarf_get_abbrev_entry(Dwarf_Abbrev, Dwarf_Signed, Dwarf_Half *,
 		    Dwarf_Signed *, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_get_abbrev_tag(Dwarf_Abbrev, Dwarf_Half *, Dwarf_Error *);
+int		dwarf_get_cu_die_offset_given_cu_header_offset(Dwarf_Debug,
+		    Dwarf_Off, Dwarf_Off *, Dwarf_Error *);
+int		dwarf_get_globals(Dwarf_Debug, Dwarf_Global **, Dwarf_Signed *,
+		    Dwarf_Error *);
+int		dwarf_global_cu_offset(Dwarf_Global, Dwarf_Off *, Dwarf_Error *);
+int		dwarf_global_die_offset(Dwarf_Global, Dwarf_Off *,
+		    Dwarf_Error *);
+int		dwarf_global_name_offsets(Dwarf_Global, const char **,
+		    Dwarf_Off *, Dwarf_Off *, Dwarf_Error *);
+int		dwarf_globname(Dwarf_Global, const char **, Dwarf_Error *);
 int		dwarf_hasattr(Dwarf_Die, Dwarf_Half, Dwarf_Bool *,
 		    Dwarf_Error *);
 int		dwarf_hasform(Dwarf_Attribute, Dwarf_Half, Dwarf_Bool *,

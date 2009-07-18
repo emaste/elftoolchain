@@ -217,3 +217,32 @@ dwarf_die_abbrev_code(Dwarf_Die die)
 
 	return (die->die_abnum);
 }
+
+int
+dwarf_get_cu_die_offset_given_cu_header_offset(Dwarf_Debug dbg,
+    Dwarf_Off in_cu_header_offset, Dwarf_Off *out_cu_die_offset,
+    Dwarf_Error *error)
+{
+	Dwarf_CU cu;
+	Dwarf_Die die;
+
+	if (dbg == NULL || out_cu_die_offset == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	STAILQ_FOREACH(cu, &dbg->dbg_cu, cu_next) {
+		if (cu->cu_offset == (Dwarf_Unsigned) in_cu_header_offset) {
+			die = STAILQ_FIRST(&cu->cu_die);
+			assert(die != NULL);
+			*out_cu_die_offset = die->die_offset;
+		}
+	}
+
+	if (cu == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
+		return (DW_DLV_NO_ENTRY);
+	}
+
+	return (DW_DLV_OK);
+}
