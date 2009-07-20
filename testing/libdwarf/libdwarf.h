@@ -244,10 +244,19 @@ int		dwarf_get_abbrev_code(Dwarf_Abbrev, Dwarf_Unsigned *,
 int		dwarf_get_abbrev_entry(Dwarf_Abbrev, Dwarf_Signed, Dwarf_Half *,
 		    Dwarf_Signed *, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_get_abbrev_tag(Dwarf_Abbrev, Dwarf_Half *, Dwarf_Error *);
+int		dwarf_get_cie_info(Dwarf_Cie, Dwarf_Unsigned *, Dwarf_Small *,
+		    char **, Dwarf_Unsigned *, Dwarf_Unsigned *, Dwarf_Half *,
+		    Dwarf_Ptr *, Dwarf_Unsigned *, Dwarf_Error *);
+int		dwarf_get_cie_of_fde(Dwarf_Fde, Dwarf_Cie *, Dwarf_Error *);
 int		dwarf_get_cu_die_offset_given_cu_header_offset(Dwarf_Debug,
 		    Dwarf_Off, Dwarf_Off *, Dwarf_Error *);
+int		dwarf_get_fde_instr_bytes(Dwarf_Fde, Dwarf_Ptr *,
+		    Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_get_fde_list(Dwarf_Debug, Dwarf_Cie **, Dwarf_Signed *,
 		    Dwarf_Fde **, Dwarf_Signed *, Dwarf_Error *);
+int		dwarf_get_fde_range(Dwarf_Fde, Dwarf_Addr *, Dwarf_Unsigned *,
+		    Dwarf_Ptr *, Dwarf_Unsigned *, Dwarf_Off *, Dwarf_Signed *,
+		    Dwarf_Off *, Dwarf_Error *);
 int		dwarf_get_funcs(Dwarf_Debug, Dwarf_Func **, Dwarf_Signed *,
 		    Dwarf_Error *);
 int		dwarf_get_globals(Dwarf_Debug, Dwarf_Global **, Dwarf_Signed *,
