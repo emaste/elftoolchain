@@ -56,3 +56,89 @@ dwarf_get_fde_list(Dwarf_Debug dbg, Dwarf_Cie **cie_list,
 
 	return (DW_DLV_OK);
 }
+
+int
+dwarf_get_cie_of_fde(Dwarf_Fde fde, Dwarf_Cie *ret_cie, Dwarf_Error *error)
+{
+
+	if (fde == NULL || ret_cie == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	*ret_cie = fde->fde_cie;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_get_fde_range(Dwarf_Fde fde, Dwarf_Addr *low_pc, Dwarf_Unsigned *func_len,
+    Dwarf_Ptr *fde_bytes, Dwarf_Unsigned *fde_byte_len, Dwarf_Off *cie_offset,
+    Dwarf_Signed *cie_index, Dwarf_Off *fde_offset, Dwarf_Error *error)
+{
+
+	if (fde == NULL || low_pc == NULL || func_len == NULL ||
+	    fde_bytes == NULL || fde_byte_len == NULL || cie_offset == NULL ||
+	    cie_index == NULL || fde_offset == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	*low_pc = fde->fde_initloc;
+	*func_len = fde->fde_adrange;
+	*fde_bytes = fde->fde_addr;
+
+	/*
+	 * XXX should we return a real length, or length excluding
+	 * initial length?
+	 */
+	*fde_byte_len = fde->fde_length;
+	*cie_offset = fde->fde_cieoff;
+	*cie_index = fde->fde_cie->cie_index;
+	*fde_offset = fde->fde_offset;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_get_cie_info(Dwarf_Cie cie, Dwarf_Unsigned *bytes_in_cie,
+    Dwarf_Small *version, char **augmenter, Dwarf_Unsigned *caf,
+    Dwarf_Unsigned *daf, Dwarf_Half *ra, Dwarf_Ptr *initinst,
+    Dwarf_Unsigned *inst_len, Dwarf_Error *error)
+{
+
+	if (cie == NULL || bytes_in_cie == NULL || version == NULL ||
+	    augmenter == NULL || caf == NULL || daf == NULL || ra == NULL ||
+	    initinst == NULL || inst_len == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	/* XXX probably wrong, see above. */
+	*bytes_in_cie = cie->cie_length;
+	*version = cie->cie_version;
+	*augmenter = cie->cie_augment;
+	*caf = cie->cie_caf;
+	*daf = cie->cie_daf;
+	*ra = cie->cie_ra;
+	*initinst = cie->cie_initinst;
+	*inst_len = cie->cie_instlen;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_get_fde_instr_bytes(Dwarf_Fde fde, Dwarf_Ptr *ret_inst,
+    Dwarf_Unsigned *ret_len, Dwarf_Error *error)
+{
+
+	if (fde == NULL || ret_inst == NULL || ret_len == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	*ret_inst = fde->fde_inst;
+	*ret_len = fde->fde_instlen;
+
+	return (DW_DLV_OK);
+}

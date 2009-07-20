@@ -67,6 +67,7 @@ frame_add_cie(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 	}
 	STAILQ_INSERT_TAIL(&fs->fs_cielist, cie, cie_next);
 
+	cie->cie_index = fs->fs_cielen;
 	cie->cie_offset = *off;
 
 	length = dbg->read(&d, off, 4);
@@ -136,6 +137,7 @@ frame_add_fde(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 	}
 	STAILQ_INSERT_TAIL(&fs->fs_fdelist, fde, fde_next);
 
+	fde->fde_addr = (uint8_t *)d->d_buf + *off;
 	fde->fde_offset = *off;
 
 	length = dbg->read(&d, off, 4);

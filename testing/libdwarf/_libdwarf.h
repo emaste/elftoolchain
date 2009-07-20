@@ -208,6 +208,7 @@ struct _Dwarf_NameSec {
 
 struct _Dwarf_Fde {
 	Dwarf_Cie	fde_cie;	/* Ptr to associated CIE. */
+	Dwarf_Ptr	fde_addr;	/* Ptr to start of the FDE. */
 	Dwarf_Unsigned	fde_offset;	/* Offset of the FDE. */
 	Dwarf_Unsigned	fde_length;	/* Length of the FDE. */
 	Dwarf_Unsigned	fde_cieoff;	/* Offset of associated CIE. */
@@ -219,7 +220,7 @@ struct _Dwarf_Fde {
 };
 
 struct _Dwarf_Cie {
-	Dwarf_CU	cie_cu;		/* Ptr to associated CU. */
+	Dwarf_Unsigned	cie_index;	/* Index of the CIE. */
 	Dwarf_Unsigned	cie_offset;	/* Offset of the CIE. */
 	Dwarf_Unsigned	cie_length;	/* Length of the CIE. */
 	Dwarf_Half	cie_version;	/* CIE version. */
