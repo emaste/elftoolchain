@@ -206,6 +206,41 @@ struct _Dwarf_NameSec {
 	Dwarf_Unsigned	ns_len;		/* Length of the pair array. */
 };
 
+struct _Dwarf_Fde {
+	Dwarf_Cie	fde_cie;	/* Ptr to associated CIE. */
+	Dwarf_Unsigned	fde_offset;	/* Offset of the FDE. */
+	Dwarf_Unsigned	fde_length;	/* Length of the FDE. */
+	Dwarf_Unsigned	fde_cieoff;	/* Offset of associated CIE. */
+	Dwarf_Unsigned	fde_initloc;	/* Initial location. */
+	Dwarf_Unsigned	fde_adrange;	/* Address range. */
+	Dwarf_Ptr	fde_inst;	/* Instructions. */
+	Dwarf_Unsigned	fde_instlen;	/* Length of instructions. */
+	STAILQ_ENTRY(_Dwarf_Fde) fde_next; /* Next FDE in list. */
+};
+
+struct _Dwarf_Cie {
+	Dwarf_CU	cie_cu;		/* Ptr to associated CU. */
+	Dwarf_Unsigned	cie_offset;	/* Offset of the CIE. */
+	Dwarf_Unsigned	cie_length;	/* Length of the CIE. */
+	Dwarf_Half	cie_version;	/* CIE version. */
+	uint8_t		*cie_augment;	/* CIE augmentation (UTF-8). */
+	Dwarf_Unsigned	cie_caf;	/* Code alignment factor. */
+	Dwarf_Unsigned	cie_daf;	/* Data alignment factor. */
+	Dwarf_Unsigned	cie_ra;		/* Return address register. */
+	Dwarf_Ptr	cie_initinst;	/* Initial instructions. */
+	Dwarf_Unsigned	cie_instlen;	/* Length of init instructions. */
+	STAILQ_ENTRY(_Dwarf_Cie) cie_next;  /* Next CIE in list. */
+};
+
+struct _Dwarf_FrameSec {
+	STAILQ_HEAD(, _Dwarf_Cie) fs_cielist; /* List of CIE. */
+	STAILQ_HEAD(, _Dwarf_Fde) fs_fdelist; /* List of FDE. */
+	Dwarf_Cie	*fs_ciearray;	/* Array of CIE. */
+	Dwarf_Unsigned	fs_cielen;	/* Length of CIE array. */
+	Dwarf_Fde	*fs_fdearray;	/* Array of FDE.*/
+	Dwarf_Unsigned	fs_fdelen;	/* Length of FDE array. */
+};
+
 struct _Dwarf_CU {
 	Dwarf_Debug	cu_dbg;		/* Ptr to containing dbg. */
 	uint64_t	cu_offset;	/* Offset to the this CU. */
@@ -242,6 +277,7 @@ struct _Dwarf_Debug {
 	int		dbg_mode;	/* Access mode. */
 	size_t		dbg_stnum;	/* String table section number. */
 	int		dbg_offsize;	/* DWARF offset size. */
+	int		dbg_pointer_size; /* Object address size. */
 	Dwarf_section	dbg_s[DWARF_DEBUG_SNAMES];
 					/* Array of section information. */
 	STAILQ_HEAD(, _Dwarf_CU) dbg_cu;/* List of compilation units. */
@@ -253,6 +289,7 @@ struct _Dwarf_Debug {
 	Dwarf_NameSec	dbg_funcs;	/* Ptr to static funcs lookup sect. */
 	Dwarf_NameSec	dbg_vars;	/* Ptr to static vars lookup sect. */
 	Dwarf_NameSec	dbg_types;	/* Ptr to types lookup section. */
+	Dwarf_FrameSec	dbg_frame;	/* Ptr to .debug_frame section. */
 	uint64_t	(*read)(Elf_Data **, uint64_t *, int);
 	void		(*write)(Elf_Data **, uint64_t *, uint64_t, int);
 	uint64_t	(*decode)(uint8_t **, int);
@@ -272,6 +309,9 @@ int		die_add(Dwarf_CU, int, uint64_t, uint64_t, Dwarf_Abbrev,
 		    Dwarf_Die *, Dwarf_Error *);
 Dwarf_Die	die_find(Dwarf_Die, Dwarf_Unsigned);
 int		elf_read(Dwarf_Debug, Dwarf_Error *);
+void		frame_cleanup(Dwarf_FrameSec);
+int		frame_init(Dwarf_Debug, Dwarf_FrameSec *, Elf_Data *,
+		    Dwarf_Error *);
 int		lineno_init(Dwarf_Die, uint64_t, Dwarf_Error *);
 int		loc_fill_locdesc(Dwarf_Locdesc *, uint8_t *, uint64_t, uint8_t,
 		    Dwarf_Error *);

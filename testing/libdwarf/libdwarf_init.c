@@ -284,6 +284,12 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 		break;
 	}
 
+	/* Set default pointer size. */
+	if (gelf_getclass(dbg->dbg_elf) == ELFCLASS32)
+		dbg->dbg_pointer_size = 4;
+	else
+		dbg->dbg_pointer_size = 8;
+
 	/* Get the section index to the string table. */
 	if (elf_getshstrndx(dbg->dbg_elf, &dbg->dbg_stnum) == 0) {
 		DWARF_SET_ELF_ERROR(error, elf_errno());
@@ -364,6 +370,14 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 	INIT_NAMETBL(types, types);
 
 #undef	INIT_NAMETBL
+
+	/* Initialise call frame sections. */
+	if (dbg->dbg_s[DWARF_debug_frame].s_scn != NULL) {
+		ret = frame_init(dbg, &dbg->dbg_frame,
+		    dbg->dbg_s[DWARF_debug_frame].s_data, error);
+		if (ret != DWARF_E_NONE)
+			return (ret);
+	}
 
 	return (ret);
 }

@@ -130,20 +130,21 @@ nametbl_init(Dwarf_Debug dbg, Dwarf_NameSec *namesec, Elf_Data *d,
 	}
 
 	/* Build array of name pairs from all tables. */
-	if ((ns->ns_array = malloc(sizeof(Dwarf_NamePair) * ns->ns_len)) ==
-	    NULL) {
-		ret = DWARF_E_MEMORY;
-		DWARF_SET_ERROR(error, ret);
-		goto fail_cleanup;
-	}
+	if (ns->ns_len > 0) {
+		if ((ns->ns_array = malloc(sizeof(Dwarf_NamePair) *
+		    ns->ns_len)) == NULL) {
+			ret = DWARF_E_MEMORY;
+			DWARF_SET_ERROR(error, ret);
+			goto fail_cleanup;
+		}
 
-	i = 0;
-	STAILQ_FOREACH(nt, &ns->ns_ntlist, nt_next) {
-		STAILQ_FOREACH(np, &nt->nt_nplist, np_next)
-			ns->ns_array[i++] = np;
+		i = 0;
+		STAILQ_FOREACH(nt, &ns->ns_ntlist, nt_next) {
+			STAILQ_FOREACH(np, &nt->nt_nplist, np_next)
+				ns->ns_array[i++] = np;
+		}
+		assert((Dwarf_Unsigned)i == ns->ns_len);
 	}
-	
-	assert((Dwarf_Unsigned)i == ns->ns_len);
 
 	*namesec = ns;
 
