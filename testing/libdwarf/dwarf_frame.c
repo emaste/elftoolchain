@@ -24,6 +24,7 @@
  * SUCH DAMAGE.
  */
 
+#include <assert.h>
 #include "_libdwarf.h"
 
 int
@@ -141,4 +142,194 @@ dwarf_get_fde_instr_bytes(Dwarf_Fde fde, Dwarf_Ptr *ret_inst,
 	*ret_len = fde->fde_instlen;
 
 	return (DW_DLV_OK);
+}
+
+int
+dwarf_get_fde_info_for_reg(Dwarf_Fde fde, Dwarf_Half table_column,
+    Dwarf_Addr pc_requested, Dwarf_Signed *offset_relevant,
+    Dwarf_Signed *register_num, Dwarf_Signed *offset, Dwarf_Addr *row_pc,
+    Dwarf_Error *error)
+{
+
+	if (fde == NULL || offset_relevant == NULL || register_num == NULL ||
+	    offset == NULL || row_pc == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	(void) fde;
+	(void) table_column;
+	(void) pc_requested;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_get_fde_info_for_all_regs(Dwarf_Fde fde, Dwarf_Addr pc_requested,
+    Dwarf_Regtable *reg_table, Dwarf_Addr *row_pc, Dwarf_Error *error)
+{
+
+	if (fde == NULL || reg_table == NULL || row_pc == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	(void) fde;
+	(void) pc_requested;
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_get_fde_info_for_reg3(Dwarf_Fde fde, Dwarf_Half table_column,
+    Dwarf_Addr pc_requested, Dwarf_Small *value_type,
+    Dwarf_Signed *offset_relevant, Dwarf_Signed *register_num,
+    Dwarf_Signed *offset_or_block_len, Dwarf_Ptr *block_ptr,
+    Dwarf_Addr *row_pc, Dwarf_Error *error)
+{
+	Dwarf_Regtable3 *rt;
+	Dwarf_Addr pc;
+	int ret;
+
+#define	RL	rt->rt3_rules[table_column]
+
+	if (fde == NULL || value_type == NULL || offset_relevant == NULL ||
+	    register_num == NULL || offset_or_block_len == NULL ||
+	    block_ptr == NULL || row_pc == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	ret = frame_get_internal_table(fde, pc_requested, &rt, &pc, error);
+	if (ret != DWARF_E_NONE)
+		return (DW_DLV_ERROR);
+
+	*value_type = RL.dw_value_type;
+	*offset_relevant = RL.dw_offset_relevant;
+	*register_num = RL.dw_regnum;
+	*offset_or_block_len = RL.dw_offset_or_block_len;
+	*block_ptr = RL.dw_block_ptr;
+	*row_pc = pc;
+
+	return (DW_DLV_OK);
+
+#undef	RL
+}
+
+int
+dwarf_get_fde_info_for_cfa_reg3(Dwarf_Fde fde, Dwarf_Addr pc_requested,
+    Dwarf_Small *value_type, Dwarf_Signed *offset_relevant,
+    Dwarf_Signed *register_num, Dwarf_Signed *offset_or_block_len,
+    Dwarf_Ptr *block_ptr, Dwarf_Addr *row_pc, Dwarf_Error *error)
+{
+	Dwarf_Regtable3 *rt;
+	Dwarf_Addr pc;
+	int ret;
+
+#define RL	rt->rt3_cfa_rule
+
+	if (fde == NULL || value_type == NULL || offset_relevant == NULL ||
+	    register_num == NULL || offset_or_block_len == NULL ||
+	    block_ptr == NULL || row_pc == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	ret = frame_get_internal_table(fde, pc_requested, &rt, &pc, error);
+	if (ret != DWARF_E_NONE)
+		return (DW_DLV_ERROR);
+
+	*value_type = RL.dw_value_type;
+	*offset_relevant = RL.dw_offset_relevant;
+	*register_num = RL.dw_regnum;
+	*offset_or_block_len = RL.dw_offset_or_block_len;
+	*block_ptr = RL.dw_block_ptr;
+	*row_pc = pc;
+
+	return (DW_DLV_OK);
+
+#undef	RL
+}
+
+int
+dwarf_get_fde_info_for_all_reg3(Dwarf_Fde fde, Dwarf_Addr pc_requested,
+    Dwarf_Regtable3 *reg_table, Dwarf_Addr *row_pc, Dwarf_Error *error)
+{
+	Dwarf_Debug dbg;
+	Dwarf_Regtable3 *rt;
+	Dwarf_Addr pc;
+	int ret;
+
+	if (fde == NULL || reg_table == NULL || row_pc == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	dbg = fde->fde_dbg;
+	assert(dbg != NULL);
+
+	ret = frame_get_internal_table(fde, pc_requested, &rt, &pc, error);
+	if (ret != DWARF_E_NONE)
+		return (DW_DLV_ERROR);
+
+	ret = frame_regtable_copy(dbg, &reg_table, rt, error);
+	if (ret != DWARF_E_NONE)
+		return (DW_DLV_ERROR);
+
+	return (DW_DLV_OK);
+}
+
+Dwarf_Half
+dwarf_set_frame_rule_table_size(Dwarf_Debug dbg, Dwarf_Half value)
+{
+	Dwarf_Half old_value;
+
+	old_value = dbg->dbg_frame_rule_table_size;
+	dbg->dbg_frame_rule_table_size = value;
+
+	return (old_value);
+}
+
+Dwarf_Half
+dwarf_set_frame_rule_initial_value(Dwarf_Debug dbg, Dwarf_Half value)
+{
+	Dwarf_Half old_value;
+
+	old_value = dbg->dbg_frame_rule_initial_value;
+	dbg->dbg_frame_rule_initial_value = value;
+
+	return (old_value);
+}
+
+Dwarf_Half
+dwarf_set_frame_cfa_value(Dwarf_Debug dbg, Dwarf_Half value)
+{
+	Dwarf_Half old_value;
+
+	old_value = dbg->dbg_frame_cfa_value;
+	dbg->dbg_frame_cfa_value = value;
+
+	return (old_value);
+}
+
+Dwarf_Half
+dwarf_set_frame_same_value(Dwarf_Debug dbg, Dwarf_Half value)
+{
+	Dwarf_Half old_value;
+
+	old_value = dbg->dbg_frame_same_value;
+	dbg->dbg_frame_same_value = value;
+
+	return (old_value);
+}
+
+Dwarf_Half
+dwarf_set_frame_undefined_value(Dwarf_Debug dbg, Dwarf_Half value)
+{
+	Dwarf_Half old_value;
+
+	old_value = dbg->dbg_frame_undefined_value;
+	dbg->dbg_frame_undefined_value = value;
+
+	return (old_value);
 }

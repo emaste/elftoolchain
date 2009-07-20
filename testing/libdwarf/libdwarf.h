@@ -84,9 +84,35 @@ typedef struct {
 	Dwarf_Ptr	bl_data;
 } Dwarf_Block;
 
+#ifndef	DW_FRAME_HIGHEST_NORMAL_REGISTER
+#define	DW_FRAME_HIGHEST_NORMAL_REGISTER 63
+#endif
+
+#define	DW_FRAME_RA_COL		(DW_FRAME_HIGHEST_NORMAL_REGISTER + 1)
+#define	DW_FRAME_STATIC_LINK	(DW_FRAME_HIGHEST_NORMAL_REGISTER + 2)
+
+#ifndef	DW_FRAME_LAST_REG_NUM
+#define DW_FRAME_LAST_REG_NUM	(DW_FRAME_HIGHEST_NORMAL_REGISTER + 3)
+#endif
+
+#ifndef	DW_FRAME_REG_INITIAL_VALUE
+#define	DW_FRAME_REG_INITIAL_VALUE DW_FRAME_SAME_VAL
+#endif
+
+#define	DW_FRAME_UNDEFINED_VAL		1034
+#define DW_FRAME_SAME_VAL		1035
+#define DW_FRAME_CFA_COL3		1436
+
+#define	DW_EXPR_OFFSET 0
+#define	DW_EXPR_VAL_OFFSET 1
+#define	DW_EXPR_EXPRESSION 2
+#define	DW_EXPR_VAL_EXPRESSION 3
+
 /*
  * Frame operation only for DWARF 2.
  */
+#define DW_FRAME_CFA_COL 0
+
 typedef struct {
 	Dwarf_Small	fp_base_op;
 	Dwarf_Small	fp_extended_op;
@@ -157,12 +183,13 @@ enum {
 	DWARF_E_MISSING_ABBREV,		/* Abbrev not found. */
 	DWARF_E_NOT_IMPLEMENTED,	/* Not implemented. */
 	DWARF_E_CU_CURRENT,		/* No current compilation unit. */
-	DWARF_E_BAD_FORM,		/* Wrong form type for attribute value. */
+	DWARF_E_BAD_FORM,		/* Wrong form type for attrib value. */
 	DWARF_E_INVALID_EXPR,		/* Invalid DWARF expression. */
 	DWARF_E_INVALID_LOCLIST,	/* Invalid loclist data. */
 	DWARF_E_INVALID_ATTR,		/* Invalid attribute. */
 	DWARF_E_INVALID_LINE,		/* Invalid line info data. */
 	DWARF_E_INVALID_FRAME,		/* Invalid call frame data. */
+	DWARF_E_REGTABLE_SPACE,		/* Insufficient regtable space. */
 	DWARF_E_NUM			/* Max error number. */
 };
 
@@ -250,6 +277,19 @@ int		dwarf_get_cie_info(Dwarf_Cie, Dwarf_Unsigned *, Dwarf_Small *,
 int		dwarf_get_cie_of_fde(Dwarf_Fde, Dwarf_Cie *, Dwarf_Error *);
 int		dwarf_get_cu_die_offset_given_cu_header_offset(Dwarf_Debug,
 		    Dwarf_Off, Dwarf_Off *, Dwarf_Error *);
+int		dwarf_get_fde_info_for_all_regs(Dwarf_Fde, Dwarf_Addr,
+		    Dwarf_Regtable *, Dwarf_Addr *, Dwarf_Error *);
+int		dwarf_get_fde_info_for_all_reg3(Dwarf_Fde, Dwarf_Addr,
+		    Dwarf_Regtable3 *, Dwarf_Addr *, Dwarf_Error *);
+int		dwarf_get_fde_info_for_cfa_reg3(Dwarf_Fde, Dwarf_Addr,
+		    Dwarf_Small *, Dwarf_Signed *, Dwarf_Signed *, Dwarf_Signed *,
+		    Dwarf_Ptr *, Dwarf_Addr *, Dwarf_Error *);
+int		dwarf_get_fde_info_for_reg(Dwarf_Fde, Dwarf_Half, Dwarf_Addr,
+		    Dwarf_Signed *, Dwarf_Signed *, Dwarf_Signed *,
+		    Dwarf_Addr *, Dwarf_Error *);
+int		dwarf_get_fde_info_for_reg3(Dwarf_Fde, Dwarf_Half, Dwarf_Addr,
+		    Dwarf_Small *, Dwarf_Signed *, Dwarf_Signed *,
+		    Dwarf_Signed *, Dwarf_Ptr *, Dwarf_Addr *, Dwarf_Error *);
 int		dwarf_get_fde_instr_bytes(Dwarf_Fde, Dwarf_Ptr *,
 		    Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_get_fde_list(Dwarf_Debug, Dwarf_Cie **, Dwarf_Signed *,
@@ -314,9 +354,13 @@ int		dwarf_pubtype_die_offset(Dwarf_Type, Dwarf_Off *,
 int		dwarf_pubtype_name_offsets(Dwarf_Type, const char **,
 		    Dwarf_Off *, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_pubtypename(Dwarf_Type, const char **, Dwarf_Error *);
+Dwarf_Half	dwarf_set_frame_cfa_value(Dwarf_Debug, Dwarf_Half);
+Dwarf_Half	dwarf_set_frame_rule_initial_value(Dwarf_Debug, Dwarf_Half);
+Dwarf_Half	dwarf_set_frame_rule_table_size(Dwarf_Debug, Dwarf_Half);
+Dwarf_Half	dwarf_set_frame_same_value(Dwarf_Debug, Dwarf_Half);
+Dwarf_Half	dwarf_set_frame_undefined_value(Dwarf_Debug, Dwarf_Half);
 int		dwarf_type_cu_offset(Dwarf_Type, Dwarf_Off *, Dwarf_Error *);
-int		dwarf_type_die_offset(Dwarf_Type, Dwarf_Off *,
-		    Dwarf_Error *);
+int		dwarf_type_die_offset(Dwarf_Type, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_type_name_offsets(Dwarf_Type, const char **,
 		    Dwarf_Off *, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_typename(Dwarf_Type, const char **, Dwarf_Error *);
