@@ -144,12 +144,18 @@ dwarf_get_fde_instr_bytes(Dwarf_Fde fde, Dwarf_Ptr *ret_inst,
 	return (DW_DLV_OK);
 }
 
+#define	RL	rt->rt3_rules[table_column]
+#define	CFA	rt->rt3_cfa_rule
+
 int
 dwarf_get_fde_info_for_reg(Dwarf_Fde fde, Dwarf_Half table_column,
     Dwarf_Addr pc_requested, Dwarf_Signed *offset_relevant,
     Dwarf_Signed *register_num, Dwarf_Signed *offset, Dwarf_Addr *row_pc,
     Dwarf_Error *error)
 {
+	Dwarf_Regtable3 *rt;
+	Dwarf_Addr pc;
+	int ret;
 
 	if (fde == NULL || offset_relevant == NULL || register_num == NULL ||
 	    offset == NULL || row_pc == NULL) {
@@ -157,9 +163,26 @@ dwarf_get_fde_info_for_reg(Dwarf_Fde fde, Dwarf_Half table_column,
 		return (DW_DLV_ERROR);
 	}
 
-	(void) fde;
-	(void) table_column;
-	(void) pc_requested;
+	ret = frame_get_internal_table(fde, pc_requested, &rt, &pc, error);
+	if (ret != DWARF_E_NONE)
+		return (DW_DLV_ERROR);
+
+	if (table_column == DW_FRAME_CFA_COL) {
+		/* Application ask for CFA. */
+		*offset_relevant = CFA.dw_offset_relevant;
+		*register_num = CFA.dw_regnum;
+		*offset = CFA.dw_offset_or_block_len;
+	} else {
+		/* Application ask for normal registers. */
+		*offset_relevant = RL.dw_offset_relevant;
+		if (RL.dw_regnum == DW_FRAME_CFA_COL3)
+			*register_num = DW_FRAME_CFA_COL;
+		else
+			*register_num = RL.dw_regnum;
+		*offset = RL.dw_offset_or_block_len;
+	}
+
+	*row_pc = pc;
 
 	return (DW_DLV_OK);
 }
@@ -168,14 +191,43 @@ int
 dwarf_get_fde_info_for_all_regs(Dwarf_Fde fde, Dwarf_Addr pc_requested,
     Dwarf_Regtable *reg_table, Dwarf_Addr *row_pc, Dwarf_Error *error)
 {
+	Dwarf_Debug dbg;
+	Dwarf_Regtable3 *rt;
+	Dwarf_Addr pc;
+	int i, ret;
 
 	if (fde == NULL || reg_table == NULL || row_pc == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
 		return (DW_DLV_ERROR);
 	}
 
-	(void) fde;
-	(void) pc_requested;
+	dbg = fde->fde_dbg;
+	assert(dbg != NULL);
+
+	ret = frame_get_internal_table(fde, pc_requested, &rt, &pc, error);
+	if (ret != DWARF_E_NONE)
+		return (DW_DLV_ERROR);
+
+	/* Copy the CFA rule to the first column of the reg table. */
+	reg_table->rules[0].dw_offset_relevant = CFA.dw_offset_relevant;
+	reg_table->rules[0].dw_regnum = CFA.dw_regnum;
+	reg_table->rules[0].dw_offset = CFA.dw_offset_or_block_len;
+
+	/* Copy the normal columns. */
+	for (i = 1; i < DW_REG_TABLE_SIZE && i < dbg->dbg_frame_rule_table_size;
+	     i++) {
+		reg_table->rules[i].dw_offset_relevant =
+		    rt->rt3_rules[i].dw_offset_relevant;
+		if (rt->rt3_rules[i].dw_regnum == DW_FRAME_CFA_COL3)
+			reg_table->rules[i].dw_regnum = DW_FRAME_CFA_COL;
+		else
+			reg_table->rules[i].dw_regnum =
+			    rt->rt3_rules[i].dw_regnum;
+		reg_table->rules[i].dw_offset =
+		    rt->rt3_rules[i].dw_offset_or_block_len;
+	}
+
+	*row_pc = pc;
 
 	return (DW_DLV_OK);
 }
@@ -191,8 +243,6 @@ dwarf_get_fde_info_for_reg3(Dwarf_Fde fde, Dwarf_Half table_column,
 	Dwarf_Addr pc;
 	int ret;
 
-#define	RL	rt->rt3_rules[table_column]
-
 	if (fde == NULL || value_type == NULL || offset_relevant == NULL ||
 	    register_num == NULL || offset_or_block_len == NULL ||
 	    block_ptr == NULL || row_pc == NULL) {
@@ -212,8 +262,6 @@ dwarf_get_fde_info_for_reg3(Dwarf_Fde fde, Dwarf_Half table_column,
 	*row_pc = pc;
 
 	return (DW_DLV_OK);
-
-#undef	RL
 }
 
 int
@@ -226,8 +274,6 @@ dwarf_get_fde_info_for_cfa_reg3(Dwarf_Fde fde, Dwarf_Addr pc_requested,
 	Dwarf_Addr pc;
 	int ret;
 
-#define RL	rt->rt3_cfa_rule
-
 	if (fde == NULL || value_type == NULL || offset_relevant == NULL ||
 	    register_num == NULL || offset_or_block_len == NULL ||
 	    block_ptr == NULL || row_pc == NULL) {
@@ -239,17 +285,18 @@ dwarf_get_fde_info_for_cfa_reg3(Dwarf_Fde fde, Dwarf_Addr pc_requested,
 	if (ret != DWARF_E_NONE)
 		return (DW_DLV_ERROR);
 
-	*value_type = RL.dw_value_type;
-	*offset_relevant = RL.dw_offset_relevant;
-	*register_num = RL.dw_regnum;
-	*offset_or_block_len = RL.dw_offset_or_block_len;
-	*block_ptr = RL.dw_block_ptr;
+	*value_type = CFA.dw_value_type;
+	*offset_relevant = CFA.dw_offset_relevant;
+	*register_num = CFA.dw_regnum;
+	*offset_or_block_len = CFA.dw_offset_or_block_len;
+	*block_ptr = CFA.dw_block_ptr;
 	*row_pc = pc;
 
 	return (DW_DLV_OK);
+}
 
 #undef	RL
-}
+#undef	CFA
 
 int
 dwarf_get_fde_info_for_all_reg3(Dwarf_Fde fde, Dwarf_Addr pc_requested,
@@ -275,6 +322,8 @@ dwarf_get_fde_info_for_all_reg3(Dwarf_Fde fde, Dwarf_Addr pc_requested,
 	ret = frame_regtable_copy(dbg, &reg_table, rt, error);
 	if (ret != DWARF_E_NONE)
 		return (DW_DLV_ERROR);
+
+	*row_pc = pc;
 
 	return (DW_DLV_OK);
 }
