@@ -246,6 +246,8 @@ int		dwarf_get_abbrev_entry(Dwarf_Abbrev, Dwarf_Signed, Dwarf_Half *,
 int		dwarf_get_abbrev_tag(Dwarf_Abbrev, Dwarf_Half *, Dwarf_Error *);
 int		dwarf_get_cu_die_offset_given_cu_header_offset(Dwarf_Debug,
 		    Dwarf_Off, Dwarf_Off *, Dwarf_Error *);
+int		dwarf_get_fde_list(Dwarf_Debug, Dwarf_Cie **, Dwarf_Signed *,
+		    Dwarf_Fde **, Dwarf_Signed *, Dwarf_Error *);
 int		dwarf_get_funcs(Dwarf_Debug, Dwarf_Func **, Dwarf_Signed *,
 		    Dwarf_Error *);
 int		dwarf_get_globals(Dwarf_Debug, Dwarf_Global **, Dwarf_Signed *,

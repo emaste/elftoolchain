@@ -251,6 +251,7 @@ frame_init(Dwarf_Debug dbg, Dwarf_FrameSec *frame_sec, Elf_Data *d,
 		offset = entry_off;
 	}
 
+	/* Create CIE array. */
 	if (fs->fs_cielen > 0) {
 		if ((fs->fs_ciearray = malloc(sizeof(Dwarf_Cie) *
 		    fs->fs_cielen)) == NULL) {
@@ -265,6 +266,7 @@ frame_init(Dwarf_Debug dbg, Dwarf_FrameSec *frame_sec, Elf_Data *d,
 		assert((Dwarf_Unsigned)i == fs->fs_cielen);
 	}
 
+	/* Create FDE array. */
 	if (fs->fs_fdelen > 0) {
 		if ((fs->fs_fdearray = malloc(sizeof(Dwarf_Fde) *
 		    fs->fs_fdelen)) == NULL) {
