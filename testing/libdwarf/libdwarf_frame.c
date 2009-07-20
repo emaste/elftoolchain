@@ -85,8 +85,13 @@ frame_add_cie(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 
 	(void) dbg->read(&d, off, dwarf_size); /* Skip CIE id. */
 	cie->cie_length = length;
-	cie->cie_version = dbg->read(&d, off, 2); /* FIXME: verify version */
-	printf("cie_version=%u\n", cie->cie_version);
+
+	cie->cie_version = dbg->read(&d, off, 2);
+	if (cie->cie_version != 1 && cie->cie_version != 3) {
+		DWARF_SET_ERROR(error, DWARF_E_INVALID_FRAME);
+		return (DWARF_E_INVALID_FRAME);
+	}
+
 	cie->cie_augment = (uint8_t *)d->d_buf + *off;
 	p = (char *)d->d_buf;
 	while (p[(*off)++] != '\0')
@@ -103,7 +108,10 @@ frame_add_cie(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 
 	cie->cie_caf = read_uleb128(&d, off);
 	cie->cie_daf = read_sleb128(&d, off);
-	cie->cie_ra = read_uleb128(&d, off);
+	if (cie->cie_version == 1)
+		cie->cie_ra = dbg->read(&d, off, 1);
+	else
+		cie->cie_ra = read_uleb128(&d, off);
 	cie->cie_initinst = (uint8_t *)d->d_buf + *off;
 	if (dwarf_size == 4)
 		cie->cie_instlen = cie->cie_offset + 4 + length - *off;
@@ -113,8 +121,8 @@ frame_add_cie(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 	*off += cie->cie_instlen;
 
 	printf("cie:\n");
-	printf("\tcie_offset=%ju cie_length=%ju cie_augment=%u cie_instlen=%ju off=%ju\n",
-	    cie->cie_offset, cie->cie_length, *cie->cie_augment, cie->cie_instlen, *off);
+	printf("\tcie_version=%u cie_offset=%ju cie_length=%ju cie_augment=%u cie_instlen=%ju off=%ju\n",
+	    cie->cie_version, cie->cie_offset, cie->cie_length, *cie->cie_augment, cie->cie_instlen, *off);
 
 	if (ret_cie != NULL)
 		*ret_cie = cie;
