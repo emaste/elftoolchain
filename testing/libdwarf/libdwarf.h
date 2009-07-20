@@ -51,6 +51,7 @@ typedef struct _Dwarf_Cie	*Dwarf_Cie;
 typedef struct _Dwarf_Debug	*Dwarf_Debug;
 typedef struct _Dwarf_Die	*Dwarf_Die;
 typedef struct _Dwarf_Fde	*Dwarf_Fde;
+typedef struct _Dwarf_FrameSec	*Dwarf_FrameSec;
 typedef struct _Dwarf_Line	*Dwarf_Line;
 typedef struct _Dwarf_LineFile	*Dwarf_LineFile;
 typedef struct _Dwarf_LineInfo	*Dwarf_LineInfo;
@@ -63,8 +64,6 @@ typedef struct _Dwarf_NamePair	*Dwarf_Var;
 typedef struct _Dwarf_NamePair	*Dwarf_Weak;
 typedef struct _Dwarf_NameTbl	*Dwarf_NameTbl;
 typedef struct _Dwarf_NameSec	*Dwarf_NameSec;
-
-
 
 typedef struct {
         Dwarf_Small	lr_atom;
@@ -163,6 +162,7 @@ enum {
 	DWARF_E_INVALID_LOCLIST,	/* Invalid loclist data. */
 	DWARF_E_INVALID_ATTR,		/* Invalid attribute. */
 	DWARF_E_INVALID_LINE,		/* Invalid line info data. */
+	DWARF_E_INVALID_FRAME,		/* Invalid call frame data. */
 	DWARF_E_NUM			/* Max error number. */
 };
 

@@ -26,6 +26,7 @@ SRCS=	\
 	libdwarf_abbrev.c	\
 	libdwarf_attr.c		\
 	libdwarf_die.c		\
+	libdwarf_frame.c	\
 	libdwarf_init.c		\
 	libdwarf_lineno.c	\
 	libdwarf_loc.c		\
