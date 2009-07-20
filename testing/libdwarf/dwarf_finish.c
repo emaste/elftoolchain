@@ -146,9 +146,8 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 	if (dbg->dbg_types)
 		nametbl_cleanup(dbg->dbg_types);
 
-	/* Free call frame sections. */
-	if (dbg->dbg_frame)
-		frame_cleanup(dbg->dbg_frame);
+	/* Free call frame data. */
+	frame_cleanup(dbg);
 
 	/* Free resources associated with the ELF file. */
 	if (dbg->dbg_elf_close)

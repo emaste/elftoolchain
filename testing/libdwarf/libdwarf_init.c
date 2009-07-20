@@ -371,13 +371,10 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 
 #undef	INIT_NAMETBL
 
-	/* Initialise call frame sections. */
-	if (dbg->dbg_s[DWARF_debug_frame].s_scn != NULL) {
-		ret = frame_init(dbg, &dbg->dbg_frame,
-		    dbg->dbg_s[DWARF_debug_frame].s_data, error);
-		if (ret != DWARF_E_NONE)
-			return (ret);
-	}
+	/* Initialise call frame data. */
+	ret = frame_init(dbg, error);
+	if (ret != DWARF_E_NONE)
+		return (ret);
 
 	return (ret);
 }

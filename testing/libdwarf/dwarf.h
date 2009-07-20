@@ -442,9 +442,9 @@
 #define DW_MACINFO_end_file	 	0x04
 #define DW_MACINFO_vendor_ext	 	0xff
 
-#define DW_CFA_advance_loc		0x40
-#define DW_CFA_offset	 		0x80
-#define DW_CFA_restore	 		0xc0
+#define DW_CFA_advance_loc		0x01
+#define DW_CFA_offset	 		0x02
+#define DW_CFA_restore	 		0x03
 #define DW_CFA_extended			0
 
 #define DW_CFA_nop	 		0x00
@@ -464,7 +464,7 @@
 #define DW_CFA_def_cfa_offset 		0x0e
 #define DW_CFA_def_cfa_expression 	0x0f
 #define DW_CFA_expression 		0x10
-#define DW_CFA_cfa_offset_extended_sf 	0x11
+#define DW_CFA_offset_extended_sf 	0x11
 #define DW_CFA_def_cfa_sf 		0x12
 #define DW_CFA_def_cfa_offset_sf 	0x13
 #define DW_CFA_val_offset		0x14

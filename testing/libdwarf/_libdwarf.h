@@ -207,6 +207,7 @@ struct _Dwarf_NameSec {
 };
 
 struct _Dwarf_Fde {
+	Dwarf_Debug	fde_dbg;	/* Ptr to containing dbg. */
 	Dwarf_Cie	fde_cie;	/* Ptr to associated CIE. */
 	Dwarf_Ptr	fde_addr;	/* Ptr to start of the FDE. */
 	Dwarf_Unsigned	fde_offset;	/* Offset of the FDE. */
@@ -226,7 +227,7 @@ struct _Dwarf_Cie {
 	Dwarf_Half	cie_version;	/* CIE version. */
 	uint8_t		*cie_augment;	/* CIE augmentation (UTF-8). */
 	Dwarf_Unsigned	cie_caf;	/* Code alignment factor. */
-	Dwarf_Unsigned	cie_daf;	/* Data alignment factor. */
+	Dwarf_Signed	cie_daf;	/* Data alignment factor. */
 	Dwarf_Unsigned	cie_ra;		/* Return address register. */
 	Dwarf_Ptr	cie_initinst;	/* Initial instructions. */
 	Dwarf_Unsigned	cie_instlen;	/* Length of init instructions. */
@@ -294,6 +295,14 @@ struct _Dwarf_Debug {
 	uint64_t	(*read)(Elf_Data **, uint64_t *, int);
 	void		(*write)(Elf_Data **, uint64_t *, uint64_t, int);
 	uint64_t	(*decode)(uint8_t **, int);
+
+	Dwarf_Half	dbg_frame_rule_table_size;
+	Dwarf_Half	dbg_frame_rule_initial_value;
+	Dwarf_Half	dbg_frame_cfa_value;
+	Dwarf_Half	dbg_frame_same_value;
+	Dwarf_Half	dbg_frame_undefined_value;
+
+	Dwarf_Regtable3	*dbg_internal_reg_table;
 };
 
 /* Internal function prototype definitions. */
@@ -310,9 +319,12 @@ int		die_add(Dwarf_CU, int, uint64_t, uint64_t, Dwarf_Abbrev,
 		    Dwarf_Die *, Dwarf_Error *);
 Dwarf_Die	die_find(Dwarf_Die, Dwarf_Unsigned);
 int		elf_read(Dwarf_Debug, Dwarf_Error *);
-void		frame_cleanup(Dwarf_FrameSec);
-int		frame_init(Dwarf_Debug, Dwarf_FrameSec *, Elf_Data *,
-		    Dwarf_Error *);
+void		frame_cleanup(Dwarf_Debug);
+int		frame_get_internal_table(Dwarf_Fde, Dwarf_Addr,
+		    Dwarf_Regtable3 **, Dwarf_Addr *, Dwarf_Error *);
+int		frame_init(Dwarf_Debug, Dwarf_Error *);
+int		frame_regtable_copy(Dwarf_Debug, Dwarf_Regtable3 **,
+		    Dwarf_Regtable3 *, Dwarf_Error *);
 int		lineno_init(Dwarf_Die, uint64_t, Dwarf_Error *);
 int		loc_fill_locdesc(Dwarf_Locdesc *, uint8_t *, uint64_t, uint8_t,
 		    Dwarf_Error *);
