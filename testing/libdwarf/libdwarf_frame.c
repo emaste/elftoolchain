@@ -30,8 +30,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define	FRAME_DEBUG
-
 static int
 frame_find_cie(Dwarf_FrameSec fs, Dwarf_Unsigned offset, Dwarf_Cie *ret_cie)
 {
@@ -344,8 +342,8 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 #endif
 
 	ret = DWARF_E_NONE;
-
 	init_rt = saved_rt = NULL;
+	*row_pc = pc;
 
 	/* Save a copy of the table as initial state. */
 	frame_regtable_copy(dbg, &init_rt, rt, error);
