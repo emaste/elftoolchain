@@ -543,24 +543,24 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 #endif
 			break;
 		case DW_CFA_def_cfa_expression:
-			/* TODO. */
 			*row_pc = pc;
 			CFA.dw_offset_relevant = 0;
 			CFA.dw_value_type = DW_EXPR_EXPRESSION;
 			CFA.dw_offset_or_block_len = decode_uleb128(&p);
+			CFA.dw_block_ptr = p;
 			p += CFA.dw_offset_or_block_len;
 #ifdef FRAME_DEBUG
 			printf("DW_CFA_def_cfa_expression\n");
 #endif
 			break;
 		case DW_CFA_expression:
-			/* TODO. */
 			*row_pc = pc;
 			reg = decode_uleb128(&p);
 			CHECK_TABLE_SIZE(reg);
 			RL[reg].dw_offset_relevant = 0;
 			RL[reg].dw_value_type = DW_EXPR_EXPRESSION;
 			RL[reg].dw_offset_or_block_len = decode_uleb128(&p);
+			RL[reg].dw_block_ptr = p;
 			p += RL[reg].dw_offset_or_block_len;
 #ifdef FRAME_DEBUG
 			printf("DW_CFA_expression\n");
@@ -632,13 +632,13 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 #endif
 			break;
 		case DW_CFA_val_expression:
-			/* TODO. */
 			*row_pc = pc;
 			reg = decode_uleb128(&p);
 			CHECK_TABLE_SIZE(reg);
 			RL[reg].dw_offset_relevant = 0;
 			RL[reg].dw_value_type = DW_EXPR_VAL_EXPRESSION;
 			RL[reg].dw_offset_or_block_len = decode_uleb128(&p);
+			RL[reg].dw_block_ptr = p;
 			p += RL[reg].dw_offset_or_block_len;
 #ifdef FRAME_DEBUG
 			printf("DW_CFA_val_expression\n");
