@@ -59,6 +59,30 @@ dwarf_get_fde_list(Dwarf_Debug dbg, Dwarf_Cie **cie_list,
 }
 
 int
+dwarf_get_fde_n(Dwarf_Fde *fdelist, Dwarf_Unsigned fde_index,
+    Dwarf_Fde *ret_fde, Dwarf_Error *error)
+{
+	Dwarf_FrameSec fs;
+
+	if (fdelist == NULL || ret_fde == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	fs = fdelist[0]->fde_fs;
+	assert(fs != NULL);
+
+	if (fde_index >= fs->fs_fdelen) {
+		DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
+		return (DW_DLV_NO_ENTRY);
+	}
+
+	*ret_fde = fdelist[fde_index];
+
+	return (DW_DLV_OK);
+}
+
+int
 dwarf_get_cie_of_fde(Dwarf_Fde fde, Dwarf_Cie *ret_cie, Dwarf_Error *error)
 {
 
