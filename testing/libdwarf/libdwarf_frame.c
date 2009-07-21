@@ -152,6 +152,7 @@ frame_add_fde(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 	STAILQ_INSERT_TAIL(&fs->fs_fdelist, fde, fde_next);
 
 	fde->fde_dbg = dbg;
+	fde->fde_fs = fs;
 	fde->fde_addr = (uint8_t *)d->d_buf + *off;
 	fde->fde_offset = *off;
 
