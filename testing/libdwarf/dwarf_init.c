@@ -32,25 +32,30 @@ int
 dwarf_elf_init(Elf *elf, int mode, Dwarf_Debug *ret_dbg, Dwarf_Error *error)
 {
 	Dwarf_Debug dbg;
-	int ret = DWARF_E_NONE;
+	int ret;
 
 	if (elf == NULL || ret_dbg == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
-		ret = DWARF_E_ARGUMENT;
-	} else if ((dbg = calloc(sizeof(struct _Dwarf_Debug), 1)) == NULL) {
-		DWARF_SET_ERROR(error, DWARF_E_MEMORY);
-		ret = DWARF_E_MEMORY;
-	} else {
-		dbg->dbg_elf		= elf;
-		dbg->dbg_elf_close 	= 0;
-		dbg->dbg_mode		= mode;
-		STAILQ_INIT(&dbg->dbg_cu);
-		*ret_dbg = dbg;
-		/* Read the ELF sections. */
-		ret = elf_read(dbg, error);
+		return (DW_DLV_ERROR);
 	}
 
-	return (ret);
+	if ((dbg = calloc(sizeof(struct _Dwarf_Debug), 1)) == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_MEMORY);
+		return (DW_DLV_ERROR);
+	}
+
+	dbg->dbg_elf		= elf;
+	dbg->dbg_elf_close 	= 0;
+	dbg->dbg_mode		= mode;
+	STAILQ_INIT(&dbg->dbg_cu);
+	*ret_dbg = dbg;
+	/* Read the ELF sections. */
+	ret = elf_read(dbg, error);
+
+	if (ret != DWARF_E_NONE)
+		return (DW_DLV_ERROR);
+
+	return (DW_DLV_OK);
 }
 
 int
@@ -63,7 +68,7 @@ dwarf_init(int fd, int mode, Dwarf_Debug *ret_dbg, Dwarf_Error *error)
 
 	if (fd < 0 || ret_dbg == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
-		return DWARF_E_ERROR;
+		return (DW_DLV_ERROR);
 	}
 
 	/* Translate the DWARF mode to ELF mode. */
@@ -76,12 +81,12 @@ dwarf_init(int fd, int mode, Dwarf_Debug *ret_dbg, Dwarf_Error *error)
 
 	if (elf_version(EV_CURRENT) == EV_NONE) {
 		DWARF_SET_ELF_ERROR(error, elf_errno());
-		return DWARF_E_ERROR;
+		return (DW_DLV_ERROR);
 	}
 
 	if ((elf = elf_begin(fd, c, NULL)) == NULL) {
 		DWARF_SET_ELF_ERROR(error, elf_errno());
-		return DWARF_E_ERROR;
+		return (DW_DLV_ERROR);
 	}
 
 	ret = dwarf_elf_init(elf, mode, ret_dbg, error);
@@ -95,7 +100,9 @@ dwarf_init(int fd, int mode, Dwarf_Debug *ret_dbg, Dwarf_Error *error)
 			dwarf_finish(ret_dbg, &lerror);
 		} else
 			elf_end(elf);
+
+		return (DW_DLV_ERROR);
 	}
 
-	return ret;
+	return (DW_DLV_OK);
 }
