@@ -138,8 +138,9 @@ struct _Dwarf_Die {
 struct _Dwarf_Loclist {
 	Dwarf_Locdesc 	*ll_ldlist;     /* Ptr to array of locdesc. */
 	int 		ll_ldlen;	/* number of locdesc. */
-	uint64_t	ll_offset;	/* offset in .debug_loc section. */
-	STAILQ_ENTRY(_Dwarf_Loclist) ll_next; /* Next loclist in list. */
+	Dwarf_Unsigned	ll_offset;	/* offset in .debug_loc section. */
+	Dwarf_Unsigned	ll_length;	/* length (in bytes) of the loclist. */
+	TAILQ_ENTRY(_Dwarf_Loclist) ll_next; /* Next loclist in list. */
 };
 
 struct _Dwarf_Line {
@@ -284,7 +285,7 @@ struct _Dwarf_Debug {
 					/* Array of section information. */
 	STAILQ_HEAD(, _Dwarf_CU) dbg_cu;/* List of compilation units. */
 	Dwarf_CU	dbg_cu_current; /* Ptr to the current CU. */
-	STAILQ_HEAD(, _Dwarf_Loclist) dbg_loclist; /* List of location list. */
+	TAILQ_HEAD(, _Dwarf_Loclist) dbg_loclist; /* List of location list. */
 	Dwarf_NameSec	dbg_globals;	/* Ptr to pubnames lookup section. */
 	Dwarf_NameSec	dbg_pubtypes;	/* Ptr to pubtypes lookup section. */
 	Dwarf_NameSec	dbg_weaks;	/* Ptr to weaknames lookup section. */

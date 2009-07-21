@@ -121,8 +121,8 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 	}
 
 	/* Free loclist list. */
-	STAILQ_FOREACH_SAFE(ll, &dbg->dbg_loclist, ll_next, tll) {
-		STAILQ_REMOVE(&dbg->dbg_loclist, ll, _Dwarf_Loclist, ll_next);
+	TAILQ_FOREACH_SAFE(ll, &dbg->dbg_loclist, ll_next, tll) {
+		TAILQ_REMOVE(&dbg->dbg_loclist, ll, ll_next);
 		if (ll->ll_ldlist != NULL) {
 			for (i = 0; i < ll->ll_ldlen; i++)
 				if (ll->ll_ldlist[i].ld_s)
