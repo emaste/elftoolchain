@@ -30,6 +30,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define	FRAME_DEBUG
+
 static int
 frame_find_cie(Dwarf_FrameSec fs, Dwarf_Unsigned offset, Dwarf_Cie *ret_cie)
 {
@@ -86,7 +88,7 @@ frame_add_cie(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 	(void) dbg->read(&d, off, dwarf_size); /* Skip CIE id. */
 	cie->cie_length = length;
 
-	cie->cie_version = dbg->read(&d, off, 2);
+	cie->cie_version = dbg->read(&d, off, 1);
 	if (cie->cie_version != 1 && cie->cie_version != 3) {
 		DWARF_SET_ERROR(error, DWARF_E_INVALID_FRAME);
 		return (DWARF_E_INVALID_FRAME);
@@ -120,9 +122,13 @@ frame_add_cie(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 
 	*off += cie->cie_instlen;
 
+#ifdef FRAME_DEBUG
 	printf("cie:\n");
-	printf("\tcie_version=%u cie_offset=%ju cie_length=%ju cie_augment=%u cie_instlen=%ju off=%ju\n",
-	    cie->cie_version, cie->cie_offset, cie->cie_length, *cie->cie_augment, cie->cie_instlen, *off);
+	printf("\tcie_version=%u cie_offset=%ju cie_length=%ju cie_augment=%u"
+	    " cie_instlen=%ju cie->cie_caf=%ju cie->cie_daf=%jd off=%ju\n",
+	    cie->cie_version, cie->cie_offset, cie->cie_length, *cie->cie_augment,
+	    cie->cie_instlen, cie->cie_caf, cie->cie_daf, *off);
+#endif
 
 	if (ret_cie != NULL)
 		*ret_cie = cie;
@@ -182,9 +188,12 @@ frame_add_fde(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 
 	*off += fde->fde_instlen;
 
+#ifdef FRAME_DEBUG
 	printf("fde:\n");
-	printf("\tfde_offset=%ju fde_length=%ju fde_cieoff=%ju fde_instlen=%ju off=%ju\n",
-	    fde->fde_offset, fde->fde_length, fde->fde_cieoff, fde->fde_instlen, *off);
+	printf("\tfde_offset=%ju fde_length=%ju fde_cieoff=%ju"
+	    " fde_instlen=%ju off=%ju\n", fde->fde_offset, fde->fde_length,
+	    fde->fde_cieoff, fde->fde_instlen, *off);
+#endif
 
 	fs->fs_fdelen++;
 
@@ -330,6 +339,10 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 		}							\
 	} while(0)
 
+#ifdef FRAME_DEBUG
+	printf("frame_run_inst: (caf=%ju, daf=%jd)\n", caf, daf);
+#endif
+
 	ret = DWARF_E_NONE;
 
 	init_rt = saved_rt = NULL;
@@ -342,7 +355,14 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 
 	while (p < pe) {
 
+#ifdef FRAME_DEBUG
+		printf("p=%p pe=%p pc=%#jx pc_req=%#jx\n", p, pe, pc, pc_req);
+#endif
+
 		if (*p == DW_CFA_nop) {
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_nop\n");
+#endif
 			p++;
 			continue;
 		}
@@ -355,6 +375,10 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			switch (high2) {
 			case DW_CFA_advance_loc:
 				pc += low6 * caf;
+#ifdef FRAME_DEBUG
+				printf("DW_CFA_advance_loc(%#jx(%u))\n", pc,
+				    low6);
+#endif
 				if (pc_req < pc)
 					goto program_done;
 				break;
@@ -366,12 +390,19 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 				RL[low6].dw_regnum = dbg->dbg_frame_cfa_value;
 				RL[low6].dw_offset_or_block_len =
 				    decode_uleb128(&p) * daf;
+#ifdef FRAME_DEBUG
+				printf("DW_CFA_offset(%jd)\n",
+				    RL[low6].dw_offset_or_block_len);
+#endif
 				break;
 			case DW_CFA_restore:
 				*row_pc = pc;
 				CHECK_TABLE_SIZE(low6);
 				memcpy(&RL[low6], &INITRL[low6],
 				    sizeof(Dwarf_Regtable_Entry3));
+#ifdef FRAME_DEBUG
+				printf("DW_CFA_restore(%u)\n", low6);
+#endif
 				break;
 			default:
 				DWARF_SET_ERROR(error, DWARF_E_INVALID_FRAME);
@@ -385,21 +416,33 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 		switch (low6) {
 		case DW_CFA_set_loc:
 			pc = dbg->decode(&p, dbg->dbg_pointer_size);
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_set_loc(pc=%#jx)\n", pc);
+#endif
 			if (pc_req < pc)
 				goto program_done;
 			break;
 		case DW_CFA_advance_loc1:
 			pc += dbg->decode(&p, 1) * caf;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_set_loc1(pc=%#jx)\n", pc);
+#endif
 			if (pc_req < pc)
 				goto program_done;
 			break;
 		case DW_CFA_advance_loc2:
 			pc += dbg->decode(&p, 2) * caf;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_set_loc2(pc=%#jx)\n", pc);
+#endif
 			if (pc_req < pc)
 				goto program_done;
 			break;
 		case DW_CFA_advance_loc4:
 			pc += dbg->decode(&p, 4) * caf;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_set_loc4(pc=%#jx)\n", pc);
+#endif
 			if (pc_req < pc)
 				goto program_done;
 			break;
@@ -412,6 +455,10 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			RL[reg].dw_value_type = DW_EXPR_OFFSET;
 			RL[reg].dw_regnum = dbg->dbg_frame_cfa_value;
 			RL[reg].dw_offset_or_block_len = uoff * daf;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_offset_extended(reg=%ju,uoff=%ju)\n",
+			    reg, uoff);
+#endif
 			break;
 		case DW_CFA_restore_extended:
 			*row_pc = pc;
@@ -419,6 +466,9 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			CHECK_TABLE_SIZE(reg);
 			memcpy(&RL[reg], &INITRL[reg],
 			    sizeof(Dwarf_Regtable_Entry3));
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_restore_extended(%ju)\n", reg);
+#endif
 			break;
 		case DW_CFA_undefined:
 			*row_pc = pc;
@@ -426,12 +476,18 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			CHECK_TABLE_SIZE(reg);
 			RL[reg].dw_offset_relevant = 0;
 			RL[reg].dw_regnum = dbg->dbg_frame_undefined_value;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_undefined(%ju)\n", reg);
+#endif
 			break;
 		case DW_CFA_same_value:
 			reg = decode_uleb128(&p);
 			CHECK_TABLE_SIZE(reg);
 			RL[reg].dw_offset_relevant = 0;
 			RL[reg].dw_regnum = dbg->dbg_frame_same_value;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_same_value(%ju)\n", reg);
+#endif
 			break;
 		case DW_CFA_register:
 			*row_pc = pc;
@@ -440,13 +496,23 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			CHECK_TABLE_SIZE(reg);
 			RL[reg].dw_offset_relevant = 0;
 			RL[reg].dw_regnum = reg2;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_register(reg=%ju,reg2=%ju)\n", reg,
+			    reg2);
+#endif
 			break;
 		case DW_CFA_remember_state:
 			frame_regtable_copy(dbg, &saved_rt, rt, error);
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_remember_state\n");
+#endif
 			break;
 		case DW_CFA_restore_state:
 			*row_pc = pc;
 			frame_regtable_copy(dbg, &rt, saved_rt, error);
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_restore_state\n");
+#endif
 			break;
 		case DW_CFA_def_cfa:
 			*row_pc = pc;
@@ -456,11 +522,17 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			CFA.dw_value_type = DW_EXPR_OFFSET;
 			CFA.dw_regnum = reg;
 			CFA.dw_offset_or_block_len = uoff;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_def_cfa(reg=%ju,uoff=%ju)\n", reg, uoff);
+#endif
 			break;
 		case DW_CFA_def_cfa_register:
 			*row_pc = pc;
 			reg = decode_uleb128(&p);
 			CFA.dw_regnum = reg;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_def_cfa_register(%ju)\n", reg);
+#endif
 			break;
 		case DW_CFA_def_cfa_offset:
 			*row_pc = pc;
@@ -468,6 +540,9 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			CFA.dw_offset_relevant = 1;
 			CFA.dw_value_type = DW_EXPR_OFFSET;
 			CFA.dw_offset_or_block_len = uoff;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_def_cfa_offset(%ju)\n", uoff);
+#endif
 			break;
 		case DW_CFA_def_cfa_expression:
 			/* TODO. */
@@ -476,6 +551,9 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			CFA.dw_value_type = DW_EXPR_EXPRESSION;
 			CFA.dw_offset_or_block_len = decode_uleb128(&p);
 			p += CFA.dw_offset_or_block_len;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_def_cfa_expression\n");
+#endif
 			break;
 		case DW_CFA_expression:
 			/* TODO. */
@@ -486,6 +564,9 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			RL[reg].dw_value_type = DW_EXPR_EXPRESSION;
 			RL[reg].dw_offset_or_block_len = decode_uleb128(&p);
 			p += RL[reg].dw_offset_or_block_len;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_expression\n");
+#endif
 			break;
 		case DW_CFA_offset_extended_sf:
 			*row_pc = pc;
@@ -496,6 +577,10 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			RL[reg].dw_value_type = DW_EXPR_OFFSET;
 			RL[reg].dw_regnum = dbg->dbg_frame_cfa_value;
 			RL[reg].dw_offset_or_block_len = soff * daf;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_offset_extended_sf(reg=%ju,soff=%jd)\n",
+			    reg, soff);
+#endif
 			break;
 		case DW_CFA_def_cfa_sf:
 			*row_pc = pc;
@@ -505,6 +590,10 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			CFA.dw_value_type = DW_EXPR_OFFSET;
 			CFA.dw_regnum = reg;
 			CFA.dw_offset_or_block_len = soff * daf;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_def_cfa_sf(reg=%ju,soff=%jd)\n", reg,
+			    soff);
+#endif
 			break;
 		case DW_CFA_def_cfa_offset_sf:
 			*row_pc = pc;
@@ -512,6 +601,9 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			CFA.dw_offset_relevant = 1;
 			CFA.dw_value_type = DW_EXPR_OFFSET;
 			CFA.dw_offset_or_block_len = soff * daf;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_def_cfa_offset_sf(soff=%jd)\n", soff);
+#endif
 			break;
 		case DW_CFA_val_offset:
 			*row_pc = pc;
@@ -522,6 +614,10 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			RL[reg].dw_value_type = DW_EXPR_VAL_OFFSET;
 			RL[reg].dw_regnum = dbg->dbg_frame_cfa_value;
 			RL[reg].dw_offset_or_block_len = uoff * daf;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_val_offset(reg=%ju,uoff=%ju)\n", reg,
+			    uoff);
+#endif
 			break;
 		case DW_CFA_val_offset_sf:
 			*row_pc = pc;
@@ -532,6 +628,10 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			RL[reg].dw_value_type = DW_EXPR_VAL_OFFSET;
 			RL[reg].dw_regnum = dbg->dbg_frame_cfa_value;
 			RL[reg].dw_offset_or_block_len = soff * daf;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_val_offset_sf(reg=%ju,soff=%jd)\n", reg,
+			    soff);
+#endif
 			break;
 		case DW_CFA_val_expression:
 			/* TODO. */
@@ -542,6 +642,9 @@ frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
 			RL[reg].dw_value_type = DW_EXPR_VAL_EXPRESSION;
 			RL[reg].dw_offset_or_block_len = decode_uleb128(&p);
 			p += RL[reg].dw_offset_or_block_len;
+#ifdef FRAME_DEBUG
+			printf("DW_CFA_val_expression\n");
+#endif
 			break;
 		default:
 			DWARF_SET_ERROR(error, DWARF_E_INVALID_FRAME);
