@@ -214,7 +214,8 @@ dwarf_loclist_from_expr(Dwarf_Debug dbg, Dwarf_Ptr bytes_in,
 		return (DW_DLV_ERROR);
 	}
 
-	ret = loc_fill_locexpr(&ld, bytes_in, bytes_len, dbg->dbg_offsize, error);
+	ret = loc_fill_locexpr(dbg, &ld, bytes_in, bytes_len, dbg->dbg_offsize,
+	    error);
 	if (ret != DWARF_E_NONE)
 		return (DW_DLV_ERROR);
 
@@ -225,15 +226,15 @@ dwarf_loclist_from_expr(Dwarf_Debug dbg, Dwarf_Ptr bytes_in,
 }
 
 int
-dwarf_loclist_from_expr_a(Dwarf_Ptr bytes_in, Dwarf_Unsigned bytes_len,
-    Dwarf_Half addr_size, Dwarf_Locdesc **llbuf, Dwarf_Signed *listlen,
-    Dwarf_Error *error)
+dwarf_loclist_from_expr_a(Dwarf_Debug dbg, Dwarf_Ptr bytes_in,
+    Dwarf_Unsigned bytes_len, Dwarf_Half addr_size, Dwarf_Locdesc **llbuf,
+    Dwarf_Signed *listlen, Dwarf_Error *error)
 {
 	Dwarf_Locdesc *ld;
 	int ret;
 
-	if (bytes_in == NULL || bytes_len == 0 || llbuf == NULL ||
-	    listlen == NULL) {
+	if (dbg == NULL || bytes_in == NULL || bytes_len == 0 ||
+	    llbuf == NULL || listlen == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
 		return (DW_DLV_ERROR);
 	}
@@ -243,7 +244,7 @@ dwarf_loclist_from_expr_a(Dwarf_Ptr bytes_in, Dwarf_Unsigned bytes_len,
 		return (DW_DLV_ERROR);
 	}
 
-	ret = loc_fill_locexpr(&ld, bytes_in, bytes_len, addr_size, error);
+	ret = loc_fill_locexpr(dbg, &ld, bytes_in, bytes_len, addr_size, error);
 	if (ret != DWARF_E_NONE)
 		return (DW_DLV_ERROR);
 
@@ -278,6 +279,8 @@ int
 dwarf_locdesc(Dwarf_Die die, uint64_t attr, Dwarf_Locdesc **llbuf,
     Dwarf_Signed *lenp, Dwarf_Error *error)
 {
+	Dwarf_Debug dbg;
+	Dwarf_CU cu;
 	Dwarf_Attribute at;
 	Dwarf_Locdesc *lbuf;
 	int ret;
@@ -292,13 +295,19 @@ dwarf_locdesc(Dwarf_Die die, uint64_t attr, Dwarf_Locdesc **llbuf,
 		return (DW_DLV_NO_ENTRY);
 	}
 
+	cu = die->die_cu;
+	assert(cu != NULL);
+
+	dbg = cu->cu_dbg;
+	assert(dbg != NULL);
+
 	*lenp = 0;
 	switch (at->at_form) {
 	case DW_FORM_block:
 	case DW_FORM_block1:
 	case DW_FORM_block2:
 	case DW_FORM_block4:
-		ret = loc_fill_locexpr(&lbuf, at->u[1].u8p, at->u[0].u64,
+		ret = loc_fill_locexpr(dbg, &lbuf, at->u[1].u8p, at->u[0].u64,
 		    die->die_cu->cu_pointer_size, error);
 		*lenp = 1;
 		break;

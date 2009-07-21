@@ -72,8 +72,9 @@ loclist_add_locdesc(Dwarf_Debug dbg, Dwarf_CU cu, Elf_Data *d, uint64_t *off,
 			*total_len += len;
 
 		if (ld != NULL) {
-			ret = loc_fill_locdesc(&ld[i], (uint8_t *)d->d_buf +
-			    *off, len, cu->cu_pointer_size, error);
+			ret = loc_fill_locdesc(dbg, &ld[i],
+			    (uint8_t *)d->d_buf + *off, len,
+			    cu->cu_pointer_size, error);
 			if (ret != DWARF_E_NONE)
 				return (ret);
 		}

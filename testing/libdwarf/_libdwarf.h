@@ -327,10 +327,10 @@ int		frame_init(Dwarf_Debug, Dwarf_Error *);
 int		frame_regtable_copy(Dwarf_Debug, Dwarf_Regtable3 **,
 		    Dwarf_Regtable3 *, Dwarf_Error *);
 int		lineno_init(Dwarf_Die, uint64_t, Dwarf_Error *);
-int		loc_fill_locdesc(Dwarf_Locdesc *, uint8_t *, uint64_t, uint8_t,
-		    Dwarf_Error *);
-int		loc_fill_locexpr(Dwarf_Locdesc **, uint8_t *, uint64_t, uint8_t,
-		    Dwarf_Error *);
+int		loc_fill_locdesc(Dwarf_Debug, Dwarf_Locdesc *, uint8_t *,
+		    uint64_t, uint8_t, Dwarf_Error *);
+int		loc_fill_locexpr(Dwarf_Debug, Dwarf_Locdesc **, uint8_t *,
+		    uint64_t, uint8_t, Dwarf_Error *);
 int		loc_add(Dwarf_Die, Dwarf_Attribute, Dwarf_Error *);
 int		loclist_find(Dwarf_Debug, uint64_t, Dwarf_Loclist *);
 int		loclist_add(Dwarf_Debug, Dwarf_CU, uint64_t, Dwarf_Error *);
