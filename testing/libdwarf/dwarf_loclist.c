@@ -151,6 +151,56 @@ dwarf_loclist(Dwarf_Attribute at, Dwarf_Locdesc **llbuf,
 }
 
 int
+dwarf_get_loclist_entry(Dwarf_Debug dbg, Dwarf_Unsigned offset,
+    Dwarf_Addr *hipc, Dwarf_Addr *lopc, Dwarf_Ptr *data,
+    Dwarf_Unsigned *entry_len, Dwarf_Unsigned *next_entry,
+    Dwarf_Error *error)
+{
+	Dwarf_Loclist ll, next_ll;
+	Dwarf_Locdesc *ld;
+	int i, ret;
+
+	if (dbg == NULL || hipc == NULL || lopc == NULL || data == NULL ||
+	    entry_len == NULL || next_entry == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	ret = loclist_find(dbg, offset, &ll);
+	if (ret == DWARF_E_NO_ENTRY) {
+		DWARF_SET_ERROR(error, DWARF_E_INVALID_ATTR);
+		return (DW_DLV_NO_ENTRY);
+	}
+	
+	*hipc = *lopc = 0;
+	for (i = 0; i < ll->ll_ldlen; i++) {
+		ld = &ll->ll_ldlist[i];
+		if (i == 0) {
+			*hipc = ld->ld_hipc;
+			*lopc = ld->ld_lopc;
+		} else {
+			if (ld->ld_lopc < *lopc)
+				*lopc = ld->ld_lopc;
+			if (ld->ld_hipc > *hipc)
+				*hipc = ld->ld_hipc;
+		}
+	}
+
+	assert(dbg->dbg_s[DWARF_debug_loc].s_data != NULL);
+	*data = (uint8_t *)dbg->dbg_s[DWARF_debug_loc].s_data->d_buf +
+	    ll->ll_offset;
+	*entry_len = ll->ll_length;
+
+	next_ll = TAILQ_NEXT(ll, ll_next);
+	if (next_ll != NULL)
+		*next_entry = next_ll->ll_offset;
+	else
+		*next_entry = dbg->dbg_s[DWARF_debug_loc].s_data->d_size;
+
+	return (DW_DLV_OK);
+}
+
+int
 dwarf_loclist_from_expr(Dwarf_Debug dbg, Dwarf_Ptr bytes_in,
     Dwarf_Unsigned bytes_len, Dwarf_Locdesc **llbuf, Dwarf_Signed *listlen,
     Dwarf_Error *error)

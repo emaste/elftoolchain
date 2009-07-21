@@ -301,6 +301,9 @@ int		dwarf_get_funcs(Dwarf_Debug, Dwarf_Func **, Dwarf_Signed *,
 		    Dwarf_Error *);
 int		dwarf_get_globals(Dwarf_Debug, Dwarf_Global **, Dwarf_Signed *,
 		    Dwarf_Error *);
+int		dwarf_get_loclist_entry(Dwarf_Debug, Dwarf_Unsigned,
+		    Dwarf_Addr *, Dwarf_Addr *, Dwarf_Ptr *, Dwarf_Unsigned *,
+		    Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_get_pubtypes(Dwarf_Debug, Dwarf_Type **, Dwarf_Signed *,
 		    Dwarf_Error *);
 int		dwarf_get_types(Dwarf_Debug, Dwarf_Type **, Dwarf_Signed *,

@@ -30,10 +30,14 @@
 
 static int
 loclist_add_locdesc(Dwarf_Debug dbg, Dwarf_CU cu, Elf_Data *d, uint64_t *off,
-    Dwarf_Locdesc *ld, uint64_t *ldlen, Dwarf_Error *error)
+    Dwarf_Locdesc *ld, uint64_t *ldlen, Dwarf_Unsigned *total_len,
+    Dwarf_Error *error)
 {
 	uint64_t start, end;
 	int i, len, ret;
+
+	if (total_len != NULL)
+		*total_len = 0;
 
 	for (i = 0; *off < d->d_size; i++) {
 		start = dbg->read(&d, off, cu->cu_pointer_size);
@@ -42,6 +46,9 @@ loclist_add_locdesc(Dwarf_Debug dbg, Dwarf_CU cu, Elf_Data *d, uint64_t *off,
 			ld[i].ld_lopc = start;
 			ld[i].ld_hipc = end;
 		}
+
+		if (total_len != NULL)
+			*total_len += 2 * cu->cu_pointer_size;
 
 		/* Check if it is the end entry. */
 		if (start == 0 && end ==0) {
@@ -60,6 +67,9 @@ loclist_add_locdesc(Dwarf_Debug dbg, Dwarf_CU cu, Elf_Data *d, uint64_t *off,
 			DWARF_SET_ERROR(error, DWARF_E_INVALID_LOCLIST);
 			return (DWARF_E_INVALID_LOCLIST);
 		}
+
+		if (total_len != NULL)
+			*total_len += len;
 
 		if (ld != NULL) {
 			ret = loc_fill_locdesc(&ld[i], (uint8_t *)d->d_buf +
@@ -82,7 +92,7 @@ loclist_find(Dwarf_Debug dbg, uint64_t lloff, Dwarf_Loclist *ret_ll)
 {
 	Dwarf_Loclist ll;
 
-	STAILQ_FOREACH(ll, &dbg->dbg_loclist, ll_next)
+	TAILQ_FOREACH(ll, &dbg->dbg_loclist, ll_next)
 		if (ll->ll_offset == lloff)
 			break;
 
@@ -99,7 +109,7 @@ int
 loclist_add(Dwarf_Debug dbg, Dwarf_CU cu, uint64_t lloff, Dwarf_Error *error)
 {
 	Elf_Data *d;
-	Dwarf_Loclist ll;
+	Dwarf_Loclist ll, tll;
 	uint64_t ldlen;
 	int ret;
 
@@ -119,7 +129,8 @@ loclist_add(Dwarf_Debug dbg, Dwarf_CU cu, uint64_t lloff, Dwarf_Error *error)
 	ll->ll_offset = lloff;
 
 	/* Get the number of locdesc the first round. */
-	ret = loclist_add_locdesc(dbg, cu, d, &lloff, NULL, &ldlen, error);
+	ret = loclist_add_locdesc(dbg, cu, d, &lloff, NULL, &ldlen, NULL,
+	    error);
 	if (ret != DWARF_E_NONE) {
 		free(ll);
 		return (ret);
@@ -134,15 +145,23 @@ loclist_add(Dwarf_Debug dbg, Dwarf_CU cu, uint64_t lloff, Dwarf_Error *error)
 	lloff = ll->ll_offset;
 
 	/* Fill in locdesc. */
-	ret = loclist_add_locdesc(dbg, cu, d, &lloff, ll->ll_ldlist, NULL, error);
+	ret = loclist_add_locdesc(dbg, cu, d, &lloff, ll->ll_ldlist, NULL,
+	    &ll->ll_length, error);
 	if (ret != DWARF_E_NONE) {
 		free(ll->ll_ldlist);
 		free(ll);
 		return (ret);
 	}
 
-	/* Insert to the queue. */
-	STAILQ_INSERT_TAIL(&dbg->dbg_loclist, ll, ll_next);
+	/* Insert to the queue. Sort by offset. */
+	TAILQ_FOREACH(tll, &dbg->dbg_loclist, ll_next)
+		if (tll->ll_offset > ll->ll_offset) {
+			TAILQ_INSERT_BEFORE(tll, ll, ll_next);
+			break;
+		}
+		
+	if (tll == NULL)
+		TAILQ_INSERT_TAIL(&dbg->dbg_loclist, ll, ll_next);
 
 	return (ret);
 }
