@@ -244,8 +244,13 @@ int		dwarf_die_CU_offset_range(Dwarf_Die, Dwarf_Off *, Dwarf_Off *,
 		    Dwarf_Error *);
 int		dwarf_elf_init(Elf *, int, Dwarf_Debug *, Dwarf_Error *);
 int		dwarf_errno(Dwarf_Error *);
+int		dwarf_expand_frame_instructions(Dwarf_Debug, Dwarf_Ptr,
+		    Dwarf_Unsigned, Dwarf_Frame_Op **, Dwarf_Signed *,
+		    Dwarf_Error *);
 int		dwarf_finish(Dwarf_Debug *, Dwarf_Error *);
 int		dwarf_formref(Dwarf_Attribute, Dwarf_Off *, Dwarf_Error *);
+int		dwarf_free_expanded_frame_instrctions(Dwarf_Frame_Op *,
+		    Dwarf_Signed, Dwarf_Error *);
 int		dwarf_func_cu_offset(Dwarf_Func, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_func_die_offset(Dwarf_Func, Dwarf_Off *,
 		    Dwarf_Error *);
