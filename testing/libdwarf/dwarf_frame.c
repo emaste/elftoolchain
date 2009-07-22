@@ -83,6 +83,38 @@ dwarf_get_fde_n(Dwarf_Fde *fdelist, Dwarf_Unsigned fde_index,
 }
 
 int
+dwarf_get_fde_at_pc(Dwarf_Fde *fdelist, Dwarf_Addr pc, Dwarf_Fde *ret_fde,
+    Dwarf_Addr *lopc, Dwarf_Addr *hipc, Dwarf_Error *error)
+{
+	Dwarf_FrameSec fs;
+	Dwarf_Fde fde;
+	int i;
+
+	if (fdelist == NULL || ret_fde == NULL || lopc == NULL ||
+	    hipc == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+	
+	fs = fdelist[0]->fde_fs;
+	assert(fs != NULL);
+	
+	for (i = 0; (Dwarf_Unsigned)i < fs->fs_fdelen; i++) {
+		fde = fdelist[i];
+		if (pc >= fde->fde_initloc && pc < fde->fde_initloc +
+		    fde->fde_adrange) {
+			*ret_fde = fde;
+			*lopc = fde->fde_initloc;
+			*hipc = fde->fde_initloc + fde->fde_adrange;
+			return (DW_DLV_OK);
+		}
+	}
+
+	DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
+	return (DW_DLV_NO_ENTRY);
+}
+
+int
 dwarf_get_cie_of_fde(Dwarf_Fde fde, Dwarf_Cie *ret_cie, Dwarf_Error *error)
 {
 
