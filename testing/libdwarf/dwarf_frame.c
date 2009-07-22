@@ -384,6 +384,42 @@ dwarf_get_fde_info_for_all_reg3(Dwarf_Fde fde, Dwarf_Addr pc_requested,
 	return (DW_DLV_OK);
 }
 
+int
+dwarf_expand_frame_instructions(Dwarf_Debug dbg, Dwarf_Ptr instruction,
+    Dwarf_Unsigned len, Dwarf_Frame_Op **ret_oplist, Dwarf_Signed *ret_opcnt,
+    Dwarf_Error *error)
+{
+	int ret;
+
+	if (dbg == NULL || instruction == NULL || len == 0 ||
+	    ret_oplist == NULL || ret_opcnt == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	ret = frame_get_fop(dbg, instruction, len, ret_oplist, ret_opcnt,
+	    error);
+	if (ret != DWARF_E_NONE)
+		return (DW_DLV_ERROR);
+
+	return (DW_DLV_OK);
+}
+
+int
+dwarf_free_expanded_frame_instrctions(Dwarf_Frame_Op *oplist,
+    Dwarf_Signed opcnt, Dwarf_Error *error)
+{
+
+	if (oplist == NULL || opcnt == 0) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	frame_free_fop(oplist, opcnt);
+
+	return (DW_DLV_OK);
+}
+
 Dwarf_Half
 dwarf_set_frame_rule_table_size(Dwarf_Debug dbg, Dwarf_Half value)
 {

@@ -264,7 +264,6 @@ loc_fill_loc(Dwarf_Debug dbg, Dwarf_Locdesc *lbuf, uint8_t pointer_size,
 		}
 	}
 
-	printf("count=%d\n", count);
 	return (count);
 }
 

@@ -315,7 +315,7 @@ fail_cleanup:
 
 static int
 frame_run_inst(Dwarf_Debug dbg, Dwarf_Regtable3 *rt, uint8_t *insts,
-    Dwarf_Unsigned len, Dwarf_Unsigned caf, Dwarf_Unsigned daf, Dwarf_Addr pc,
+    Dwarf_Unsigned len, Dwarf_Unsigned caf, Dwarf_Signed daf, Dwarf_Addr pc,
     Dwarf_Addr pc_req, Dwarf_Addr *row_pc, Dwarf_Error *error)
 {
 	Dwarf_Regtable3 *init_rt, *saved_rt;
@@ -668,6 +668,243 @@ program_done:
 #undef	RL
 #undef	INITRL
 #undef	CHECK_TABLE_SIZE
+}
+
+static int
+frame_convert_inst(Dwarf_Debug dbg, uint8_t *insts, Dwarf_Unsigned len,
+    Dwarf_Unsigned *count, Dwarf_Frame_Op *fop, Dwarf_Frame_Op3 *fop3,
+    Dwarf_Error *error)
+{
+	uint8_t *p, *pe;
+	uint8_t high2, low6;
+	uint64_t reg, reg2, uoff, soff, blen;
+	int ret;
+
+#define	SET_BASE_OP(x)						\
+	do {							\
+		if (fop != NULL)				\
+			fop[*count].fp_base_op = (x);		\
+		if (fop3 != NULL)				\
+			fop3[*count].fp_base_op = (x);		\
+	} while(0)
+
+#define	SET_EXTENDED_OP(x)					\
+	do {							\
+		if (fop != NULL)				\
+			fop[*count].fp_extended_op = (x);	\
+		if (fop3 != NULL)				\
+			fop3[*count].fp_extended_op = (x);	\
+	} while(0)
+
+#define	SET_REGISTER(x)						\
+	do {							\
+		if (fop != NULL)				\
+			fop[*count].fp_register = (x);		\
+		if (fop3 != NULL)				\
+			fop3[*count].fp_register = (x);		\
+	} while(0)
+
+#define	SET_OFFSET(x)						\
+	do {							\
+		if (fop != NULL)				\
+			fop[*count].fp_offset = (x);		\
+		if (fop3 != NULL)				\
+			fop3[*count].fp_offset_or_block_len =	\
+			    (x);				\
+	} while(0)
+
+#define	SET_INSTR_OFFSET(x)					\
+	do {							\
+		if (fop != NULL)				\
+			fop[*count].fp_instr_offset = (x);	\
+		if (fop3 != NULL)				\
+			fop3[*count].fp_instr_offset = (x);	\
+	} while(0)
+
+#define	SET_BLOCK_LEN(x)					\
+	do {							\
+		if (fop3 != NULL)				\
+			fop3[*count].fp_offset_or_block_len =	\
+			    (x);				\
+	} while(0)
+
+#define	SET_EXPR_BLOCK(addr, len)					\
+	do {								\
+		if (fop3 != NULL) {					\
+			fop3[*count].fp_expr_block = malloc((len));	\
+			if (fop3[*count].fp_expr_block == NULL)	{	\
+				DWARF_SET_ERROR(error, DWARF_E_MEMORY);	\
+				return (DWARF_E_MEMORY);		\
+			}						\
+			memcpy(&fop3[*count].fp_expr_block,		\
+			    (addr), (len));				\
+		}							\
+	} while(0)
+
+	ret = DWARF_E_NONE;
+	*count = 0;
+
+	p = insts;
+	pe = p + len;
+
+	while (p < pe) {
+
+		SET_INSTR_OFFSET(p - insts);
+
+		if (*p == DW_CFA_nop) {
+			p++;
+			(*count)++;
+			continue;
+		}
+
+		high2 = *p >> 6;
+		low6 = *p & 0x3f;
+		p++;
+
+		if (high2 > 0) {
+			switch (high2) {
+			case DW_CFA_advance_loc:
+				SET_BASE_OP(high2);
+				break;
+			case DW_CFA_offset:
+				SET_BASE_OP(high2);
+				SET_REGISTER(low6);
+				uoff = decode_uleb128(&p);
+				SET_OFFSET(uoff);
+				break;
+			case DW_CFA_restore:
+				SET_BASE_OP(high2);
+				SET_REGISTER(low6);
+				break;
+			default:
+				DWARF_SET_ERROR(error, DWARF_E_INVALID_FRAME);
+				return (DWARF_E_INVALID_FRAME);
+			}
+
+			(*count)++;
+			continue;
+		}
+
+		SET_EXTENDED_OP(low6);
+
+		switch (low6) {
+		case DW_CFA_set_loc:
+			uoff = dbg->decode(&p, dbg->dbg_pointer_size);
+			SET_OFFSET(uoff);
+			break;
+		case DW_CFA_advance_loc1:
+			uoff = dbg->decode(&p, 1);
+			SET_OFFSET(uoff);
+			break;
+		case DW_CFA_advance_loc2:
+			uoff = dbg->decode(&p, 2);
+			SET_OFFSET(uoff);
+			break;
+		case DW_CFA_advance_loc4:
+			uoff = dbg->decode(&p, 4);
+			SET_OFFSET(uoff);
+			break;
+		case DW_CFA_offset_extended:
+		case DW_CFA_def_cfa:
+		case DW_CFA_val_offset:
+			reg = decode_uleb128(&p);
+			uoff = decode_uleb128(&p);
+			SET_REGISTER(reg);
+			SET_OFFSET(uoff);
+			break;
+		case DW_CFA_restore_extended:
+		case DW_CFA_undefined:
+		case DW_CFA_same_value:
+		case DW_CFA_def_cfa_register:
+			reg = decode_uleb128(&p);
+			SET_REGISTER(reg);
+			break;
+		case DW_CFA_register:
+			reg = decode_uleb128(&p);
+			reg2 = decode_uleb128(&p);
+			SET_REGISTER(reg);
+			SET_OFFSET(reg2);
+			break;
+		case DW_CFA_remember_state:
+		case DW_CFA_restore_state:
+			break;
+		case DW_CFA_def_cfa_offset:
+			uoff = decode_uleb128(&p);
+			SET_OFFSET(uoff);
+			break;
+		case DW_CFA_def_cfa_expression:
+			blen = decode_uleb128(&p);
+			SET_BLOCK_LEN(blen);
+			SET_EXPR_BLOCK(p, blen);
+			p += blen;
+			break;
+		case DW_CFA_expression:
+		case DW_CFA_val_expression:
+			reg = decode_uleb128(&p);
+			blen = decode_uleb128(&p);
+			SET_REGISTER(reg);
+			SET_BLOCK_LEN(blen);
+			SET_EXPR_BLOCK(p, blen);
+			p += blen;
+			break;
+		case DW_CFA_offset_extended_sf:
+		case DW_CFA_def_cfa_sf:
+		case DW_CFA_val_offset_sf:
+			reg = decode_uleb128(&p);
+			soff = decode_sleb128(&p);
+			SET_REGISTER(reg);
+			SET_OFFSET(soff);
+			break;
+		case DW_CFA_def_cfa_offset_sf:
+			soff = decode_sleb128(&p);
+			SET_OFFSET(soff);
+			break;
+		default:
+			DWARF_SET_ERROR(error, DWARF_E_INVALID_FRAME);
+			return (DWARF_E_INVALID_FRAME);
+		}
+
+		(*count)++;
+	}
+
+	return (DWARF_E_NONE);
+}
+
+int
+frame_get_fop(Dwarf_Debug dbg, uint8_t *insts, Dwarf_Unsigned len,
+    Dwarf_Frame_Op **ret_oplist, Dwarf_Signed *ret_opcnt, Dwarf_Error *error)
+{
+	Dwarf_Frame_Op *oplist;
+	Dwarf_Unsigned count;
+	int ret;
+
+	ret = frame_convert_inst(dbg, insts, len, &count, NULL, NULL, error);
+	if (ret != DWARF_E_NONE)
+		return (ret);
+
+	if ((oplist = calloc(count, sizeof(Dwarf_Frame_Op))) == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_MEMORY);
+		return (DWARF_E_MEMORY);
+	}
+
+	ret = frame_convert_inst(dbg, insts, len, &count, oplist, NULL, error);
+	if (ret != DWARF_E_NONE) {
+		frame_free_fop(oplist, count);
+		return (ret);
+	}
+
+	*ret_oplist = oplist;
+	*ret_opcnt = count;
+
+	return (DWARF_E_NONE);
+}
+
+void
+frame_free_fop(Dwarf_Frame_Op *oplist, Dwarf_Unsigned count)
+{
+
+	(void) count;
+	free(oplist);
 }
 
 int

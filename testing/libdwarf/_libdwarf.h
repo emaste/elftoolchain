@@ -322,6 +322,9 @@ int		die_add(Dwarf_CU, int, uint64_t, uint64_t, Dwarf_Abbrev,
 Dwarf_Die	die_find(Dwarf_Die, Dwarf_Unsigned);
 int		elf_read(Dwarf_Debug, Dwarf_Error *);
 void		frame_cleanup(Dwarf_Debug);
+void		frame_free_fop(Dwarf_Frame_Op *, Dwarf_Unsigned);
+int		frame_get_fop(Dwarf_Debug, uint8_t *, Dwarf_Unsigned,
+		    Dwarf_Frame_Op **, Dwarf_Signed *, Dwarf_Error *);
 int		frame_get_internal_table(Dwarf_Fde, Dwarf_Addr,
 		    Dwarf_Regtable3 **, Dwarf_Addr *, Dwarf_Error *);
 int		frame_init(Dwarf_Debug, Dwarf_Error *);
