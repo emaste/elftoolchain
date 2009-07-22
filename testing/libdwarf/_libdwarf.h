@@ -245,6 +245,24 @@ struct _Dwarf_FrameSec {
 	Dwarf_Unsigned	fs_fdelen;	/* Length of FDE array. */
 };
 
+struct _Dwarf_Arange {
+	Dwarf_ArangeSet	ar_as;		/* Ptr to the set it belongs to. */
+	Dwarf_Unsigned	ar_address;	/* Start PC. */
+	Dwarf_Unsigned	ar_range;	/* PC range. */
+	STAILQ_ENTRY(_Dwarf_Arange) ar_next; /* Next arange in list. */
+};
+
+struct _Dwarf_ArangeSet {
+	Dwarf_Unsigned	as_length;	/* Length of the arange set. */
+	Dwarf_Half	as_version;	/* Version of the arange set. */
+	Dwarf_Unsigned	as_cu_offset;	/* Offset of associated CU. */
+	Dwarf_CU	as_cu;		/* Ptr to associated CU. */
+	Dwarf_Small	as_addrsz;	/* Target address size. */
+	Dwarf_Small	as_segsz;	/* Target segment size. */
+	STAILQ_HEAD (, _Dwarf_Arange) as_arlist; /* List of ae entries. */
+	STAILQ_ENTRY(_Dwarf_ArangeSet) as_next; /* Next set in list. */
+};
+
 struct _Dwarf_CU {
 	Dwarf_Debug	cu_dbg;		/* Ptr to containing dbg. */
 	uint64_t	cu_offset;	/* Offset to the this CU. */
@@ -294,6 +312,9 @@ struct _Dwarf_Debug {
 	Dwarf_NameSec	dbg_vars;	/* Ptr to static vars lookup sect. */
 	Dwarf_NameSec	dbg_types;	/* Ptr to types lookup section. */
 	Dwarf_FrameSec	dbg_frame;	/* Ptr to .debug_frame section. */
+	STAILQ_HEAD(, _Dwarf_ArangeSet) dbg_aslist; /* List of arange set. */
+	Dwarf_Arange	*dbg_arange_array; /* Array of arange. */
+	Dwarf_Unsigned	dbg_arange_cnt;	/* Length of the arange array. */
 	uint64_t	(*read)(Elf_Data **, uint64_t *, int);
 	void		(*write)(Elf_Data **, uint64_t *, uint64_t, int);
 	uint64_t	(*decode)(uint8_t **, int);
@@ -310,6 +331,8 @@ struct _Dwarf_Debug {
 /* Internal function prototype definitions. */
 int		abbrev_init(Dwarf_Debug, Dwarf_CU, Dwarf_Error *);
 Dwarf_Abbrev	abbrev_find(Dwarf_CU, uint64_t);
+void		arange_cleanup(Dwarf_Debug);
+int		arange_init(Dwarf_Debug, Elf_Data *, Dwarf_Error *);
 Dwarf_Attribute	attr_find(Dwarf_Die, Dwarf_Half);
 int		attr_init(Dwarf_Debug, Elf_Data **, uint64_t *, Dwarf_CU,
 		    Dwarf_Die, Dwarf_AttrDef, uint64_t, int, Dwarf_Error *);

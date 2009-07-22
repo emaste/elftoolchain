@@ -44,6 +44,7 @@ typedef void		*Dwarf_Ptr;
 /* Forward definitions. */
 typedef struct _Dwarf_Abbrev	*Dwarf_Abbrev;
 typedef struct _Dwarf_Arange	*Dwarf_Arange;
+typedef struct _Dwarf_ArangeSet	*Dwarf_ArangeSet;
 typedef struct _Dwarf_Attribute	*Dwarf_Attribute;
 typedef struct _Dwarf_AttrDef	*Dwarf_AttrDef;
 typedef struct _Dwarf_CU	*Dwarf_CU;
@@ -190,6 +191,7 @@ enum {
 	DWARF_E_INVALID_LINE,		/* Invalid line info data. */
 	DWARF_E_INVALID_FRAME,		/* Invalid call frame data. */
 	DWARF_E_REGTABLE_SPACE,		/* Insufficient regtable space. */
+	DWARF_E_INVALID_ARANGE,		/* Invalid address range data. */
 	DWARF_E_NUM			/* Max error number. */
 };
 
@@ -276,10 +278,20 @@ int		dwarf_get_abbrev_code(Dwarf_Abbrev, Dwarf_Unsigned *,
 int		dwarf_get_abbrev_entry(Dwarf_Abbrev, Dwarf_Signed, Dwarf_Half *,
 		    Dwarf_Signed *, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_get_abbrev_tag(Dwarf_Abbrev, Dwarf_Half *, Dwarf_Error *);
+int		dwarf_get_arange(Dwarf_Arange *, Dwarf_Unsigned, Dwarf_Addr,
+		    Dwarf_Arange *, Dwarf_Error *);
+int		dwarf_get_aranges(Dwarf_Debug, Dwarf_Arange **, Dwarf_Signed *,
+		    Dwarf_Error *);
+int		dwarf_get_arange_cu_header_offset(Dwarf_Arange, Dwarf_Off *,
+		    Dwarf_Error *);
+int		dwarf_get_arange_info(Dwarf_Arange, Dwarf_Addr *,
+		    Dwarf_Unsigned *, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_get_cie_info(Dwarf_Cie, Dwarf_Unsigned *, Dwarf_Small *,
 		    char **, Dwarf_Unsigned *, Dwarf_Unsigned *, Dwarf_Half *,
 		    Dwarf_Ptr *, Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_get_cie_of_fde(Dwarf_Fde, Dwarf_Cie *, Dwarf_Error *);
+int		dwarf_get_cu_die_offset(Dwarf_Arange, Dwarf_Off *,
+		    Dwarf_Error *);
 int		dwarf_get_cu_die_offset_given_cu_header_offset(Dwarf_Debug,
 		    Dwarf_Off, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_get_fde_at_pc(Dwarf_Fde *, Dwarf_Addr, Dwarf_Fde *,

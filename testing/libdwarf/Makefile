@@ -4,6 +4,7 @@ LIB=	dwarf
 
 SRCS=	\
 	dwarf_abbrev.c		\
+	dwarf_arange.c		\
 	dwarf_attr.c		\
 	dwarf_attrval.c		\
 	dwarf_cu.c		\
@@ -25,6 +26,7 @@ SRCS=	\
 	dwarf_vars.c		\
 	dwarf_weaks.c		\
 	libdwarf_abbrev.c	\
+	libdwarf_arange.c	\
 	libdwarf_attr.c		\
 	libdwarf_die.c		\
 	libdwarf_frame.c	\

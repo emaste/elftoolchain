@@ -376,5 +376,14 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 	if (ret != DWARF_E_NONE)
 		return (ret);
 
+	/* Initialise address range data. */
+	STAILQ_INIT(&dbg->dbg_aslist);
+	if (dbg->dbg_s[DWARF_debug_aranges].s_scn != NULL) {
+		ret = arange_init(dbg, dbg->dbg_s[DWARF_debug_aranges].s_data,
+		    error);
+		if (ret != DWARF_E_NONE)
+			return (ret);
+	}
+
 	return (ret);
 }
