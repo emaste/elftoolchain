@@ -50,6 +50,7 @@ const char *_libdwarf_errors[] = {
 	DEFINE_ERROR(INVALID_LINE,	"Invalid line info data"),
 	DEFINE_ERROR(INVALID_FRAME,	"Invalid call frame data"),
 	DEFINE_ERROR(REGTABLE_SPACE,	"Insufficient internal regtable space"),
+	DEFINE_ERROR(INVALID_ARANGE,	"Invalid address range data"),
 	DEFINE_ERROR(NUM,		"Unknown DWARF error")
 #undef	DEFINE_ERROR
 };
