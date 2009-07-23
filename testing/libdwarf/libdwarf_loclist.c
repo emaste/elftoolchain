@@ -139,6 +139,7 @@ loclist_add(Dwarf_Debug dbg, Dwarf_CU cu, uint64_t lloff, Dwarf_Error *error)
 
 	ll->ll_ldlen = ldlen;
 	if ((ll->ll_ldlist = calloc(ldlen, sizeof(Dwarf_Locdesc))) == NULL) {
+		free(ll);
 		DWARF_SET_ERROR(error, DWARF_E_MEMORY);
 		return (DWARF_E_MEMORY);
 	}

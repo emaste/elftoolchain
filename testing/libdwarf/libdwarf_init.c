@@ -344,6 +344,9 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 	/* Initialise the loclist. */
 	TAILQ_INIT(&dbg->dbg_loclist);
 
+	/* Initialise rangelist list. */
+	STAILQ_INIT(&dbg->dbg_rllist);
+
 	/* Initialise the compilation-units. */
 	ret = init_info(dbg, error);
 	if (ret != DWARF_E_NONE)

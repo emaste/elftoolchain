@@ -107,6 +107,14 @@ attr_add(Dwarf_Die die, Dwarf_Attribute atref, Dwarf_Attribute *atp,
 		break;
 	}
 
+	/* If the attribute points to a range list, find and save it. */
+	if (at->at_attrib == DW_AT_ranges) {
+		ret = ranges_add(die->die_cu->cu_dbg, die->die_cu,
+		    at->u[0].u64, error);
+		if (ret != DWARF_E_NONE)
+			return (ret);
+	}
+
 	if (atp != NULL)
 		*atp = at;
 

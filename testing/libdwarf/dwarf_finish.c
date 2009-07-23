@@ -132,6 +132,9 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 		free(ll);
 	}
 
+	/* Free rangelist. */
+	ranges_cleanup(dbg);
+
 	/* Free name lookup tables. */
 	if (dbg->dbg_globals)
 		nametbl_cleanup(dbg->dbg_globals);
