@@ -385,5 +385,14 @@ elf_read(Dwarf_Debug dbg, Dwarf_Error *error)
 			return (ret);
 	}
 
+	/* Initialise macinfo data. */
+	STAILQ_INIT(&dbg->dbg_mslist);
+	if (dbg->dbg_s[DWARF_debug_macinfo].s_scn != NULL) {
+		ret = macinfo_init(dbg, dbg->dbg_s[DWARF_debug_macinfo].s_data,
+		    error);
+		if (ret != DWARF_E_NONE)
+			return (ret);
+	}
+
 	return (ret);
 }

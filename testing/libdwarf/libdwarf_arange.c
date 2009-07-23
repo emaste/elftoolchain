@@ -25,7 +25,6 @@
  */
 
 #include <assert.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include "_libdwarf.h"
 
@@ -105,9 +104,7 @@ arange_init(Dwarf_Debug dbg, Elf_Data *d, Dwarf_Error *error)
 		as->as_segsz = dbg->read(&d, &offset, 1);
 
 		/* Skip the padding bytes.  */
-		printf("offset(before padding)=%ju\n", offset);
 		offset = roundup(offset, 2 * as->as_addrsz);
-		printf("offset(after padding)=%ju\n", offset);
 
 		/* Read in address range descriptors. */
 		while (offset < d->d_size) {
