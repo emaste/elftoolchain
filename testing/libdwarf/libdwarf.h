@@ -283,6 +283,8 @@ int		dwarf_get_abbrev_code(Dwarf_Abbrev, Dwarf_Unsigned *,
 int		dwarf_get_abbrev_entry(Dwarf_Abbrev, Dwarf_Signed, Dwarf_Half *,
 		    Dwarf_Signed *, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_get_abbrev_tag(Dwarf_Abbrev, Dwarf_Half *, Dwarf_Error *);
+int		dwarf_get_address_size(Dwarf_Debug, Dwarf_Half *,
+		    Dwarf_Error *);
 int		dwarf_get_arange(Dwarf_Arange *, Dwarf_Unsigned, Dwarf_Addr,
 		    Dwarf_Arange *, Dwarf_Error *);
 int		dwarf_get_aranges(Dwarf_Debug, Dwarf_Arange **, Dwarf_Signed *,
