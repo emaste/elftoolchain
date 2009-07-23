@@ -24,6 +24,7 @@ SRCS=	\
 	dwarf_pubnames.c	\
 	dwarf_pubtypes.c	\
 	dwarf_ranges.c		\
+	dwarf_str.c		\
 	dwarf_types.c		\
 	dwarf_vars.c		\
 	dwarf_weaks.c		\
