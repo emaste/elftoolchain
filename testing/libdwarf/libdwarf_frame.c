@@ -30,8 +30,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define FRAME_DEBUG
-
 static int
 frame_find_cie(Dwarf_FrameSec fs, Dwarf_Unsigned offset, Dwarf_Cie *ret_cie)
 {

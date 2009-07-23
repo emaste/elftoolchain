@@ -340,6 +340,8 @@ int		dwarf_get_pubtypes(Dwarf_Debug, Dwarf_Type **, Dwarf_Signed *,
 		    Dwarf_Error *);
 int		dwarf_get_ranges(Dwarf_Debug, Dwarf_Off, Dwarf_Ranges **,
 		    Dwarf_Signed *, Dwarf_Unsigned *, Dwarf_Error *);
+int		dwarf_get_str(Dwarf_Debug, Dwarf_Off, char **, Dwarf_Signed *,
+		    Dwarf_Error *);
 int		dwarf_get_types(Dwarf_Debug, Dwarf_Type **, Dwarf_Signed *,
 		    Dwarf_Error *);
 int		dwarf_get_vars(Dwarf_Debug, Dwarf_Var **, Dwarf_Signed *,
