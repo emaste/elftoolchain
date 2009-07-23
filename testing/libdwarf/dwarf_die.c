@@ -246,3 +246,18 @@ dwarf_get_cu_die_offset_given_cu_header_offset(Dwarf_Debug dbg,
 
 	return (DW_DLV_OK);
 }
+
+int
+dwarf_get_address_size(Dwarf_Debug dbg, Dwarf_Half *addr_size,
+    Dwarf_Error *error)
+{
+
+	if (dbg == NULL || addr_size == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	*addr_size = dbg->dbg_pointer_size;
+
+	return (DW_DLV_OK);
+}
