@@ -175,7 +175,7 @@ struct _Dwarf_LineInfo {
 	Dwarf_Small	li_opbase;	/* Fisrt std opcode number. */
 	Dwarf_Small	*li_oplen;	/* Array of std opcode len. */
 	const char	**li_incdirs;	/* Array of include dirs. */
-	Dwarf_Unsigned	li_inclen;	/* Length if inc dir array. */
+	Dwarf_Unsigned	li_inclen;	/* Length of inc dir array. */
 	const char	**li_lfnarray;	/* Array of file names. */
 	Dwarf_Unsigned	li_lflen;	/* Length of filename array. */
 	STAILQ_HEAD(, _Dwarf_LineFile) li_lflist; /* List of files. */
@@ -263,6 +263,12 @@ struct _Dwarf_ArangeSet {
 	STAILQ_ENTRY(_Dwarf_ArangeSet) as_next; /* Next set in list. */
 };
 
+struct _Dwarf_MacroSet {
+	Dwarf_Macro_Details *ms_mdlist; /* Array of macinfo entries. */
+	Dwarf_Unsigned	ms_cnt;		/* Length of the array. */
+	STAILQ_ENTRY(_Dwarf_MacroSet) ms_next; /* Next set in list. */
+};
+
 struct _Dwarf_CU {
 	Dwarf_Debug	cu_dbg;		/* Ptr to containing dbg. */
 	uint64_t	cu_offset;	/* Offset to the this CU. */
@@ -315,6 +321,7 @@ struct _Dwarf_Debug {
 	STAILQ_HEAD(, _Dwarf_ArangeSet) dbg_aslist; /* List of arange set. */
 	Dwarf_Arange	*dbg_arange_array; /* Array of arange. */
 	Dwarf_Unsigned	dbg_arange_cnt;	/* Length of the arange array. */
+	STAILQ_HEAD(, _Dwarf_MacroSet) dbg_mslist; /* List of macro set. */
 	uint64_t	(*read)(Elf_Data **, uint64_t *, int);
 	void		(*write)(Elf_Data **, uint64_t *, uint64_t, int);
 	uint64_t	(*decode)(uint8_t **, int);
@@ -361,6 +368,8 @@ int		loc_fill_locexpr(Dwarf_Debug, Dwarf_Locdesc **, uint8_t *,
 int		loc_add(Dwarf_Die, Dwarf_Attribute, Dwarf_Error *);
 int		loclist_find(Dwarf_Debug, uint64_t, Dwarf_Loclist *);
 int		loclist_add(Dwarf_Debug, Dwarf_CU, uint64_t, Dwarf_Error *);
+void		macinfo_cleanup(Dwarf_Debug);
+int		macinfo_init(Dwarf_Debug, Elf_Data *, Dwarf_Error *);
 int		nametbl_init(Dwarf_Debug, Dwarf_NameSec *, Elf_Data *,
 		    Dwarf_Error *);
 void		nametbl_cleanup(Dwarf_NameSec);

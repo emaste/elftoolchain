@@ -149,6 +149,12 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 	/* Free call frame data. */
 	frame_cleanup(dbg);
 
+	/* Free address range data. */
+	arange_cleanup(dbg);
+
+	/* Free macinfo data. */
+	macinfo_cleanup(dbg);
+
 	/* Free resources associated with the ELF file. */
 	if (dbg->dbg_elf_close)
 		elf_end(dbg->dbg_elf);

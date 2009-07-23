@@ -57,6 +57,7 @@ typedef struct _Dwarf_Line	*Dwarf_Line;
 typedef struct _Dwarf_LineFile	*Dwarf_LineFile;
 typedef struct _Dwarf_LineInfo	*Dwarf_LineInfo;
 typedef struct _Dwarf_Loclist	*Dwarf_Loclist;
+typedef struct _Dwarf_MacroSet	*Dwarf_MacroSet;
 typedef struct _Dwarf_NamePair	*Dwarf_NamePair;
 typedef struct _Dwarf_NamePair	*Dwarf_Func;
 typedef struct _Dwarf_NamePair	*Dwarf_Global;
@@ -192,6 +193,7 @@ enum {
 	DWARF_E_INVALID_FRAME,		/* Invalid call frame data. */
 	DWARF_E_REGTABLE_SPACE,		/* Insufficient regtable space. */
 	DWARF_E_INVALID_ARANGE,		/* Invalid address range data. */
+	DWARF_E_INVALID_MACINFO,	/* Invalid macinfo data. */
 	DWARF_E_NUM			/* Max error number. */
 };
 
@@ -249,6 +251,7 @@ int		dwarf_errno(Dwarf_Error *);
 int		dwarf_expand_frame_instructions(Dwarf_Debug, Dwarf_Ptr,
 		    Dwarf_Unsigned, Dwarf_Frame_Op **, Dwarf_Signed *,
 		    Dwarf_Error *);
+char		*dwarf_find_macro_value_start(char *);
 int		dwarf_finish(Dwarf_Debug *, Dwarf_Error *);
 int		dwarf_formref(Dwarf_Attribute, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_free_expanded_frame_instrctions(Dwarf_Frame_Op *,
@@ -325,6 +328,8 @@ int		dwarf_get_globals(Dwarf_Debug, Dwarf_Global **, Dwarf_Signed *,
 int		dwarf_get_loclist_entry(Dwarf_Debug, Dwarf_Unsigned,
 		    Dwarf_Addr *, Dwarf_Addr *, Dwarf_Ptr *, Dwarf_Unsigned *,
 		    Dwarf_Unsigned *, Dwarf_Error *);
+int		dwarf_get_macro_details(Dwarf_Debug, Dwarf_Off, Dwarf_Unsigned,
+		    Dwarf_Signed *, Dwarf_Macro_Details **, Dwarf_Error *);
 int		dwarf_get_pubtypes(Dwarf_Debug, Dwarf_Type **, Dwarf_Signed *,
 		    Dwarf_Error *);
 int		dwarf_get_types(Dwarf_Debug, Dwarf_Type **, Dwarf_Signed *,
