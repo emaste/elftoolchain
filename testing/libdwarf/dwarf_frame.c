@@ -59,6 +59,37 @@ dwarf_get_fde_list(Dwarf_Debug dbg, Dwarf_Cie **cie_list,
 }
 
 int
+dwarf_get_fde_list_eh(Dwarf_Debug dbg, Dwarf_Cie **cie_list,
+    Dwarf_Signed *cie_count, Dwarf_Fde **fde_list, Dwarf_Signed *fde_count,
+    Dwarf_Error *error)
+{
+
+	if (dbg == NULL || cie_list == NULL || cie_count == NULL ||
+	    fde_list == NULL || fde_count == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
+		return (DW_DLV_ERROR);
+	}
+
+	if (dbg->dbg_eh_frame == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
+		return (DW_DLV_NO_ENTRY);
+	}
+
+	if (dbg->dbg_eh_frame->fs_ciearray == NULL ||
+	    dbg->dbg_eh_frame->fs_fdearray == NULL) {
+		DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
+		return (DW_DLV_NO_ENTRY);
+	}
+
+	*cie_list = dbg->dbg_eh_frame->fs_ciearray;
+	*cie_count = dbg->dbg_eh_frame->fs_cielen;
+	*fde_list = dbg->dbg_eh_frame->fs_fdearray;
+	*fde_count = dbg->dbg_eh_frame->fs_fdelen;
+
+	return (DW_DLV_OK);
+}
+
+int
 dwarf_get_fde_n(Dwarf_Fde *fdelist, Dwarf_Unsigned fde_index,
     Dwarf_Fde *ret_fde, Dwarf_Error *error)
 {

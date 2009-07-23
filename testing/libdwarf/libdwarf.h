@@ -318,6 +318,8 @@ int		dwarf_get_fde_instr_bytes(Dwarf_Fde, Dwarf_Ptr *,
 		    Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_get_fde_list(Dwarf_Debug, Dwarf_Cie **, Dwarf_Signed *,
 		    Dwarf_Fde **, Dwarf_Signed *, Dwarf_Error *);
+int		dwarf_get_fde_list_eh(Dwarf_Debug, Dwarf_Cie **, Dwarf_Signed *,
+		    Dwarf_Fde **, Dwarf_Signed *, Dwarf_Error *);
 int		dwarf_get_fde_n(Dwarf_Fde *, Dwarf_Unsigned, Dwarf_Fde *,
 		    Dwarf_Error *);
 int		dwarf_get_fde_range(Dwarf_Fde, Dwarf_Addr *, Dwarf_Unsigned *,
