@@ -30,6 +30,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define FRAME_DEBUG
+
 static int
 frame_find_cie(Dwarf_FrameSec fs, Dwarf_Unsigned offset, Dwarf_Cie *ret_cie)
 {
@@ -97,21 +99,34 @@ frame_add_cie(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 	while (p[(*off)++] != '\0')
 		;
 
-#if 0
-	/* We only recognize CIE with empty augmentation. */
-	if (*cie->cie_augment != 0) {
+	/* We only recognize normal .dwarf_frame and GNU .eh_frame sections. */
+	if (*cie->cie_augment != 0 && *cie->cie_augment != 'z') {
 		*off = cie->cie_offset + ((dwarf_size == 4) ? 4 : 12) +
 		    cie->cie_length;
 		return (DWARF_E_NONE);
 	}
-#endif
+
+	/* Optional EH Data field for .eh_frame section. */
+	if (strstr((char *)cie->cie_augment, "eh") != NULL)
+		cie->cie_ehdata = dbg->read(&d, off, dbg->dbg_pointer_size);
 
 	cie->cie_caf = read_uleb128(&d, off);
 	cie->cie_daf = read_sleb128(&d, off);
+
+	/* Return address register. */
 	if (cie->cie_version == 1)
 		cie->cie_ra = dbg->read(&d, off, 1);
 	else
 		cie->cie_ra = read_uleb128(&d, off);
+
+	/* Optional augmentation data for .eh_frame section. */
+	if (*cie->cie_augment == 'z') {
+		cie->cie_auglen = read_uleb128(&d, off);
+		cie->cie_augdata = (uint8_t *)d->d_buf + *off;
+		*off += cie->cie_auglen;
+	}
+
+	/* CIE Initial instructions. */
 	cie->cie_initinst = (uint8_t *)d->d_buf + *off;
 	if (dwarf_size == 4)
 		cie->cie_instlen = cie->cie_offset + 4 + length - *off;
@@ -122,10 +137,11 @@ frame_add_cie(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 
 #ifdef FRAME_DEBUG
 	printf("cie:\n");
-	printf("\tcie_version=%u cie_offset=%ju cie_length=%ju cie_augment=%u"
+	printf("\tcie_version=%u cie_offset=%ju cie_length=%ju cie_augment=%s"
 	    " cie_instlen=%ju cie->cie_caf=%ju cie->cie_daf=%jd off=%ju\n",
-	    cie->cie_version, cie->cie_offset, cie->cie_length, *cie->cie_augment,
-	    cie->cie_instlen, cie->cie_caf, cie->cie_daf, *off);
+	    cie->cie_version, cie->cie_offset, cie->cie_length,
+	    (char *)cie->cie_augment, cie->cie_instlen, cie->cie_caf,
+	    cie->cie_daf, *off);
 #endif
 
 	if (ret_cie != NULL)
@@ -138,11 +154,11 @@ frame_add_cie(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 
 static int
 frame_add_fde(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
-    Dwarf_Unsigned *off, Dwarf_Error *error)
+    Dwarf_Unsigned *off, int eh_frame, Dwarf_Error *error)
 {
 	Dwarf_Cie cie;
 	Dwarf_Fde fde;
-	uint64_t length;
+	uint64_t length, delta;
 	int dwarf_size, ret;
 
 	if ((fde = calloc(1, sizeof(struct _Dwarf_Fde))) == NULL) {
@@ -169,7 +185,18 @@ frame_add_fde(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 	}
 
 	fde->fde_length = length;
-	fde->fde_cieoff = dbg->read(&d, off, dwarf_size);
+
+	if (eh_frame) {
+		delta = dbg->read(&d, off, 4);
+		fde->fde_cieoff = *off - (4 + delta);
+		/* This delta should never be 0. */
+		if (fde->fde_cieoff == fde->fde_offset) {
+			DWARF_SET_ERROR(error, DWARF_E_INVALID_FRAME);
+			return (DWARF_E_INVALID_FRAME);
+		}
+	} else
+		fde->fde_cieoff = dbg->read(&d, off, dwarf_size);
+
 	if (frame_find_cie(fs, fde->fde_cieoff, &cie) == DWARF_E_NO_ENTRY) {
 		ret = frame_add_cie(dbg, fs, d, &fde->fde_cieoff, &cie, error);
 		if (ret != DWARF_E_NONE)
@@ -179,6 +206,14 @@ frame_add_fde(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 	fde->fde_cie = cie;
 	fde->fde_initloc = dbg->read(&d, off, dbg->dbg_pointer_size);
 	fde->fde_adrange = dbg->read(&d, off, dbg->dbg_pointer_size);
+
+	/* Optional augmentation data for .eh_frame section. */
+	if (eh_frame && *cie->cie_augment == 'z') {
+		fde->fde_auglen = read_uleb128(&d, off);
+		fde->fde_augdata = (uint8_t *)d->d_buf + *off;
+		*off += fde->fde_auglen;
+	}
+
 	fde->fde_inst = (uint8_t *)d->d_buf + *off;
 	if (dwarf_size == 4)
 		fde->fde_instlen = fde->fde_offset + 4 + length - *off;
@@ -188,7 +223,10 @@ frame_add_fde(Dwarf_Debug dbg, Dwarf_FrameSec fs, Elf_Data *d,
 	*off += fde->fde_instlen;
 
 #ifdef FRAME_DEBUG
-	printf("fde:\n");
+	printf("fde:");
+	if (eh_frame)
+		printf("(eh_frame)");
+	putchar('\n');
 	printf("\tfde_offset=%ju fde_length=%ju fde_cieoff=%ju"
 	    " fde_instlen=%ju off=%ju\n", fde->fde_offset, fde->fde_length,
 	    fde->fde_cieoff, fde->fde_instlen, *off);
@@ -225,7 +263,7 @@ frame_section_cleanup(Dwarf_FrameSec fs)
 
 static int
 frame_section_init(Dwarf_Debug dbg, Dwarf_FrameSec *frame_sec, Elf_Data *d,
-    Dwarf_Error *error)
+    int eh_frame, Dwarf_Error *error)
 {
 	Dwarf_FrameSec fs;
 	Dwarf_Cie cie;
@@ -253,18 +291,35 @@ frame_section_init(Dwarf_Debug dbg, Dwarf_FrameSec *frame_sec, Elf_Data *d,
 		} else
 			dwarf_size = 4;
 
-		if (length > d->d_size - offset) {
+		if (length > d->d_size - offset || (length == 0 && !eh_frame)) {
 			DWARF_SET_ERROR(error, DWARF_E_INVALID_FRAME);
 			return (DWARF_E_INVALID_FRAME);
 		}
 
+		/* Check terminator for .eh_frame */
+		if (eh_frame && length == 0)
+			break;
+
 		cie_id = dbg->read(&d, &offset, dwarf_size);
-		if ((dwarf_size == 4 && cie_id == ~0U) ||
-		    (dwarf_size == 8 && cie_id == ~0ULL))
-			ret = frame_add_cie(dbg, fs, d, &entry_off, NULL,
-			    error);
-		else
-			ret = frame_add_fde(dbg, fs, d, &entry_off, error);
+
+		if (eh_frame) {
+			/* GNU .eh_frame use CIE id 0. */
+			if (cie_id == 0)
+				ret = frame_add_cie(dbg, fs, d, &entry_off,
+				    NULL, error);
+			else
+				ret = frame_add_fde(dbg, fs, d, &entry_off,
+				    1, error);
+		} else {
+			/* .dwarf_frame use CIE id ~0 */
+			if ((dwarf_size == 4 && cie_id == ~0U) ||
+			    (dwarf_size == 8 && cie_id == ~0ULL))
+				ret = frame_add_cie(dbg, fs, d, &entry_off,
+				    NULL, error);
+			else
+				ret = frame_add_fde(dbg, fs, d, &entry_off,
+				    0, error);
+		}
 
 		if (ret != DWARF_E_NONE)
 			goto fail_cleanup;
@@ -1001,6 +1056,9 @@ frame_cleanup(Dwarf_Debug dbg)
 
 	if (dbg->dbg_frame)
 		frame_section_cleanup(dbg->dbg_frame);
+
+	if (dbg->dbg_eh_frame)
+		frame_section_cleanup(dbg->dbg_eh_frame);
 }
 
 int
@@ -1033,7 +1091,15 @@ frame_init(Dwarf_Debug dbg, Dwarf_Error *error)
 	/* Initialise call frame sections. */
 	if (dbg->dbg_s[DWARF_debug_frame].s_scn != NULL) {
 		ret = frame_section_init(dbg, &dbg->dbg_frame,
-		    dbg->dbg_s[DWARF_debug_frame].s_data, error);
+		    dbg->dbg_s[DWARF_debug_frame].s_data, 0, error);
+		if (ret != DWARF_E_NONE) {
+			free(rt);
+			return (ret);
+		}
+	}
+	if (dbg->dbg_s[DWARF_eh_frame].s_scn != NULL) {
+		ret = frame_section_init(dbg, &dbg->dbg_eh_frame,
+		    dbg->dbg_s[DWARF_eh_frame].s_data, 1, error);
 		if (ret != DWARF_E_NONE) {
 			free(rt);
 			return (ret);

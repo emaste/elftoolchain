@@ -217,6 +217,8 @@ struct _Dwarf_Fde {
 	Dwarf_Unsigned	fde_cieoff;	/* Offset of associated CIE. */
 	Dwarf_Unsigned	fde_initloc;	/* Initial location. */
 	Dwarf_Unsigned	fde_adrange;	/* Address range. */
+	Dwarf_Unsigned	fde_auglen;	/* Augmentation length. */
+	uint8_t		*fde_augdata;	/* Augmentation data. */
 	Dwarf_Ptr	fde_inst;	/* Instructions. */
 	Dwarf_Unsigned	fde_instlen;	/* Length of instructions. */
 	STAILQ_ENTRY(_Dwarf_Fde) fde_next; /* Next FDE in list. */
@@ -228,9 +230,12 @@ struct _Dwarf_Cie {
 	Dwarf_Unsigned	cie_length;	/* Length of the CIE. */
 	Dwarf_Half	cie_version;	/* CIE version. */
 	uint8_t		*cie_augment;	/* CIE augmentation (UTF-8). */
+	Dwarf_Unsigned	cie_ehdata;	/* Optional EH Data. */
 	Dwarf_Unsigned	cie_caf;	/* Code alignment factor. */
 	Dwarf_Signed	cie_daf;	/* Data alignment factor. */
 	Dwarf_Unsigned	cie_ra;		/* Return address register. */
+	Dwarf_Unsigned	cie_auglen;	/* Augmentation length. */
+	uint8_t		*cie_augdata;	/* Augmentation data; */
 	Dwarf_Ptr	cie_initinst;	/* Initial instructions. */
 	Dwarf_Unsigned	cie_instlen;	/* Length of init instructions. */
 	STAILQ_ENTRY(_Dwarf_Cie) cie_next;  /* Next CIE in list. */
@@ -331,6 +336,7 @@ struct _Dwarf_Debug {
 	Dwarf_NameSec	dbg_vars;	/* Ptr to static vars lookup sect. */
 	Dwarf_NameSec	dbg_types;	/* Ptr to types lookup section. */
 	Dwarf_FrameSec	dbg_frame;	/* Ptr to .debug_frame section. */
+	Dwarf_FrameSec	dbg_eh_frame;	/* Ptr to .eh_frame section. */
 	STAILQ_HEAD(, _Dwarf_ArangeSet) dbg_aslist; /* List of arange set. */
 	Dwarf_Arange	*dbg_arange_array; /* Array of arange. */
 	Dwarf_Unsigned	dbg_arange_cnt;	/* Length of the arange array. */
