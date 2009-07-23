@@ -66,6 +66,8 @@ typedef struct _Dwarf_NamePair	*Dwarf_Var;
 typedef struct _Dwarf_NamePair	*Dwarf_Weak;
 typedef struct _Dwarf_NameTbl	*Dwarf_NameTbl;
 typedef struct _Dwarf_NameSec	*Dwarf_NameSec;
+typedef struct _Dwarf_Ranges	*Dwarf_Ranges;
+typedef struct _Dwarf_Rangelist	*Dwarf_Rangelist;
 
 typedef struct {
         Dwarf_Small	lr_atom;
@@ -332,6 +334,8 @@ int		dwarf_get_macro_details(Dwarf_Debug, Dwarf_Off, Dwarf_Unsigned,
 		    Dwarf_Signed *, Dwarf_Macro_Details **, Dwarf_Error *);
 int		dwarf_get_pubtypes(Dwarf_Debug, Dwarf_Type **, Dwarf_Signed *,
 		    Dwarf_Error *);
+int		dwarf_get_ranges(Dwarf_Debug, Dwarf_Off, Dwarf_Ranges **,
+		    Dwarf_Signed *, Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_get_types(Dwarf_Debug, Dwarf_Type **, Dwarf_Signed *,
 		    Dwarf_Error *);
 int		dwarf_get_vars(Dwarf_Debug, Dwarf_Var **, Dwarf_Signed *,

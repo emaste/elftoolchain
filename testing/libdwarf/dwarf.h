@@ -158,6 +158,33 @@
 #define DW_AT_variable_parameter	0x4b
 #define DW_AT_virtuality		0x4c
 #define DW_AT_vtable_elem_location	0x4d
+#define DW_AT_allocated			0x4e
+#define DW_AT_associated		0x4f
+#define DW_AT_data_location		0x50
+#define DW_AT_byte_stride		0x51
+#define DW_AT_entry_pc			0x52
+#define DW_AT_use_UTF8			0x53
+#define DW_AT_extension			0x54
+#define DW_AT_ranges			0x55
+#define DW_AT_trampoline		0x56
+#define DW_AT_call_column		0x57
+#define DW_AT_call_file			0x58
+#define DW_AT_call_line			0x59
+#define DW_AT_description		0x5a
+#define DW_AT_binary_scale		0x5b
+#define DW_AT_decimal_scale		0x5c
+#define DW_AT_small			0x5d
+#define DW_AT_decimal_sign		0x5e
+#define DW_AT_digit_count		0x5f
+#define DW_AT_picture_string		0x60
+#define DW_AT_mutable			0x61
+#define DW_AT_threads_scaled		0x62
+#define DW_AT_explicit			0x63
+#define DW_AT_object_pointer		0x64
+#define DW_AT_endianity			0x65
+#define DW_AT_elemental			0x66
+#define DW_AT_pure			0x67
+#define DW_AT_recursive			0x68
 
 #define DW_AT_lo_user			0x2000
 

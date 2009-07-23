@@ -269,6 +269,19 @@ struct _Dwarf_MacroSet {
 	STAILQ_ENTRY(_Dwarf_MacroSet) ms_next; /* Next set in list. */
 };
 
+struct _Dwarf_Ranges {
+	Dwarf_Unsigned	rg_start;	/* Beginning of address range. */
+	Dwarf_Unsigned	rg_end;		/* End of address range. */
+};
+
+struct _Dwarf_Rangelist {
+	Dwarf_CU	rl_cu;		/* Ptr to associated CU. */
+	Dwarf_Unsigned	rl_offset;	/* Offset of the rangelist. */
+	Dwarf_Ranges	*rl_rgarray;	/* Array of ranges. */
+	Dwarf_Unsigned	rl_rglen;	/* Length of the ranges array. */
+	STAILQ_ENTRY(_Dwarf_Rangelist) rl_next; /* Next rangelist in list. */
+};
+
 struct _Dwarf_CU {
 	Dwarf_Debug	cu_dbg;		/* Ptr to containing dbg. */
 	uint64_t	cu_offset;	/* Offset to the this CU. */
@@ -322,6 +335,7 @@ struct _Dwarf_Debug {
 	Dwarf_Arange	*dbg_arange_array; /* Array of arange. */
 	Dwarf_Unsigned	dbg_arange_cnt;	/* Length of the arange array. */
 	STAILQ_HEAD(, _Dwarf_MacroSet) dbg_mslist; /* List of macro set. */
+	STAILQ_HEAD(, _Dwarf_Rangelist) dbg_rllist; /* List of rangelist. */
 	uint64_t	(*read)(Elf_Data **, uint64_t *, int);
 	void		(*write)(Elf_Data **, uint64_t *, uint64_t, int);
 	uint64_t	(*decode)(uint8_t **, int);
@@ -373,6 +387,9 @@ int		macinfo_init(Dwarf_Debug, Elf_Data *, Dwarf_Error *);
 int		nametbl_init(Dwarf_Debug, Dwarf_NameSec *, Elf_Data *,
 		    Dwarf_Error *);
 void		nametbl_cleanup(Dwarf_NameSec);
+int		ranges_add(Dwarf_Debug, Dwarf_CU, uint64_t, Dwarf_Error *);
+void		ranges_cleanup(Dwarf_Debug);
+int		ranges_find(Dwarf_Debug, uint64_t, Dwarf_Rangelist *);
 uint64_t	read_lsb(Elf_Data **, uint64_t *, int);
 uint64_t	read_msb(Elf_Data **, uint64_t *, int);
 void		write_lsb(Elf_Data **, uint64_t *, uint64_t, int);
