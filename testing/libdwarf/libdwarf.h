@@ -1,5 +1,6 @@
 /*-
  * Copyright (c) 2009 Kai Wang
+ * All rights reserved.
  * Copyright (c) 2007 John Birrell (jb@freebsd.org)
  * All rights reserved.
  *
@@ -207,6 +208,9 @@ typedef struct _Dwarf_Error {
 	char		err_msg[1024];	/* Formatted error message. */
 } Dwarf_Error;
 
+#define	dwarf_errno(error)	error.err_errno
+#define	dwarf_errmsg(error)	_dwarf_errmsg(&error)
+
 /*
  * Return values which have to be compatible with other
  * implementations of libdwarf.
@@ -220,7 +224,7 @@ typedef struct _Dwarf_Error {
 
 /* Function prototype definitions. */
 __BEGIN_DECLS
-const char	*dwarf_errmsg(Dwarf_Error *);
+const char	*_dwarf_errmsg(Dwarf_Error *);
 const char	*get_sht_desc(uint32_t);
 const char	*get_attr_desc(uint32_t);
 const char	*get_form_desc(uint32_t);
@@ -249,7 +253,6 @@ int		dwarf_die_CU_offset(Dwarf_Die, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_die_CU_offset_range(Dwarf_Die, Dwarf_Off *, Dwarf_Off *,
 		    Dwarf_Error *);
 int		dwarf_elf_init(Elf *, int, Dwarf_Debug *, Dwarf_Error *);
-int		dwarf_errno(Dwarf_Error *);
 int		dwarf_expand_frame_instructions(Dwarf_Debug, Dwarf_Ptr,
 		    Dwarf_Unsigned, Dwarf_Frame_Op **, Dwarf_Signed *,
 		    Dwarf_Error *);

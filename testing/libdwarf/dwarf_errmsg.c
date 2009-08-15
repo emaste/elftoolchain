@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/lib/libdwarf/dwarf_errmsg.c,v 1.1 2008/05/22 02:14:23 jb Exp $
+ * $FreeBSD$
  */
 
 #include <stdio.h>
@@ -57,7 +57,7 @@ const char *_libdwarf_errors[] = {
 };
 
 const char *
-dwarf_errmsg(Dwarf_Error *error)
+_dwarf_errmsg(Dwarf_Error *error)
 {
 	const char *p;
 

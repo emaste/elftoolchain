@@ -1,5 +1,6 @@
 /*-
  * Copyright (c) 2009 Kai Wang
+ * All rights reserved.
  * Copyright (c) 2007 John Birrell (jb@freebsd.org)
  * All rights reserved.
  *
@@ -84,9 +85,8 @@
 struct _Dwarf_AttrDef {
 	uint64_t	ad_attrib;	/* DW_AT_ */
 	uint64_t	ad_form;	/* DW_FORM_ */
-	uint64_t	ad_offset;	/* offset in abbrev section. */
-	STAILQ_ENTRY(_Dwarf_AttrDef)
-			ad_next;	/* Next attribute define */
+	uint64_t	ad_offset;	/* Offset in abbrev section. */
+	STAILQ_ENTRY(_Dwarf_AttrDef) ad_next;	/* Next attribute define. */
 };
 
 struct _Dwarf_Attribute {

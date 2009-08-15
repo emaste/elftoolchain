@@ -12,7 +12,6 @@ SRCS=	\
 	dwarf_die.c		\
 	dwarf_dump.c		\
 	dwarf_errmsg.c		\
-	dwarf_errno.c		\
 	dwarf_finish.c		\
 	dwarf_form.c		\
 	dwarf_frame.c		\
