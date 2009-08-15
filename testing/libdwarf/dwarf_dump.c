@@ -756,7 +756,7 @@ dwarf_dump_tree_dies(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Error *error)
 		if ((ret = dwarf_child(die, &child, error) == DWARF_E_NO_ENTRY)) {
 			/* No children. */
 		} else if (ret != DWARF_E_NONE) {
-			printf("Error %s\n", dwarf_errmsg(error));
+			printf("Error %s\n", _dwarf_errmsg(error));
 			return;
 		} else
 			dwarf_dump_tree_dies(dbg, child, error);
@@ -790,12 +790,12 @@ dwarf_dump_tree(Dwarf_Debug dbg)
 		if (dwarf_next_cu_header(dbg, &cu_header_length,
 		    &cu_version, &cu_abbrev_offset, &cu_pointer_size,
 		    &cu_next_offset, &error) != DWARF_E_NONE) {
-			printf("Error %s\n", dwarf_errmsg(&error));
+			printf("Error %s\n", _dwarf_errmsg(&error));
 			return;
 		}
 
 		if (dwarf_siblingof(dbg, NULL, &die, &error) != DWARF_E_NONE) {
-			printf("Error %s\n", dwarf_errmsg(&error));
+			printf("Error %s\n", _dwarf_errmsg(&error));
 			return;
 		}
 
