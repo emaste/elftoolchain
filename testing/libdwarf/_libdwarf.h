@@ -327,7 +327,6 @@ struct _Dwarf_Debug {
 	int		dbg_elf_close;	/* True if elf_end() required. */
 	int		dbg_mode;	/* Access mode. */
 	size_t		dbg_stnum;	/* String table section number. */
-	int		dbg_offsize;	/* DWARF offset size. */
 	int		dbg_pointer_size; /* Object address size. */
 	Dwarf_section	dbg_s[DWARF_DEBUG_SNAMES]; /* Array of section. */
 	STAILQ_HEAD(, _Dwarf_CU) dbg_cu;/* List of compilation units. */
@@ -365,7 +364,7 @@ Dwarf_Abbrev	abbrev_find(Dwarf_CU, uint64_t);
 void		arange_cleanup(Dwarf_Debug);
 int		arange_init(Dwarf_Debug, Elf_Data *, Dwarf_Error *);
 Dwarf_Attribute	attr_find(Dwarf_Die, Dwarf_Half);
-int		attr_init(Dwarf_Debug, Elf_Data **, uint64_t *, Dwarf_CU,
+int		attr_init(Dwarf_Debug, Elf_Data **, uint64_t *, int, Dwarf_CU,
 		    Dwarf_Die, Dwarf_AttrDef, uint64_t, int, Dwarf_Error *);
 uint64_t	decode_lsb(uint8_t **, int);
 uint64_t	decode_msb(uint8_t **, int);

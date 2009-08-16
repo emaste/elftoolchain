@@ -283,11 +283,6 @@ lineno_init(Dwarf_Die die, uint64_t offset, Dwarf_Error *error)
 
 	d = dbg->dbg_s[DWARF_debug_line].s_data;
 
-	/* 
-	 * Note that we should not use dbg->dbg_offsize here.
-	 * DWARF format(32/64) should be determined by
-	 * "initial length field". dbg->dbg_offsize needs to be removed!
-	 */
 	length = dbg->read(&d, &offset, 4);
 	if (length == 0xffffffff) {
 		dwarf_size = 8;

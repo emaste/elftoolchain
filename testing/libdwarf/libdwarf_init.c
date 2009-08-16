@@ -73,7 +73,7 @@ apply_relocations(Dwarf_Debug dbg, Elf_Data *reld, int secindx)
 
 		offset = rela.r_offset;
 
-		dbg->write(&d, &offset, rela.r_addend, dbg->dbg_offsize);
+		dbg->write(&d, &offset, rela.r_addend, dbg->dbg_pointer_size);
 	}
 
 	return ret;
@@ -124,7 +124,7 @@ init_info(Dwarf_Debug dbg, Dwarf_Error *error)
 	Dwarf_CU cu;
 	Elf_Data *d = NULL;
 	Elf_Scn *scn;
-	int i;
+	int dwarf_size, i;
 	int level = 0;
 	int relocated = 0;
 	int ret = DWARF_E_NONE;
@@ -152,9 +152,9 @@ init_info(Dwarf_Debug dbg, Dwarf_Error *error)
 		length = dbg->read(&d, &offset, 4);
 		if (length == 0xffffffff) {
 			length = dbg->read(&d, &offset, 8);
-			dbg->dbg_offsize = 8;
+			dwarf_size = 8;
 		} else
-			dbg->dbg_offsize = 4;
+			dwarf_size = 4;
 
 		/*
 		 * Check if there is enough ELF data for this CU.
@@ -164,7 +164,7 @@ init_info(Dwarf_Debug dbg, Dwarf_Error *error)
 		if (length > d->d_size - offset) {
 			free(cu);
 			DWARF_SET_ERROR(error, DWARF_E_INVALID_CU);
-			return DWARF_E_INVALID_CU;
+			return (DWARF_E_INVALID_CU);
 		}
 
 		/* Relocate the DWARF sections if necessary: */
@@ -179,10 +179,9 @@ init_info(Dwarf_Debug dbg, Dwarf_Error *error)
 
 		/* Initialise the compilation unit. */
 		cu->cu_length 		= length;
-		cu->cu_header_length	= (dbg->dbg_offsize == 4) ? 4 : 12;
+		cu->cu_header_length	= (dwarf_size == 4) ? 4 : 12;
 		cu->cu_version		= dbg->read(&d, &offset, 2);
-		cu->cu_abbrev_offset	= dbg->read(&d, &offset,
-		    dbg->dbg_offsize);
+		cu->cu_abbrev_offset	= dbg->read(&d, &offset, dwarf_size);
 		cu->cu_pointer_size	= dbg->read(&d, &offset, 1);
 		cu->cu_next_offset	= next_offset;
 
@@ -235,8 +234,9 @@ init_info(Dwarf_Debug dbg, Dwarf_Error *error)
 				return ret;
 
 			STAILQ_FOREACH(ad, &ab->ab_attrdef, ad_next) {
-				if ((ret = attr_init(dbg, &d, &offset, cu, die,
-				    ad, ad->ad_form, 0, error)) != DWARF_E_NONE)
+				if ((ret = attr_init(dbg, &d, &offset,
+				    dwarf_size, cu, die, ad, ad->ad_form, 0,
+				    error)) != DWARF_E_NONE)
 					return ret;
 			}
 
