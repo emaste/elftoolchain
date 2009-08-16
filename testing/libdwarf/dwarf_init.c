@@ -67,6 +67,9 @@ dwarf_init(int fd, int mode, Dwarf_Handler errhand, Dwarf_Ptr errarg,
 	Elf_Cmd	c;
 	int ret;
 
+	_libdwarf.errhand = errhand;
+	_libdwarf.errarg = errarg;
+
 	if (fd < 0 || ret_dbg == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
 		return (DW_DLV_ERROR);
@@ -104,9 +107,6 @@ dwarf_init(int fd, int mode, Dwarf_Handler errhand, Dwarf_Ptr errarg,
 
 		return (DW_DLV_ERROR);
 	}
-
-	_libdwarf.errhand = errhand;
-	_libdwarf.errarg = errarg;
 
 	return (DW_DLV_OK);
 }
