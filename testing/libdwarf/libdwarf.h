@@ -67,7 +67,6 @@ typedef struct _Dwarf_NamePair	*Dwarf_Var;
 typedef struct _Dwarf_NamePair	*Dwarf_Weak;
 typedef struct _Dwarf_NameTbl	*Dwarf_NameTbl;
 typedef struct _Dwarf_NameSec	*Dwarf_NameSec;
-typedef struct _Dwarf_Ranges	*Dwarf_Ranges;
 typedef struct _Dwarf_Rangelist	*Dwarf_Rangelist;
 
 typedef struct {
@@ -88,6 +87,11 @@ typedef struct {
 	Dwarf_Unsigned	bl_len;
 	Dwarf_Ptr	bl_data;
 } Dwarf_Block;
+
+typedef struct {
+	Dwarf_Unsigned	rg_start;	/* Beginning of address range. */
+	Dwarf_Unsigned	rg_end;		/* End of address range. */
+} Dwarf_Ranges;
 
 #ifndef	DW_FRAME_HIGHEST_NORMAL_REGISTER
 #define	DW_FRAME_HIGHEST_NORMAL_REGISTER 63

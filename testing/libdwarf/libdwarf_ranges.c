@@ -41,8 +41,8 @@ ranges_parse(Dwarf_Debug dbg, Dwarf_CU cu, Elf_Data *d, uint64_t off,
 		end = dbg->read(&d, &off, cu->cu_pointer_size);
 
 		if (rg != NULL) {
-			rg[i]->rg_start = start;
-			rg[i]->rg_end = end;
+			rg[i].rg_start = start;
+			rg[i].rg_end = end;
 		}
 
 		i++;
@@ -119,7 +119,7 @@ ranges_add(Dwarf_Debug dbg, Dwarf_CU cu, uint64_t off, Dwarf_Error *error)
 	}
 
 	rl->rl_rglen = cnt;
-	if ((rl->rl_rgarray = calloc(cnt, sizeof(struct _Dwarf_Ranges))) ==
+	if ((rl->rl_rgarray = calloc(cnt, sizeof(Dwarf_Ranges))) ==
 	    NULL) {
 		free(rl);
 		DWARF_SET_ERROR(error, DWARF_E_MEMORY);

@@ -287,11 +287,6 @@ struct _Dwarf_MacroSet {
 	STAILQ_ENTRY(_Dwarf_MacroSet) ms_next; /* Next set in list. */
 };
 
-struct _Dwarf_Ranges {
-	Dwarf_Unsigned	rg_start;	/* Beginning of address range. */
-	Dwarf_Unsigned	rg_end;		/* End of address range. */
-};
-
 struct _Dwarf_Rangelist {
 	Dwarf_CU	rl_cu;		/* Ptr to associated CU. */
 	Dwarf_Unsigned	rl_offset;	/* Offset of the rangelist. */
