@@ -30,7 +30,7 @@
 #include "_libdwarf.h"
 
 int
-dwarf_loclist_n(Dwarf_Attribute at, Dwarf_Locdesc **llbuf,
+dwarf_loclist_n(Dwarf_Attribute at, Dwarf_Locdesc ***llbuf,
     Dwarf_Signed *listlen, Dwarf_Error *error)
 {
 	Dwarf_Loclist ll;
@@ -71,7 +71,7 @@ dwarf_loclist_n(Dwarf_Attribute at, Dwarf_Locdesc **llbuf,
 		case DW_FORM_block2:
 		case DW_FORM_block4:
 			if (at->at_ld != NULL) {
-				*llbuf = at->at_ld;
+				*llbuf = &at->at_ld;
 				*listlen = 1;
 				return (DW_DLV_OK);
 			} else {
@@ -124,7 +124,7 @@ dwarf_loclist(Dwarf_Attribute at, Dwarf_Locdesc **llbuf,
 			}
 			if (ret != DWARF_E_NONE)
 				assert(0); /* Internal error! */
-			*llbuf = ll->ll_ldlist;
+			*llbuf = ll->ll_ldlist[0];
 			*listlen = 1;
 			return (DW_DLV_OK);
 		case DW_FORM_block:
@@ -174,7 +174,7 @@ dwarf_get_loclist_entry(Dwarf_Debug dbg, Dwarf_Unsigned offset,
 	
 	*hipc = *lopc = 0;
 	for (i = 0; i < ll->ll_ldlen; i++) {
-		ld = &ll->ll_ldlist[i];
+		ld = ll->ll_ldlist[i];
 		if (i == 0) {
 			*hipc = ld->ld_hipc;
 			*lopc = ld->ld_lopc;

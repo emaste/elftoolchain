@@ -30,7 +30,7 @@
 
 static int
 loclist_add_locdesc(Dwarf_Debug dbg, Dwarf_CU cu, Elf_Data *d, uint64_t *off,
-    Dwarf_Locdesc *ld, uint64_t *ldlen, Dwarf_Unsigned *total_len,
+    Dwarf_Locdesc **ld, uint64_t *ldlen, Dwarf_Unsigned *total_len,
     Dwarf_Error *error)
 {
 	uint64_t start, end;
@@ -43,8 +43,8 @@ loclist_add_locdesc(Dwarf_Debug dbg, Dwarf_CU cu, Elf_Data *d, uint64_t *off,
 		start = dbg->read(&d, off, cu->cu_pointer_size);
 		end = dbg->read(&d, off, cu->cu_pointer_size);
 		if (ld != NULL) {
-			ld[i].ld_lopc = start;
-			ld[i].ld_hipc = end;
+			ld[i]->ld_lopc = start;
+			ld[i]->ld_hipc = end;
 		}
 
 		if (total_len != NULL)
@@ -72,7 +72,7 @@ loclist_add_locdesc(Dwarf_Debug dbg, Dwarf_CU cu, Elf_Data *d, uint64_t *off,
 			*total_len += len;
 
 		if (ld != NULL) {
-			ret = loc_fill_locdesc(dbg, &ld[i],
+			ret = loc_fill_locdesc(dbg, ld[i],
 			    (uint8_t *)d->d_buf + *off, len,
 			    cu->cu_pointer_size, error);
 			if (ret != DWARF_E_NONE)
@@ -112,7 +112,7 @@ loclist_add(Dwarf_Debug dbg, Dwarf_CU cu, uint64_t lloff, Dwarf_Error *error)
 	Elf_Data *d;
 	Dwarf_Loclist ll, tll;
 	uint64_t ldlen;
-	int ret;
+	int i, ret;
 
 	ret = DWARF_E_NONE;
 
@@ -132,16 +132,25 @@ loclist_add(Dwarf_Debug dbg, Dwarf_CU cu, uint64_t lloff, Dwarf_Error *error)
 	/* Get the number of locdesc the first round. */
 	ret = loclist_add_locdesc(dbg, cu, d, &lloff, NULL, &ldlen, NULL,
 	    error);
-	if (ret != DWARF_E_NONE) {
-		free(ll);
-		return (ret);
-	}
+	if (ret != DWARF_E_NONE)
+		goto fail_cleanup;
 
+	/*
+	 * Dwarf_Locdesc list memory is allocated in this way (one more level
+	 * of indirect) to make the loclist API be compatible with SGI libdwarf.
+	 */
 	ll->ll_ldlen = ldlen;
-	if ((ll->ll_ldlist = calloc(ldlen, sizeof(Dwarf_Locdesc))) == NULL) {
-		free(ll);
+	if ((ll->ll_ldlist = calloc(ldlen, sizeof(Dwarf_Locdesc *))) == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_MEMORY);
-		return (DWARF_E_MEMORY);
+		ret = DWARF_E_MEMORY;
+		goto fail_cleanup;
+	}
+	for (i = 0; (uint64_t) i < ldlen; i++) {
+		if ((ll->ll_ldlist[i] = calloc(1, sizeof(Dwarf_Locdesc))) == NULL) {
+			DWARF_SET_ERROR(error, DWARF_E_MEMORY);
+			ret = DWARF_E_MEMORY;
+			goto fail_cleanup;
+		}
 	}
 
 	lloff = ll->ll_offset;
@@ -149,11 +158,8 @@ loclist_add(Dwarf_Debug dbg, Dwarf_CU cu, uint64_t lloff, Dwarf_Error *error)
 	/* Fill in locdesc. */
 	ret = loclist_add_locdesc(dbg, cu, d, &lloff, ll->ll_ldlist, NULL,
 	    &ll->ll_length, error);
-	if (ret != DWARF_E_NONE) {
-		free(ll->ll_ldlist);
-		free(ll);
-		return (ret);
-	}
+	if (ret != DWARF_E_NONE)
+		goto fail_cleanup;
 
 	/* Insert to the queue. Sort by offset. */
 	TAILQ_FOREACH(tll, &dbg->dbg_loclist, ll_next)
@@ -165,5 +171,31 @@ loclist_add(Dwarf_Debug dbg, Dwarf_CU cu, uint64_t lloff, Dwarf_Error *error)
 	if (tll == NULL)
 		TAILQ_INSERT_TAIL(&dbg->dbg_loclist, ll, ll_next);
 
+	return (DWARF_E_NONE);
+
+fail_cleanup:
+
+	loclist_cleanup(ll);
+
 	return (ret);
+}
+
+void
+loclist_cleanup(Dwarf_Loclist ll)
+{
+	int i;
+
+	if (ll == NULL)
+		return;
+
+	if (ll->ll_ldlist != NULL) {
+		for (i = 0; i < ll->ll_ldlen; i++) {
+			if (ll->ll_ldlist[i]->ld_s)
+				free(ll->ll_ldlist[i]->ld_s);
+			free(ll->ll_ldlist[i]);
+		}
+		free(ll->ll_ldlist);
+	}
+
+	free(ll);
 }
