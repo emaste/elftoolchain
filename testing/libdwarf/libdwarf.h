@@ -252,7 +252,7 @@ int		dwarf_bitoffset(Dwarf_Die, Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_bitsize(Dwarf_Die, Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_bytesize(Dwarf_Die, Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_child(Dwarf_Die, Dwarf_Die *, Dwarf_Error *);
-int		dwarf_diename(Dwarf_Die, const char **, Dwarf_Error *);
+int		dwarf_diename(Dwarf_Die, char **, Dwarf_Error *);
 int		dwarf_dieoffset(Dwarf_Die, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_die_abbrev_code(Dwarf_Die);
 int		dwarf_die_CU_offset(Dwarf_Die, Dwarf_Off *, Dwarf_Error *);
@@ -271,15 +271,15 @@ int		dwarf_frame_instructions_dealloc(Dwarf_Frame_Op *, Dwarf_Signed,
 int		dwarf_func_cu_offset(Dwarf_Func, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_func_die_offset(Dwarf_Func, Dwarf_Off *,
 		    Dwarf_Error *);
-int		dwarf_func_name_offsets(Dwarf_Func, const char **,
+int		dwarf_func_name_offsets(Dwarf_Func, char **,
 		    Dwarf_Off *, Dwarf_Off *, Dwarf_Error *);
-int		dwarf_funcname(Dwarf_Func, const char **, Dwarf_Error *);
+int		dwarf_funcname(Dwarf_Func, char **, Dwarf_Error *);
 int		dwarf_global_formref(Dwarf_Attribute, Dwarf_Off *,
 		    Dwarf_Error *);
 int		dwarf_formaddr(Dwarf_Attribute, Dwarf_Addr *, Dwarf_Error *);
 int		dwarf_formblock(Dwarf_Attribute, Dwarf_Block *, Dwarf_Error *);
 int		dwarf_formflag(Dwarf_Attribute, Dwarf_Bool *, Dwarf_Error *);
-int		dwarf_formstring(Dwarf_Attribute, const char **, Dwarf_Error *);
+int		dwarf_formstring(Dwarf_Attribute, char **, Dwarf_Error *);
 int		dwarf_formsdata(Dwarf_Attribute, Dwarf_Unsigned *,
 		    Dwarf_Error *);
 int		dwarf_formudata(Dwarf_Attribute, Dwarf_Unsigned *,
@@ -364,9 +364,9 @@ int		dwarf_get_weaks(Dwarf_Debug, Dwarf_Weak **, Dwarf_Signed *,
 int		dwarf_global_cu_offset(Dwarf_Global, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_global_die_offset(Dwarf_Global, Dwarf_Off *,
 		    Dwarf_Error *);
-int		dwarf_global_name_offsets(Dwarf_Global, const char **,
+int		dwarf_global_name_offsets(Dwarf_Global, char **,
 		    Dwarf_Off *, Dwarf_Off *, Dwarf_Error *);
-int		dwarf_globname(Dwarf_Global, const char **, Dwarf_Error *);
+int		dwarf_globname(Dwarf_Global, char **, Dwarf_Error *);
 int		dwarf_hasattr(Dwarf_Die, Dwarf_Half, Dwarf_Bool *,
 		    Dwarf_Error *);
 int		dwarf_hasform(Dwarf_Attribute, Dwarf_Half, Dwarf_Bool *,
@@ -381,7 +381,7 @@ int		dwarf_lineblock(Dwarf_Line, Dwarf_Bool *, Dwarf_Error *);
 int		dwarf_lineendsequence(Dwarf_Line, Dwarf_Bool *, Dwarf_Error *);
 int		dwarf_lineno(Dwarf_Line, Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_lineoff(Dwarf_Line, Dwarf_Signed *, Dwarf_Error *);
-int		dwarf_linesrc(Dwarf_Line, const char **, Dwarf_Error *);
+int		dwarf_linesrc(Dwarf_Line, char **, Dwarf_Error *);
 int		dwarf_locdesc(Dwarf_Die, uint64_t, Dwarf_Locdesc **, Dwarf_Signed *,
 		    Dwarf_Error *);
 int		dwarf_locdesc_free(Dwarf_Locdesc *, Dwarf_Error *);
@@ -405,9 +405,9 @@ int		dwarf_offdie(Dwarf_Debug, Dwarf_Off, Dwarf_Die *,
 int		dwarf_pubtype_cu_offset(Dwarf_Type, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_pubtype_die_offset(Dwarf_Type, Dwarf_Off *,
 		    Dwarf_Error *);
-int		dwarf_pubtype_name_offsets(Dwarf_Type, const char **,
+int		dwarf_pubtype_name_offsets(Dwarf_Type, char **,
 		    Dwarf_Off *, Dwarf_Off *, Dwarf_Error *);
-int		dwarf_pubtypename(Dwarf_Type, const char **, Dwarf_Error *);
+int		dwarf_pubtypename(Dwarf_Type, char **, Dwarf_Error *);
 int		dwarf_ranges_dealloc(Dwarf_Debug, Dwarf_Ranges *, Dwarf_Signed);
 Dwarf_Half	dwarf_set_frame_cfa_value(Dwarf_Debug, Dwarf_Half);
 Dwarf_Half	dwarf_set_frame_rule_initial_value(Dwarf_Debug, Dwarf_Half);
@@ -416,24 +416,23 @@ Dwarf_Half	dwarf_set_frame_same_value(Dwarf_Debug, Dwarf_Half);
 Dwarf_Half	dwarf_set_frame_undefined_value(Dwarf_Debug, Dwarf_Half);
 int		dwarf_type_cu_offset(Dwarf_Type, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_type_die_offset(Dwarf_Type, Dwarf_Off *, Dwarf_Error *);
-int		dwarf_type_name_offsets(Dwarf_Type, const char **,
+int		dwarf_type_name_offsets(Dwarf_Type, char **,
 		    Dwarf_Off *, Dwarf_Off *, Dwarf_Error *);
-int		dwarf_typename(Dwarf_Type, const char **, Dwarf_Error *);
+int		dwarf_typename(Dwarf_Type, char **, Dwarf_Error *);
 int		dwarf_var_cu_offset(Dwarf_Var, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_var_die_offset(Dwarf_Var, Dwarf_Off *,
 		    Dwarf_Error *);
-int		dwarf_var_name_offsets(Dwarf_Var, const char **,
+int		dwarf_var_name_offsets(Dwarf_Var, char **,
 		    Dwarf_Off *, Dwarf_Off *, Dwarf_Error *);
-int		dwarf_varname(Dwarf_Var, const char **, Dwarf_Error *);
+int		dwarf_varname(Dwarf_Var, char **, Dwarf_Error *);
 int		dwarf_weak_cu_offset(Dwarf_Weak, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_weak_die_offset(Dwarf_Weak, Dwarf_Off *,
 		    Dwarf_Error *);
-int		dwarf_weak_name_offsets(Dwarf_Weak, const char **,
+int		dwarf_weak_name_offsets(Dwarf_Weak, char **,
 		    Dwarf_Off *, Dwarf_Off *, Dwarf_Error *);
-int		dwarf_weakname(Dwarf_Weak, const char **, Dwarf_Error *);
+int		dwarf_weakname(Dwarf_Weak, char **, Dwarf_Error *);
 int		dwarf_siblingof(Dwarf_Debug, Dwarf_Die, Dwarf_Die *, Dwarf_Error *);
-int		dwarf_srcfiles(Dwarf_Die, const char ***, Dwarf_Signed *,
-		    Dwarf_Error *);
+int		dwarf_srcfiles(Dwarf_Die, char ***, Dwarf_Signed *, Dwarf_Error *);
 int		dwarf_srclang(Dwarf_Die, Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_srclines(Dwarf_Die, Dwarf_Line **, Dwarf_Signed *,
 		    Dwarf_Error *);

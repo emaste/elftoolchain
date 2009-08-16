@@ -1,5 +1,6 @@
 /*-
  * Copyright (c) 2009 Kai Wang
+ * All rights reserved.
  * Copyright (c) 2007 John Birrell (jb@freebsd.org)
  * All rights reserved.
  *
@@ -191,7 +192,7 @@ dwarf_die_CU_offset_range(Dwarf_Die die, Dwarf_Off *cu_offset,
 extern char *anon_name;
 
 int
-dwarf_diename(Dwarf_Die die, const char **ret_name, Dwarf_Error *error)
+dwarf_diename(Dwarf_Die die, char **ret_name, Dwarf_Error *error)
 {
 
 	if (die == NULL || ret_name == NULL) {
@@ -199,7 +200,7 @@ dwarf_diename(Dwarf_Die die, const char **ret_name, Dwarf_Error *error)
 		return (DW_DLV_ERROR);
 	}
 
-	if (die->die_name == NULL || !strcmp(die->die_name, anon_name)) {
+	if (die->die_name == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_NO_ENTRY);
 		return (DW_DLV_NO_ENTRY);
 	}

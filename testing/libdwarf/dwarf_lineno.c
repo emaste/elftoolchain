@@ -82,7 +82,7 @@ dwarf_srclines(Dwarf_Die die, Dwarf_Line **linebuf, Dwarf_Signed *linecount,
 }
 
 int
-dwarf_srcfiles(Dwarf_Die die, const char ***srcfiles, Dwarf_Signed *srccount,
+dwarf_srcfiles(Dwarf_Die die, char ***srcfiles, Dwarf_Signed *srccount,
     Dwarf_Error *error)
 {
 	Dwarf_CU cu;
@@ -119,8 +119,7 @@ dwarf_srcfiles(Dwarf_Die die, const char ***srcfiles, Dwarf_Signed *srccount,
 		return (DW_DLV_OK);
 	}
 
-	if ((li->li_lfnarray = malloc(*srccount * sizeof(const char *))) ==
-	    NULL) {
+	if ((li->li_lfnarray = malloc(*srccount * sizeof(char *))) == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_MEMORY);
 		return (DW_DLV_ERROR);
 	}
@@ -223,7 +222,7 @@ dwarf_lineoff(Dwarf_Line ln, Dwarf_Signed *ret_lineoff, Dwarf_Error *error)
 }
 
 int
-dwarf_linesrc(Dwarf_Line ln, const char **ret_linesrc, Dwarf_Error *error)
+dwarf_linesrc(Dwarf_Line ln, char **ret_linesrc, Dwarf_Error *error)
 {
 	Dwarf_LineInfo li;
 	Dwarf_LineFile lf;
@@ -248,7 +247,7 @@ dwarf_linesrc(Dwarf_Line ln, const char **ret_linesrc, Dwarf_Error *error)
 	}
 
 	if (lf->lf_fullpath) {
-		*ret_linesrc = (const char *)lf->lf_fullpath;
+		*ret_linesrc = (char *) lf->lf_fullpath;
 		return (DW_DLV_OK);
 	}
 

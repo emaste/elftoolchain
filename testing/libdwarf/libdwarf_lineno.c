@@ -44,7 +44,7 @@ lineno_add_file(Dwarf_LineInfo li, uint8_t **p, const char *compdir,
 		return (DWARF_E_MEMORY);
 	}
 
-	lf->lf_fname = (char *)src;
+	lf->lf_fname = (char *) src;
 
 	/* Make full pathname if need. */
 	if (compdir != NULL && *lf->lf_fname != '/') {
@@ -358,7 +358,7 @@ lineno_init(Dwarf_Die die, uint64_t offset, Dwarf_Error *error)
 		goto fail_cleanup;
 	}
 
-	if ((li->li_incdirs = malloc(length * sizeof(const char *))) == NULL) {
+	if ((li->li_incdirs = malloc(length * sizeof(char *))) == NULL) {
 		ret = DWARF_E_MEMORY;
 		DWARF_SET_ERROR(error, ret);
 		goto fail_cleanup;
