@@ -386,7 +386,7 @@ dwarf_get_fde_info_for_cfa_reg3(Dwarf_Fde fde, Dwarf_Addr pc_requested,
 #undef	CFA
 
 int
-dwarf_get_fde_info_for_all_reg3(Dwarf_Fde fde, Dwarf_Addr pc_requested,
+dwarf_get_fde_info_for_all_regs3(Dwarf_Fde fde, Dwarf_Addr pc_requested,
     Dwarf_Regtable3 *reg_table, Dwarf_Addr *row_pc, Dwarf_Error *error)
 {
 	Dwarf_Debug dbg;
