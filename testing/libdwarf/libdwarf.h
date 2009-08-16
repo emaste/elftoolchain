@@ -261,8 +261,8 @@ int		dwarf_expand_frame_instructions(Dwarf_Debug, Dwarf_Ptr,
 char		*dwarf_find_macro_value_start(char *);
 int		dwarf_finish(Dwarf_Debug *, Dwarf_Error *);
 int		dwarf_formref(Dwarf_Attribute, Dwarf_Off *, Dwarf_Error *);
-int		dwarf_free_expanded_frame_instrctions(Dwarf_Frame_Op *,
-		    Dwarf_Signed, Dwarf_Error *);
+int		dwarf_frame_instructions_dealloc(Dwarf_Frame_Op *, Dwarf_Signed,
+		    Dwarf_Error *);
 int		dwarf_func_cu_offset(Dwarf_Func, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_func_die_offset(Dwarf_Func, Dwarf_Off *,
 		    Dwarf_Error *);
@@ -386,7 +386,7 @@ int		dwarf_loclist_from_expr(Dwarf_Debug, Dwarf_Ptr, Dwarf_Unsigned,
 int		dwarf_loclist_from_expr_a(Dwarf_Debug, Dwarf_Ptr,
 		    Dwarf_Unsigned, Dwarf_Half, Dwarf_Locdesc **,
 		    Dwarf_Signed *, Dwarf_Error *);
-int		dwarf_loclist_from_expr_free(Dwarf_Locdesc *, Dwarf_Error *);
+int		dwarf_loclist_from_expr_dealloc(Dwarf_Locdesc *, Dwarf_Error *);
 int		dwarf_lowpc(Dwarf_Die, Dwarf_Addr *, Dwarf_Error *);
 int		dwarf_init(int, int, Dwarf_Handler, Dwarf_Ptr, Dwarf_Debug *,
 		    Dwarf_Error *);

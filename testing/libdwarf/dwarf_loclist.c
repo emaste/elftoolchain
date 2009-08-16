@@ -255,7 +255,7 @@ dwarf_loclist_from_expr_a(Dwarf_Debug dbg, Dwarf_Ptr bytes_in,
 }
 
 int
-dwarf_loclist_from_expr_free(Dwarf_Locdesc *llbuf, Dwarf_Error *error)
+dwarf_loclist_from_expr_dealloc(Dwarf_Locdesc *llbuf, Dwarf_Error *error)
 {
 
 	if (llbuf == NULL) {
