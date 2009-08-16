@@ -106,7 +106,8 @@ dwarf_init(int fd, int mode, Dwarf_Handler errhand, Dwarf_Ptr errarg,
 
 	if (ret != DWARF_E_NONE) {
 		if (*ret_dbg != NULL) {
-			dwarf_finish(ret_dbg, &lerror);
+			dwarf_finish(*ret_dbg, &lerror);
+			*ret_dbg = NULL;
 		} else
 			elf_end(elf);
 
