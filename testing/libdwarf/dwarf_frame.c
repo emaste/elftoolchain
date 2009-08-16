@@ -437,8 +437,8 @@ dwarf_expand_frame_instructions(Dwarf_Debug dbg, Dwarf_Ptr instruction,
 }
 
 int
-dwarf_free_expanded_frame_instrctions(Dwarf_Frame_Op *oplist,
-    Dwarf_Signed opcnt, Dwarf_Error *error)
+dwarf_frame_instructions_dealloc(Dwarf_Frame_Op *oplist, Dwarf_Signed opcnt,
+    Dwarf_Error *error)
 {
 
 	if (oplist == NULL || opcnt == 0) {
