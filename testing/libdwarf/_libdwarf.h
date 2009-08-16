@@ -34,6 +34,7 @@
 #include <sys/param.h>
 #include <sys/queue.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <gelf.h>
 #include "dwarf.h"
 #include "libdwarf.h"
@@ -60,15 +61,33 @@
 
 #define DWARF_DIE_HASH_SIZE		8191
 
+struct _libdwarf_globals {
+	Dwarf_Handler	errhand;
+	Dwarf_Ptr	errarg;
+};
+
+extern struct _libdwarf_globals _libdwarf;
+
 #define	DWARF_SET_ERROR(_e, _err)			\
 	do {						\
-		if (_e) {				\
-			_e->err_error = _err;		\
-			_e->elf_error = 0;		\
-			_e->err_func  = __func__;	\
-			_e->err_line  = __LINE__;	\
-			_e->err_msg[0] = '\0';		\
-		}					\
+		Dwarf_Error _de;			\
+							\
+		_de.err_error = _err;			\
+		_de.elf_error = 0;			\
+		_de.err_func  = __func__;		\
+		_de.err_line  = __LINE__;		\
+		_de.err_msg[0] = '\0';			\
+							\
+		if (_e)					\
+			*_e = _de;			\
+							\
+		if (_libdwarf.errhand)			\
+			_libdwarf.errhand(_de,		\
+			    _libdwarf.errarg);		\
+							\
+		if (_e == NULL &&			\
+		    _libdwarf.errhand == NULL)		\
+			abort();			\
 	} while (0)
 
 #define	DWARF_SET_ELF_ERROR(_e, _err)			\
@@ -83,9 +102,9 @@
 	} while (0)
 
 struct _Dwarf_AttrDef {
-	uint64_t	ad_attrib;	/* DW_AT_ */
-	uint64_t	ad_form;	/* DW_FORM_ */
-	uint64_t	ad_offset;	/* Offset in abbrev section. */
+	uint64_t	ad_attrib;		/* DW_AT_XXX */
+	uint64_t	ad_form;		/* DW_FORM_XXX */
+	uint64_t	ad_offset;		/* Offset in abbrev section. */
 	STAILQ_ENTRY(_Dwarf_AttrDef) ad_next;	/* Next attribute define. */
 };
 
@@ -100,8 +119,7 @@ struct _Dwarf_Attribute {
 		uint8_t		*u8p;		/* Block. */
 	} u[2];					/* Value. */
 	Dwarf_Locdesc		*at_ld;		/* at value is locdesc. */
-	STAILQ_ENTRY(_Dwarf_Attribute)
-				at_next;	/* Next attribute. */
+	STAILQ_ENTRY(_Dwarf_Attribute) at_next;	/* Next attribute. */
 #define	at_attrib	at_ad->ad_attrib
 #define	at_form		at_ad->ad_form
 };
@@ -113,10 +131,8 @@ struct _Dwarf_Abbrev {
 	uint64_t	ab_offset;	/* Offset in abbrev section. */
 	uint64_t	ab_length;	/* Length of this abbrev entry. */
 	uint64_t	ab_atnum;	/* Number of attribute defines. */
-	STAILQ_HEAD(, _Dwarf_AttrDef)
-			ab_attrdef;	/* List of attribute defines. */
-	STAILQ_ENTRY(_Dwarf_Abbrev)
-			ab_next;	/* Next abbrev. */
+	STAILQ_HEAD(, _Dwarf_AttrDef) ab_attrdef; /* List of attribute defs. */
+	STAILQ_ENTRY(_Dwarf_Abbrev) ab_next; /* Next abbrev. */
 };
 
 struct _Dwarf_Die {
@@ -127,12 +143,9 @@ struct _Dwarf_Die {
 	Dwarf_CU	die_cu;		/* Compilation unit pointer. */
 	const char	*die_name;	/* Ptr to the name string. */
 	Dwarf_Attribute	*die_attrarray;	/* Array of attributes. */
-	STAILQ_HEAD(, _Dwarf_Attribute)
-			die_attr;	/* List of attributes. */
-	STAILQ_ENTRY(_Dwarf_Die)
-			die_next;	/* Next die in list. */
-	STAILQ_ENTRY(_Dwarf_Die)
-			die_hash;	/* Next die in hash table. */
+	STAILQ_HEAD(, _Dwarf_Attribute)	die_attr; /* List of attributes. */
+	STAILQ_ENTRY(_Dwarf_Die) die_next; /* Next die in list. */
+	STAILQ_ENTRY(_Dwarf_Die) die_hash; /* Next die in hash table. */
 };
 
 struct _Dwarf_Loclist {
@@ -291,13 +304,10 @@ struct _Dwarf_CU {
 	Dwarf_Debug	cu_dbg;		/* Ptr to containing dbg. */
 	uint64_t	cu_offset;	/* Offset to the this CU. */
 	uint32_t	cu_length;	/* Length of CU data. */
-	uint32_t	cu_header_length;
-					/* Length of the CU header. */
+	uint32_t	cu_header_length; /* Length of the CU header. */
 	uint16_t	cu_version;	/* DWARF version. */
-	uint64_t	cu_abbrev_offset;
-					/* Offset into .debug_abbrev. */
-	uint64_t	cu_lineno_offset;
-					/* Offset into .debug_lineno. */
+	uint64_t	cu_abbrev_offset; /* Offset into .debug_abbrev. */
+	uint64_t	cu_lineno_offset; /* Offset into .debug_lineno. */
 	uint8_t		cu_pointer_size;/* Number of bytes in pointer. */
 	uint64_t	cu_next_offset; /* Offset to the next CU. */
 	Dwarf_LineInfo	cu_lineinfo;	/* Ptr to Dwarf_LineInfo. */
@@ -324,8 +334,7 @@ struct _Dwarf_Debug {
 	size_t		dbg_stnum;	/* String table section number. */
 	int		dbg_offsize;	/* DWARF offset size. */
 	int		dbg_pointer_size; /* Object address size. */
-	Dwarf_section	dbg_s[DWARF_DEBUG_SNAMES];
-					/* Array of section information. */
+	Dwarf_section	dbg_s[DWARF_DEBUG_SNAMES]; /* Array of section. */
 	STAILQ_HEAD(, _Dwarf_CU) dbg_cu;/* List of compilation units. */
 	Dwarf_CU	dbg_cu_current; /* Ptr to the current CU. */
 	TAILQ_HEAD(, _Dwarf_Loclist) dbg_loclist; /* List of location list. */
