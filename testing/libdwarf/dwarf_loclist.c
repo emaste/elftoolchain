@@ -214,8 +214,8 @@ dwarf_loclist_from_expr(Dwarf_Debug dbg, Dwarf_Ptr bytes_in,
 		return (DW_DLV_ERROR);
 	}
 
-	ret = loc_fill_locexpr(dbg, &ld, bytes_in, bytes_len, dbg->dbg_offsize,
-	    error);
+	ret = loc_fill_locexpr(dbg, &ld, bytes_in, bytes_len,
+	    dbg->dbg_pointer_size, error);
 	if (ret != DWARF_E_NONE)
 		return (DW_DLV_ERROR);
 
