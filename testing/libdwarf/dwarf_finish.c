@@ -30,7 +30,7 @@
 #include "_libdwarf.h"
 
 int
-dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
+dwarf_finish(Dwarf_Debug dbg, Dwarf_Error *error __unused)
 {
 	Dwarf_Abbrev ab;
 	Dwarf_Abbrev tab;
@@ -40,7 +40,6 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 	Dwarf_Attribute tat;
 	Dwarf_CU cu;
 	Dwarf_CU tcu;
-	Dwarf_Debug dbg;
 	Dwarf_Die die;
 	Dwarf_Die tdie;
 	Dwarf_Loclist ll;
@@ -50,12 +49,7 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 	Dwarf_Line ln, tln;
 	int i;
 
-	if (dbgp == NULL) {
-		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
-		return (DW_DLV_ERROR);
-	}
-
-	if ((dbg = *dbgp) == NULL)
+	if (dbg == NULL)
 		return (DW_DLV_OK);
 
 	/* Free entries in the compilation unit list. */
@@ -163,8 +157,6 @@ dwarf_finish(Dwarf_Debug *dbgp, Dwarf_Error *error)
 		elf_end(dbg->dbg_elf);
 
 	free(dbg);
-
-	*dbgp = NULL;
 
 	return (DW_DLV_OK);
 }
