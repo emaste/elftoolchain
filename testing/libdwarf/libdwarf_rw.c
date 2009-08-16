@@ -301,7 +301,7 @@ decode_uleb128(uint8_t **dp)
 	return ret;
 }
 
-const char *
+char *
 read_string(Elf_Data **dp, uint64_t *offsetp)
 {
 	char *ret;

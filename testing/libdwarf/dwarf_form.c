@@ -277,7 +277,7 @@ dwarf_formblock(Dwarf_Attribute at, Dwarf_Block *return_block,
 }
 
 int
-dwarf_formstring(Dwarf_Attribute at, const char **return_string,
+dwarf_formstring(Dwarf_Attribute at, char **return_string,
     Dwarf_Error *error)
 {
 	int ret;
@@ -289,11 +289,11 @@ dwarf_formstring(Dwarf_Attribute at, const char **return_string,
 
 	switch (at->at_form) {
 	case DW_FORM_string:
-		*return_string = at->u[0].s;
+		*return_string = (char *) at->u[0].s;
 		ret = DW_DLV_OK;
 		break;
 	case DW_FORM_strp:
-		*return_string = at->u[1].s;
+		*return_string = (char *) at->u[1].s;
 		ret = DW_DLV_OK;
 		break;
 	default:

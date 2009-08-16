@@ -115,7 +115,7 @@ struct _Dwarf_Attribute {
 	union {
 		uint64_t	u64;
 		int64_t		s64;
-		const char	*s;   		/* String. */
+		char		*s;   		/* String. */
 		uint8_t		*u8p;		/* Block. */
 	} u[2];					/* Value. */
 	Dwarf_Locdesc		*at_ld;		/* at value is locdesc. */
@@ -141,7 +141,7 @@ struct _Dwarf_Die {
 	uint64_t	die_abnum;	/* Abbrev number. */
 	Dwarf_Abbrev	die_ab;		/* Abbrev pointer. */
 	Dwarf_CU	die_cu;		/* Compilation unit pointer. */
-	const char	*die_name;	/* Ptr to the name string. */
+	char		*die_name;	/* Ptr to the name string. */
 	Dwarf_Attribute	*die_attrarray;	/* Array of attributes. */
 	STAILQ_HEAD(, _Dwarf_Attribute)	die_attr; /* List of attributes. */
 	STAILQ_ENTRY(_Dwarf_Die) die_next; /* Next die in list. */
@@ -169,7 +169,7 @@ struct _Dwarf_Line {
 };
 
 struct _Dwarf_LineFile {
-	const char	*lf_fname;	/* Filename. */
+	char		*lf_fname;	/* Filename. */
 	char		*lf_fullpath;	/* Full pathname of the file. */
 	Dwarf_Unsigned	lf_dirndx;	/* Dir index. */
 	Dwarf_Unsigned	lf_mtime;	/* Modification time. */
@@ -187,9 +187,9 @@ struct _Dwarf_LineInfo {
 	Dwarf_Small	li_lrange;    	/* Line range for special opcode. */
 	Dwarf_Small	li_opbase;	/* Fisrt std opcode number. */
 	Dwarf_Small	*li_oplen;	/* Array of std opcode len. */
-	const char	**li_incdirs;	/* Array of include dirs. */
+	char		**li_incdirs;	/* Array of include dirs. */
 	Dwarf_Unsigned	li_inclen;	/* Length of inc dir array. */
-	const char	**li_lfnarray;	/* Array of file names. */
+	char		**li_lfnarray;	/* Array of file names. */
 	Dwarf_Unsigned	li_lflen;	/* Length of filename array. */
 	STAILQ_HEAD(, _Dwarf_LineFile) li_lflist; /* List of files. */
 	Dwarf_Line	*li_lnarray;	/* Array of lines. */
@@ -200,7 +200,7 @@ struct _Dwarf_LineInfo {
 struct _Dwarf_NamePair {
 	Dwarf_NameTbl	np_nt;		/* Ptr to containing name table. */
 	Dwarf_Unsigned	np_offset;	/* Offset in CU. */
-	const char	*np_name;	/* Object/Type name. */
+	char		*np_name;	/* Object/Type name. */
 	STAILQ_ENTRY(_Dwarf_NamePair) np_next; /* Next pair in the list. */
 };
 
@@ -406,7 +406,7 @@ void		write_lsb(Elf_Data **, uint64_t *, uint64_t, int);
 void		write_msb(Elf_Data **, uint64_t *, uint64_t, int);
 int64_t		read_sleb128(Elf_Data **, uint64_t *);
 uint64_t	read_uleb128(Elf_Data **, uint64_t *);
-const char	*read_string(Elf_Data **, uint64_t *);
+char		*read_string(Elf_Data **, uint64_t *);
 uint8_t		*read_block(Elf_Data **, uint64_t *, uint64_t);
 
 #endif /* !__LIBDWARF_H_ */

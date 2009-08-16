@@ -47,7 +47,7 @@ dwarf_get_$1s(Dwarf_Debug dbg, Dwarf_$2 **$1s,
 }
 
 int
-dwarf_$3name(Dwarf_$2 $1, const char **ret_name, Dwarf_Error *error)
+dwarf_$3name(Dwarf_$2 $1, char **ret_name, Dwarf_Error *error)
 {
 
 	if ($1 == NULL || ret_name == NULL) {
@@ -99,8 +99,8 @@ dwarf_$1_cu_offset(Dwarf_$2 $1, Dwarf_Off *ret_offset,
 }
 
 int
-dwarf_$1_name_offsets(Dwarf_$2 $1, const char **ret_name,
-    Dwarf_Off *die_offset, Dwarf_Off *cu_offset, Dwarf_Error *error)
+dwarf_$1_name_offsets(Dwarf_$2 $1, char **ret_name, Dwarf_Off *die_offset,
+    Dwarf_Off *cu_offset, Dwarf_Error *error)
 {
 	Dwarf_CU cu;
 	Dwarf_Die die;
