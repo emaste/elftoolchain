@@ -24,15 +24,18 @@
  * SUCH DAMAGE.
  */
 
-#include <stdlib.h>
 #include <string.h>
 #include "_libdwarf.h"
 
 int
-dwarf_elf_init(Elf *elf, int mode, Dwarf_Debug *ret_dbg, Dwarf_Error *error)
+dwarf_elf_init(Elf *elf, int mode, Dwarf_Handler errhand, Dwarf_Ptr errarg,
+    Dwarf_Debug *ret_dbg, Dwarf_Error *error)
 {
 	Dwarf_Debug dbg;
 	int ret;
+
+	_libdwarf.errhand = errhand;
+	_libdwarf.errarg = errarg;
 
 	if (elf == NULL || ret_dbg == NULL) {
 		DWARF_SET_ERROR(error, DWARF_E_ARGUMENT);
@@ -48,7 +51,9 @@ dwarf_elf_init(Elf *elf, int mode, Dwarf_Debug *ret_dbg, Dwarf_Error *error)
 	dbg->dbg_elf_close 	= 0;
 	dbg->dbg_mode		= mode;
 	STAILQ_INIT(&dbg->dbg_cu);
+
 	*ret_dbg = dbg;
+
 	/* Read the ELF sections. */
 	ret = elf_read(dbg, error);
 
@@ -93,7 +98,7 @@ dwarf_init(int fd, int mode, Dwarf_Handler errhand, Dwarf_Ptr errarg,
 		return (DW_DLV_ERROR);
 	}
 
-	ret = dwarf_elf_init(elf, mode, ret_dbg, error);
+	ret = dwarf_elf_init(elf, mode, errhand, errarg, ret_dbg, error);
 
 	if (*ret_dbg != NULL)
 		/* Remember to close the ELF file. */

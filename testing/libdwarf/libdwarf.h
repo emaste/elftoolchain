@@ -258,7 +258,8 @@ int		dwarf_die_abbrev_code(Dwarf_Die);
 int		dwarf_die_CU_offset(Dwarf_Die, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_die_CU_offset_range(Dwarf_Die, Dwarf_Off *, Dwarf_Off *,
 		    Dwarf_Error *);
-int		dwarf_elf_init(Elf *, int, Dwarf_Debug *, Dwarf_Error *);
+int		dwarf_elf_init(Elf *, int, Dwarf_Handler, Dwarf_Ptr,
+		    Dwarf_Debug *, Dwarf_Error *);
 int		dwarf_expand_frame_instructions(Dwarf_Debug, Dwarf_Ptr,
 		    Dwarf_Unsigned, Dwarf_Frame_Op **, Dwarf_Signed *,
 		    Dwarf_Error *);
