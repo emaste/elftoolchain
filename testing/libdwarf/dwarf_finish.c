@@ -47,7 +47,6 @@ dwarf_finish(Dwarf_Debug dbg, Dwarf_Error *error __unused)
 	Dwarf_LineInfo li;
 	Dwarf_LineFile lf, tlf;
 	Dwarf_Line ln, tln;
-	int i;
 
 	if (dbg == NULL)
 		return (DW_DLV_OK);
@@ -117,13 +116,7 @@ dwarf_finish(Dwarf_Debug dbg, Dwarf_Error *error __unused)
 	/* Free loclist list. */
 	TAILQ_FOREACH_SAFE(ll, &dbg->dbg_loclist, ll_next, tll) {
 		TAILQ_REMOVE(&dbg->dbg_loclist, ll, ll_next);
-		if (ll->ll_ldlist != NULL) {
-			for (i = 0; i < ll->ll_ldlen; i++)
-				if (ll->ll_ldlist[i].ld_s)
-					free(ll->ll_ldlist[i].ld_s);
-			free(ll->ll_ldlist);
-		}
-		free(ll);
+		loclist_cleanup(ll);
 	}
 
 	/* Free rangelist. */

@@ -387,7 +387,7 @@ int		dwarf_locdesc(Dwarf_Die, uint64_t, Dwarf_Locdesc **, Dwarf_Signed *,
 int		dwarf_locdesc_free(Dwarf_Locdesc *, Dwarf_Error *);
 int		dwarf_loclist(Dwarf_Attribute, Dwarf_Locdesc **, Dwarf_Signed *,
 		    Dwarf_Error *);
-int		dwarf_loclist_n(Dwarf_Attribute, Dwarf_Locdesc **,
+int		dwarf_loclist_n(Dwarf_Attribute, Dwarf_Locdesc ***,
 		    Dwarf_Signed *, Dwarf_Error *);
 int		dwarf_loclist_from_expr(Dwarf_Debug, Dwarf_Ptr, Dwarf_Unsigned,
 		    Dwarf_Locdesc **, Dwarf_Signed *, Dwarf_Error *);

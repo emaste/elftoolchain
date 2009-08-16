@@ -149,10 +149,10 @@ struct _Dwarf_Die {
 };
 
 struct _Dwarf_Loclist {
-	Dwarf_Locdesc 	*ll_ldlist;     /* Ptr to array of locdesc. */
-	int 		ll_ldlen;	/* number of locdesc. */
-	Dwarf_Unsigned	ll_offset;	/* offset in .debug_loc section. */
-	Dwarf_Unsigned	ll_length;	/* length (in bytes) of the loclist. */
+	Dwarf_Locdesc 	**ll_ldlist;	/* Array of Locdesc pointer. */
+	int 		ll_ldlen;	/* Number of Locdesc. */
+	Dwarf_Unsigned	ll_offset;	/* Offset in .debug_loc section. */
+	Dwarf_Unsigned	ll_length;	/* Length (in bytes) of the loclist. */
 	TAILQ_ENTRY(_Dwarf_Loclist) ll_next; /* Next loclist in list. */
 };
 
@@ -392,6 +392,7 @@ int		loc_fill_locexpr(Dwarf_Debug, Dwarf_Locdesc **, uint8_t *,
 int		loc_add(Dwarf_Die, Dwarf_Attribute, Dwarf_Error *);
 int		loclist_find(Dwarf_Debug, uint64_t, Dwarf_Loclist *);
 int		loclist_add(Dwarf_Debug, Dwarf_CU, uint64_t, Dwarf_Error *);
+void		loclist_cleanup(Dwarf_Loclist);
 void		macinfo_cleanup(Dwarf_Debug);
 int		macinfo_init(Dwarf_Debug, Elf_Data *, Dwarf_Error *);
 int		nametbl_init(Dwarf_Debug, Dwarf_NameSec *, Elf_Data *,
