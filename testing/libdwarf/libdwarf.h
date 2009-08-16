@@ -210,7 +210,7 @@ typedef struct _Dwarf_Error {
 
 typedef void (*Dwarf_Handler)(Dwarf_Error, Dwarf_Ptr);
 
-#define	dwarf_errno(error)	error.err_errno
+#define	dwarf_errno(error)	error.err_error
 #define	dwarf_errmsg(error)	_dwarf_errmsg(&error)
 
 /*
