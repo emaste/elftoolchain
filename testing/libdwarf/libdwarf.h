@@ -310,7 +310,7 @@ int		dwarf_get_fde_at_pc(Dwarf_Fde *, Dwarf_Addr, Dwarf_Fde *,
 		    Dwarf_Addr *, Dwarf_Addr *, Dwarf_Error *);
 int		dwarf_get_fde_info_for_all_regs(Dwarf_Fde, Dwarf_Addr,
 		    Dwarf_Regtable *, Dwarf_Addr *, Dwarf_Error *);
-int		dwarf_get_fde_info_for_all_reg3(Dwarf_Fde, Dwarf_Addr,
+int		dwarf_get_fde_info_for_all_regs3(Dwarf_Fde, Dwarf_Addr,
 		    Dwarf_Regtable3 *, Dwarf_Addr *, Dwarf_Error *);
 int		dwarf_get_fde_info_for_cfa_reg3(Dwarf_Fde, Dwarf_Addr,
 		    Dwarf_Small *, Dwarf_Signed *, Dwarf_Signed *, Dwarf_Signed *,
