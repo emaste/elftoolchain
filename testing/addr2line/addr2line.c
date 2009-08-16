@@ -75,13 +75,14 @@ search_func(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Addr addr,
 	Dwarf_Half tag;
 	Dwarf_Unsigned lopc, hipc, ref;
 	Dwarf_Attribute sub_at, spec_at;
+	char *func0;
 	int ret;
 
 	if (*rlt_func != NULL)
 		return;
 
 	if (dwarf_tag(die, &tag, &de)) {
-		warnx("dwarf_tag: %s", dwarf_errmsg(&de));
+		warnx("dwarf_tag: %s", dwarf_errmsg(de));
 		goto cont_search;
 	}
 	if (tag == DW_TAG_subprogram) {
@@ -98,8 +99,10 @@ search_func(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Addr addr,
 		if (ret == DW_DLV_ERROR)
 			return;
 		if (ret == DW_DLV_OK) {
-			if (dwarf_formstring(sub_at, rlt_func, &de))
+			if (dwarf_formstring(sub_at, &func0, &de))
 				*rlt_func = "??";
+			else
+				*rlt_func = func0;
 			return;
 		}
 
@@ -125,14 +128,14 @@ cont_search:
 	/* Search children. */
 	ret = dwarf_child(die, &ret_die, &de);
 	if (ret == DW_DLV_ERROR)
-		errx(1, "dwarf_child: %s", dwarf_errmsg(&de));
+		errx(1, "dwarf_child: %s", dwarf_errmsg(de));
 	else if (ret == DW_DLV_OK)
 		search_func(dbg, ret_die, addr, rlt_func);
 
 	/* Search sibling. */
 	ret = dwarf_siblingof(dbg, die, &ret_die, &de);
 	if (ret == DW_DLV_ERROR)
-		errx(1, "dwarf_siblingof: %s", dwarf_errmsg(&de));
+		errx(1, "dwarf_siblingof: %s", dwarf_errmsg(de));
 	else if (ret == DW_DLV_OK)
 		search_func(dbg, ret_die, addr, rlt_func);
 }
@@ -147,8 +150,8 @@ translate(Dwarf_Debug dbg, const char* addrstr)
 	Dwarf_Unsigned lopc, hipc, addr, lineno, plineno;
 	Dwarf_Signed lcount;
 	Dwarf_Addr lineaddr, plineaddr;
-	const char *pfile, *file;
-	const char *funcname;
+	const char *pfile, *file, *funcname;
+	char *file0;
 	char demangled[1024];
 	int i, ret;
 
@@ -162,7 +165,7 @@ translate(Dwarf_Debug dbg, const char* addrstr)
 		while (dwarf_siblingof(dbg, die, &die, &de) == DW_DLV_OK) {
 			if (dwarf_tag(die, &tag, &de) != DW_DLV_OK) {
 				warnx("dwarf_tag failed: %s",
-				    dwarf_errmsg(&de));
+				    dwarf_errmsg(de));
 				goto out;
 			}
 			/* XXX: What about DW_TAG_partial_unit? */
@@ -184,7 +187,7 @@ translate(Dwarf_Debug dbg, const char* addrstr)
 		}
 
 		if (dwarf_srclines(die, &lbuf, &lcount, &de) != DW_DLV_OK) {
-			warnx("dwarf_srclines: %s", dwarf_errmsg(&de));
+			warnx("dwarf_srclines: %s", dwarf_errmsg(de));
 			goto out;
 		}
 
@@ -194,18 +197,19 @@ translate(Dwarf_Debug dbg, const char* addrstr)
 		for (i = 0; i < lcount; i++) {
 			if (dwarf_lineaddr(lbuf[i], &lineaddr, &de)) {
 				warnx("dwarf_lineaddr: %s",
-				    dwarf_errmsg(&de));
+				    dwarf_errmsg(de));
 				goto out;
 			}
 			if (dwarf_lineno(lbuf[i], &lineno, &de)) {
 				warnx("dwarf_lineno: %s",
-				    dwarf_errmsg(&de));
+				    dwarf_errmsg(de));
 				goto out;
 			}
-			if (dwarf_linesrc(lbuf[i], &file, &de)) {
+			if (dwarf_linesrc(lbuf[i], &file0, &de)) {
 				warnx("dwarf_linesrc: %s",
-				    dwarf_errmsg(&de));
-			}
+				    dwarf_errmsg(de));
+			} else
+				file = file0;
 			if (addr == lineaddr)
 				goto out;
 			else if (addr < lineaddr && addr > plineaddr) {
@@ -241,7 +245,7 @@ out:
 	 */
 	while (ret != DW_DLV_NO_ENTRY) {
 		if (ret == DW_DLV_ERROR)
-			errx(1, "dwarf_next_cu_header: %s", dwarf_errmsg(&de));
+			errx(1, "dwarf_next_cu_header: %s", dwarf_errmsg(de));
 		ret = dwarf_next_cu_header(dbg, NULL, NULL, NULL, NULL, NULL,
 		    &de);
 	}
@@ -293,8 +297,8 @@ main(int argc, char **argv)
 	if ((fd = open(exe, O_RDONLY)) < 0)
 		err(1, "%s", exe);
 
-	if (dwarf_init(fd, DW_DLC_READ, &dbg, &de))
-		errx(1, "dwarf_init: %s", dwarf_errmsg(&de));
+	if (dwarf_init(fd, DW_DLC_READ, NULL, NULL, &dbg, &de))
+		errx(1, "dwarf_init: %s", dwarf_errmsg(de));
 
 
 	if (argc > 0)
@@ -304,7 +308,7 @@ main(int argc, char **argv)
 		while (fgets(line, sizeof(line), stdin) != NULL)
 			translate(dbg, line);
 
-	dwarf_finish(&dbg, &de);
+	dwarf_finish(dbg, &de);
 
 	exit(0);
 }
