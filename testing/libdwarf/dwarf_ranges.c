@@ -59,3 +59,21 @@ dwarf_get_ranges(Dwarf_Debug dbg, Dwarf_Off offset, Dwarf_Ranges **ranges,
 
 	return (DW_DLV_OK);
 }
+
+int
+dwarf_get_ranges_a(Dwarf_Debug dbg, Dwarf_Off offset, Dwarf_Die die __unused,
+    Dwarf_Ranges **ranges, Dwarf_Signed *ret_cnt, Dwarf_Unsigned *ret_byte_cnt,
+    Dwarf_Error *error)
+{
+
+	return (dwarf_get_ranges(dbg, offset, ranges, ret_cnt, ret_byte_cnt,
+	    error));
+}
+
+int
+dwarf_ranges_dealloc(Dwarf_Debug dbg __unused, Dwarf_Ranges *ranges __unused,
+    Dwarf_Signed range_count __unused)
+{
+
+	return (DW_DLV_OK);
+}

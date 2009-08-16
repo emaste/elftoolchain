@@ -345,6 +345,9 @@ int		dwarf_get_pubtypes(Dwarf_Debug, Dwarf_Type **, Dwarf_Signed *,
 		    Dwarf_Error *);
 int		dwarf_get_ranges(Dwarf_Debug, Dwarf_Off, Dwarf_Ranges **,
 		    Dwarf_Signed *, Dwarf_Unsigned *, Dwarf_Error *);
+int		dwarf_get_ranges_a(Dwarf_Debug, Dwarf_Off, Dwarf_Die,
+		    Dwarf_Ranges **, Dwarf_Signed *, Dwarf_Unsigned *,
+		    Dwarf_Error *);
 int		dwarf_get_str(Dwarf_Debug, Dwarf_Off, char **, Dwarf_Signed *,
 		    Dwarf_Error *);
 int		dwarf_get_types(Dwarf_Debug, Dwarf_Type **, Dwarf_Signed *,
@@ -400,6 +403,7 @@ int		dwarf_pubtype_die_offset(Dwarf_Type, Dwarf_Off *,
 int		dwarf_pubtype_name_offsets(Dwarf_Type, const char **,
 		    Dwarf_Off *, Dwarf_Off *, Dwarf_Error *);
 int		dwarf_pubtypename(Dwarf_Type, const char **, Dwarf_Error *);
+int		dwarf_ranges_dealloc(Dwarf_Debug, Dwarf_Ranges *, Dwarf_Signed);
 Dwarf_Half	dwarf_set_frame_cfa_value(Dwarf_Debug, Dwarf_Half);
 Dwarf_Half	dwarf_set_frame_rule_initial_value(Dwarf_Debug, Dwarf_Half);
 Dwarf_Half	dwarf_set_frame_rule_table_size(Dwarf_Debug, Dwarf_Half);
