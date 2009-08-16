@@ -27,6 +27,7 @@ SRCS=	\
 	dwarf_types.c		\
 	dwarf_vars.c		\
 	dwarf_weaks.c		\
+	libdwarf.c		\
 	libdwarf_abbrev.c	\
 	libdwarf_arange.c	\
 	libdwarf_attr.c		\

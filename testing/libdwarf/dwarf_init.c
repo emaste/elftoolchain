@@ -59,7 +59,8 @@ dwarf_elf_init(Elf *elf, int mode, Dwarf_Debug *ret_dbg, Dwarf_Error *error)
 }
 
 int
-dwarf_init(int fd, int mode, Dwarf_Debug *ret_dbg, Dwarf_Error *error)
+dwarf_init(int fd, int mode, Dwarf_Handler errhand, Dwarf_Ptr errarg,
+    Dwarf_Debug *ret_dbg, Dwarf_Error *error)
 {
 	Dwarf_Error lerror;
 	Elf *elf;
@@ -103,6 +104,9 @@ dwarf_init(int fd, int mode, Dwarf_Debug *ret_dbg, Dwarf_Error *error)
 
 		return (DW_DLV_ERROR);
 	}
+
+	_libdwarf.errhand = errhand;
+	_libdwarf.errarg = errarg;
 
 	return (DW_DLV_OK);
 }

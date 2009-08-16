@@ -208,6 +208,8 @@ typedef struct _Dwarf_Error {
 	char		err_msg[1024];	/* Formatted error message. */
 } Dwarf_Error;
 
+typedef void (*Dwarf_Handler)(Dwarf_Error, Dwarf_Ptr);
+
 #define	dwarf_errno(error)	error.err_errno
 #define	dwarf_errmsg(error)	_dwarf_errmsg(&error)
 
@@ -386,7 +388,8 @@ int		dwarf_loclist_from_expr_a(Dwarf_Debug, Dwarf_Ptr,
 		    Dwarf_Signed *, Dwarf_Error *);
 int		dwarf_loclist_from_expr_free(Dwarf_Locdesc *, Dwarf_Error *);
 int		dwarf_lowpc(Dwarf_Die, Dwarf_Addr *, Dwarf_Error *);
-int		dwarf_init(int, int, Dwarf_Debug *, Dwarf_Error *);
+int		dwarf_init(int, int, Dwarf_Handler, Dwarf_Ptr, Dwarf_Debug *,
+		    Dwarf_Error *);
 int		dwarf_next_cu_header(Dwarf_Debug, Dwarf_Unsigned *, Dwarf_Half *,
 		    Dwarf_Unsigned *, Dwarf_Half *, Dwarf_Unsigned *, Dwarf_Error *);
 int		dwarf_offdie(Dwarf_Debug, Dwarf_Off, Dwarf_Die *,
