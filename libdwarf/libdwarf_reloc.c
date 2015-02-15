@@ -65,10 +65,10 @@ _dwarf_get_reloc_size(Dwarf_Debug dbg, Dwarf_Unsigned rel_type)
 	case EM_NONE:
 		break;
 	case EM_AARCH64:
-		if (rel_type == R_AARCH64_ABS64)
-			return (8);
-		else if (rel_type == R_AARCH64_ABS32)
+		if (rel_type == R_AARCH64_ABS32)
 			return (4);
+		else if (rel_type == R_AARCH64_ABS64)
+			return (8);
 		break;
 	case EM_ARM:
 		if (rel_type == R_ARM_ABS32)
