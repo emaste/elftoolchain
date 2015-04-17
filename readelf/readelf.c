@@ -31,6 +31,7 @@
 #include <ctype.h>
 #include <dwarf.h>
 #include <err.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <gelf.h>
 #include <getopt.h>
@@ -44,6 +45,15 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#if defined(__FreeBSD__)
+#if __FreeBSD_version >= 1100014
+#include <sys/capsicum.h>
+#define HAVE_CAPSICUM
+#elif __FreeBSD_version >= 1000000
+#include <sys/capability.h>
+#define HAVE_CAPSICUM
+#endif
+#endif
 
 #include "_elftc.h"
 
@@ -7477,6 +7487,9 @@ readelf_usage(void)
 int
 main(int argc, char **argv)
 {
+#ifdef HAVE_CAPSICUM
+	cap_rights_t	 rights;
+#endif
 	struct readelf	*re, re_storage;
 	unsigned long	 si;
 	int		 opt, i;
@@ -7602,12 +7615,31 @@ main(int argc, char **argv)
 		errx(EXIT_FAILURE, "ELF library initialization failed: %s",
 		    elf_errmsg(-1));
 
+#ifdef HAVE_CAPSICUM
+	cap_rights_init(&rights, CAP_WRITE);
+	if ((cap_rights_limit(STDOUT_FILENO, &rights) < 0 && errno != ENOSYS) ||
+	    (cap_rights_limit(STDERR_FILENO, &rights) < 0 && errno != ENOSYS))
+		err(1, "unable to limit rights for stdout or stderr");
+	cap_rights_init(&rights, CAP_FSTAT, CAP_READ);
+#endif
 	for (i = 0; i < argc; i++) {
 		re->filename = argv[i];
 		if ((re->fd = open(re->filename, O_RDONLY)) == -1) {
 			warn("open %s failed", re->filename);
 			continue;
 		}
+#ifdef HAVE_CAPSICUM
+		if (cap_rights_limit(re->fd, &rights) < 0 && errno != ENOSYS)
+			err(1, "unable to limit rights for %s", re->filename);
+		/*
+		 * For simplicity we only enter capability mode for the last
+		 * file in the list, as we will not be able to open additional
+		 * files once we do.
+		 */
+		if (i == argc - 1)
+			if (cap_enter() < 0 && errno != ENOSYS)
+				err(1, "unable to enter capability mode");
+#endif
 		dump_object(re);
 	}
 
