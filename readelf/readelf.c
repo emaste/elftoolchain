@@ -140,6 +140,7 @@ struct symver {
  */
 struct readelf {
 	const char	 *filename;	/* current processing file. */
+	int		  fd;		/* object file descriptor. */
 	int		  options;	/* command line options. */
 	int		  flags;	/* run control flags. */
 	int		  dop;		/* dwarf dump options. */
@@ -7123,17 +7124,11 @@ process_members:
 static void
 dump_object(struct readelf *re)
 {
-	int fd;
-
-	if ((fd = open(re->filename, O_RDONLY)) == -1) {
-		warn("open %s failed", re->filename);
-		return;
-	}
 
 	if ((re->flags & DISPLAY_FILENAME) != 0)
 		printf("\nFile: %s\n", re->filename);
 
-	if ((re->elf = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
+	if ((re->elf = elf_begin(re->fd, ELF_C_READ, NULL)) == NULL) {
 		warnx("elf_begin() failed: %s", elf_errmsg(-1));
 		return;
 	}
@@ -7146,7 +7141,7 @@ dump_object(struct readelf *re)
 		dump_elf(re);
 		break;
 	case ELF_K_AR:
-		dump_ar(re, fd);
+		dump_ar(re, re->fd);
 		break;
 	default:
 		warnx("Internal: libelf returned unknown elf kind.");
@@ -7609,6 +7604,10 @@ main(int argc, char **argv)
 
 	for (i = 0; i < argc; i++) {
 		re->filename = argv[i];
+		if ((re->fd = open(re->filename, O_RDONLY)) == -1) {
+			warn("open %s failed", re->filename);
+			continue;
+		}
 		dump_object(re);
 	}
 
