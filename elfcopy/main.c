@@ -484,6 +484,9 @@ free_elf(struct elfcopy *ecp)
 				free(sec->pad);
 			free(sec);
 		}
+		ecp->symtab = NULL;
+		ecp->strtab = NULL;
+		ecp->flags &= ~SYMTAB_EXIST;
 	}
 }
 
