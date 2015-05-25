@@ -240,6 +240,7 @@ e_machines(unsigned int mach)
 	case EM_386:	return "EM_386";
 	case EM_68K:	return "EM_68K";
 	case EM_88K:	return "EM_88K";
+	case EM_IAMCU:	return "EM_IAMCU";
 	case EM_860:	return "EM_860";
 	case EM_MIPS:	return "EM_MIPS";
 	case EM_PPC:	return "EM_PPC";
@@ -411,6 +412,7 @@ r_type(unsigned int mach, unsigned int type)
 	switch(mach) {
 	case EM_NONE: return "";
 	case EM_386:
+	case EM_IAMCU:
 		switch(type) {
 		case 0: return "R_386_NONE";
 		case 1: return "R_386_32";
@@ -933,12 +935,11 @@ main(int ac, char **av)
 		errx(EXIT_FAILURE, "ELF library initialization failed: %s",
 		    elf_errmsg(-1));
 
-	for (i = 0; i < ac; i++)
-		if (av[i] != NULL) {
-			ed->filename = av[i];
-			ed->archive = NULL;
-			elf_print_object(ed);
-		}
+	for (i = 0; i < ac; i++) {
+		ed->filename = av[i];
+		ed->archive = NULL;
+		elf_print_object(ed);
+	}
 
 	exit(EXIT_SUCCESS);
 }
