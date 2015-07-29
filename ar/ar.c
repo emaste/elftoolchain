@@ -100,11 +100,12 @@ main(int argc, char **argv)
 	struct bsdar	*bsdar, bsdar_storage;
 	char		*arcmd, *argv1_saved;
 	size_t		 len;
-	int		 i, opt;
+	int		 i, opt, deterministic;
 
 	bsdar = &bsdar_storage;
 	memset(bsdar, 0, sizeof(*bsdar));
 
+	deterministic = -1; /* Unspecified */
 	arcmd = argv1_saved = NULL;
 	bsdar->output = stdout;
 
@@ -130,10 +131,10 @@ main(int argc, char **argv)
 				/* Ignored. */
 				break;
 			case 'D':
-				bsdar->options |= AR_D;
+				deterministic = 1;
 				break;
 			case 'U':
-				bsdar->options &= ~AR_D;
+				deterministic = 0;
 				break;
 			case 'V':
 				bsdar_version();
@@ -192,7 +193,7 @@ main(int argc, char **argv)
 			set_mode(bsdar, opt);
 			break;
 		case 'D':
-			bsdar->options |= AR_D;
+			deterministic = 1;
 			break;
 		case 'F':
 			if (!strcasecmp(optarg, "svr4") ||
@@ -241,7 +242,7 @@ main(int argc, char **argv)
 			set_mode(bsdar, opt);
 			break;
 		case 'U':
-			bsdar->options &= ~AR_D;
+			deterministic = 0;
 			break;
 		case 'u':
 			bsdar->options |= AR_U;
@@ -309,14 +310,23 @@ main(int argc, char **argv)
 		only_mode(bsdar, "-c", "qr");
 	if (bsdar->options & AR_CC)
 		only_mode(bsdar, "-C", "x");
-	if (bsdar->options & AR_D)
+	if (deterministic == 1)
 		only_mode(bsdar, "-D", "qr");
+	if (deterministic == 0)
+		only_mode(bsdar, "-U", "qr");
 	if (bsdar->options & AR_O)
 		only_mode(bsdar, "-o", "x");
 	if (bsdar->options & AR_SS)
 		only_mode(bsdar, "-S", "mqr");
 	if (bsdar->options & AR_U)
 		only_mode(bsdar, "-u", "qrx");
+
+	if (deterministic == 1)
+		bsdar->options |= AR_D;
+#ifdef DEFAULT_DETERMINISTIC
+	if (deterministic == -1 && (bsdar->mode == 'q' || bsdar->mode == 'r'))
+		bsdar->options |= AR_D;
+#endif
 
 	if (bsdar->mode == 'M') {
 		ar_mode_script(bsdar);
