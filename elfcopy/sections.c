@@ -59,7 +59,7 @@ static void	update_reloc(struct elfcopy *ecp, struct section *s);
 static void	update_section_group(struct elfcopy *ecp, struct section *s);
 
 int
-is_remove_section(struct elfcopy *ecp, const char *name)
+is_remove_section(struct elfcopy *ecp, const GElf_Shdr *sh, const char *name)
 {
 
 	/* Always keep section name table */
@@ -85,7 +85,7 @@ is_remove_section(struct elfcopy *ecp, const char *name)
 		    ecp->strip == STRIP_UNNEEDED ||
 		    (ecp->flags & DISCARD_LOCAL))
 			return (1);
-		if (ecp->strip == STRIP_NONDEBUG)
+		if (ecp->strip == STRIP_NONDEBUG && sh->sh_type != SHT_NOTE)
 			return (0);
 	}
 
@@ -129,7 +129,7 @@ is_remove_reloc_sec(struct elfcopy *ecp, uint32_t sh_info)
 			    NULL)
 				errx(EXIT_FAILURE, "elf_strptr failed: %s",
 				    elf_errmsg(-1));
-			if (is_remove_section(ecp, name))
+			if (is_remove_section(ecp, &ish, name))
 				return (1);
 			else
 				return (0);
@@ -376,7 +376,7 @@ create_scn(struct elfcopy *ecp)
 			    elf_errmsg(-1));
 
 		/* Skip sections to be removed. */
-		if (is_remove_section(ecp, name))
+		if (is_remove_section(ecp, &ish, name))
 			continue;
 
 		/*

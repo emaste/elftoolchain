@@ -276,7 +276,7 @@ mark_reloc_symbols(struct elfcopy *ecp, size_t sc)
 		if ((name = elf_strptr(ecp->ein, indx, sh.sh_name)) == NULL)
 			errx(EXIT_FAILURE, "elf_strptr failed: %s",
 			    elf_errmsg(-1));
-		if (is_remove_section(ecp, name) ||
+		if (is_remove_section(ecp, &sh, name) ||
 		    is_remove_reloc_sec(ecp, sh.sh_info))
 			continue;
 
@@ -348,7 +348,7 @@ mark_section_group_symbols(struct elfcopy *ecp, size_t sc)
 		if ((name = elf_strptr(ecp->ein, indx, sh.sh_name)) == NULL)
 			errx(EXIT_FAILURE, "elf_strptr failed: %s",
 			    elf_errmsg(-1));
-		if (is_remove_section(ecp, name))
+		if (is_remove_section(ecp, &sh, name))
 			continue;
 
 		if (sh.sh_info > 0 && sh.sh_info < sc)

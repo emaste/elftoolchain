@@ -302,7 +302,8 @@ void	insert_to_sec_list(struct elfcopy *_ecp, struct section *_sec,
     int _tail);
 struct section *insert_shtab(struct elfcopy *_ecp, int tail);
 int	is_remove_reloc_sec(struct elfcopy *_ecp, uint32_t _sh_info);
-int	is_remove_section(struct elfcopy *_ecp, const char *_name);
+int	is_remove_section(struct elfcopy *_ecp, const GElf_Shdr *sh,
+    const char *_name);
 struct sec_action *lookup_sec_act(struct elfcopy *_ecp,
     const char *_name, int _add);
 struct symop *lookup_symop_list(struct elfcopy *_ecp, const char *_name,
