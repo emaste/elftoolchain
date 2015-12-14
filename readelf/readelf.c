@@ -3452,8 +3452,8 @@ dump_symtab(struct readelf *re, int i)
 			continue;
 		}
 		printf("%6d:", j);
-		printf(" %16.16jx", (uintmax_t)sym.st_value);
-		printf(" %5ju", sym.st_size);
+		printf(" %16.16jx", (uintmax_t) sym.st_value);
+		printf(" %5ju", (uintmax_t) sym.st_size);
 		printf(" %-7s", st_type(GELF_ST_TYPE(sym.st_info)));
 		printf(" %-6s", st_bind(GELF_ST_BIND(sym.st_info)));
 		printf(" %-8s", st_vis(GELF_ST_VISIBILITY(sym.st_other)));
@@ -4287,7 +4287,7 @@ dump_compatibility_tag(uint8_t *p, uint8_t *pe)
 	uint64_t val;
 
 	val = _decode_uleb128(&p, pe);
-	printf("flag = %ju, vendor = %s\n", val, p);
+	printf("flag = %ju, vendor = %s\n", (uintmax_t) val, p);
 	p += strlen((char *) p) + 1;
 
 	return (p);
@@ -4811,6 +4811,7 @@ dump_dwarf_line(struct readelf *re)
 		}
 
 		endoff = offset + length;
+		pe = (uint8_t *) d->d_buf + endoff;
 		version = re->dw_read(d, &offset, 2);
 		hdrlen = re->dw_read(d, &offset, dwarf_size);
 		minlen = re->dw_read(d, &offset, 1);
@@ -4876,7 +4877,6 @@ dump_dwarf_line(struct readelf *re)
 #define	ADDRESS(x) ((((x) - opbase) / lrange) * minlen)
 
 		p++;
-		pe = (uint8_t *) d->d_buf + endoff;
 		printf("\n");
 		printf(" Line Number Statements:\n");
 
@@ -4981,7 +4981,8 @@ dump_dwarf_line(struct readelf *re)
 					break;
 				case DW_LNS_set_isa:
 					isa = _decode_uleb128(&p, pe);
-					printf("  Set isa to %ju\n", isa);
+					printf("  Set isa to %ju\n",
+					    (uintmax_t) isa);
 					break;
 				default:
 					/* Unrecognized extended opcodes. */
@@ -5733,12 +5734,12 @@ dump_dwarf_ranges_foreach(struct readelf *re, Dwarf_Die die, Dwarf_Addr base)
 			}
 			if (re->ec == ELFCLASS32)
 				printf("%08jx %08jx\n",
-				    ranges[j].dwr_addr1 + base0,
-				    ranges[j].dwr_addr2 + base0);
+				    (uintmax_t) (ranges[j].dwr_addr1 + base0),
+				    (uintmax_t) (ranges[j].dwr_addr2 + base0));
 			else
 				printf("%016jx %016jx\n",
-				    ranges[j].dwr_addr1 + base0,
-				    ranges[j].dwr_addr2 + base0);
+				    (uintmax_t) (ranges[j].dwr_addr1 + base0),
+				    (uintmax_t) (ranges[j].dwr_addr2 + base0));
 		}
 	}
 
@@ -6712,7 +6713,7 @@ dump_dwarf_loclist(struct readelf *re)
 		set_cu_context(re, la->la_cu_psize, la->la_cu_osize,
 		    la->la_cu_ver);
 		for (i = 0; i < lcnt; i++) {
-			printf("    %8.8jx ", la->la_off);
+			printf("    %8.8jx ", (uintmax_t) la->la_off);
 			if (llbuf[i]->ld_lopc == 0 && llbuf[i]->ld_hipc == 0) {
 				printf("<End of list>\n");
 				continue;
@@ -7473,7 +7474,7 @@ static int64_t
 _decode_sleb128(uint8_t **dp, uint8_t *dpe)
 {
 	int64_t ret = 0;
-	uint8_t b;
+	uint8_t b = 0;
 	int shift = 0;
 
 	uint8_t *src = *dp;
