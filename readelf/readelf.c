@@ -348,7 +348,7 @@ static void set_cu_context(struct readelf *re, Dwarf_Half psize,
     Dwarf_Half osize, Dwarf_Half ver);
 static const char *st_bind(unsigned int sbind);
 static const char *st_shndx(unsigned int shndx);
-static const char *st_type(unsigned int stype);
+static const char *st_type(unsigned int mach, unsigned int stype);
 static const char *st_vis(unsigned int svis);
 static const char *top_tag(unsigned int tag);
 static void unload_sections(struct readelf *re);
@@ -958,6 +958,7 @@ st_bind(unsigned int sbind)
 	case STB_LOCAL: return "LOCAL";
 	case STB_GLOBAL: return "GLOBAL";
 	case STB_WEAK: return "WEAK";
+	case STB_GNU_UNIQUE: return "UNIQUE";
 	default:
 		if (sbind >= STB_LOOS && sbind <= STB_HIOS)
 			return "OS";
@@ -971,7 +972,7 @@ st_bind(unsigned int sbind)
 }
 
 static const char *
-st_type(unsigned int stype)
+st_type(unsigned int mach, unsigned int stype)
 {
 	static char s_stype[32];
 
@@ -987,10 +988,12 @@ st_type(unsigned int stype)
 		if (stype >= STT_LOOS && stype <= STT_HIOS)
 			snprintf(s_stype, sizeof(s_stype), "OS+%#x",
 			    stype - STT_LOOS);
-		else if (stype >= STT_LOPROC && stype <= STT_HIPROC)
+		else if (stype >= STT_LOPROC && stype <= STT_HIPROC) {
+			if (mach == EM_SPARCV9 && stype == STT_SPARC_REGISTER)
+				return "REGISTER";
 			snprintf(s_stype, sizeof(s_stype), "PROC+%#x",
 			    stype - STT_LOPROC);
-		else
+		} else
 			snprintf(s_stype, sizeof(s_stype), "<unknown: %#x>",
 			    stype);
 		return (s_stype);
@@ -1452,6 +1455,7 @@ r_type(unsigned int mach, unsigned int type)
 		case 43: return "R_RISCV_ALIGN";
 		case 44: return "R_RISCV_RVC_BRANCH";
 		case 45: return "R_RISCV_RVC_JUMP";
+		default: return "";
 		}
 	case EM_SPARC:
 	case EM_SPARCV9:
@@ -3454,7 +3458,8 @@ dump_symtab(struct readelf *re, int i)
 		printf("%6d:", j);
 		printf(" %16.16jx", (uintmax_t) sym.st_value);
 		printf(" %5ju", (uintmax_t) sym.st_size);
-		printf(" %-7s", st_type(GELF_ST_TYPE(sym.st_info)));
+		printf(" %-7s", st_type(re->ehdr.e_machine,
+		    GELF_ST_TYPE(sym.st_info)));
 		printf(" %-6s", st_bind(GELF_ST_BIND(sym.st_info)));
 		printf(" %-8s", st_vis(GELF_ST_VISIBILITY(sym.st_other)));
 		printf(" %3s", st_shndx(sym.st_shndx));
@@ -6835,13 +6840,15 @@ hex_dump(struct readelf *re)
 		if (find_dumpop(re, (size_t) i, s->name, HEX_DUMP, -1) == NULL)
 			continue;
 		(void) elf_errno();
-		if ((d = elf_getdata(s->scn, NULL)) == NULL) {
+		if ((d = elf_getdata(s->scn, NULL)) == NULL &&
+		    (d = elf_rawdata(s->scn, NULL)) == NULL) {
 			elferr = elf_errno();
 			if (elferr != 0)
 				warnx("elf_getdata failed: %s",
 				    elf_errmsg(elferr));
 			continue;
 		}
+		(void) elf_errno();
 		if (d->d_size <= 0 || d->d_buf == NULL) {
 			printf("\nSection '%s' has no data to dump.\n",
 			    s->name);
@@ -6890,13 +6897,15 @@ str_dump(struct readelf *re)
 		if (find_dumpop(re, (size_t) i, s->name, STR_DUMP, -1) == NULL)
 			continue;
 		(void) elf_errno();
-		if ((d = elf_getdata(s->scn, NULL)) == NULL) {
+		if ((d = elf_getdata(s->scn, NULL)) == NULL &&
+		    (d = elf_rawdata(s->scn, NULL)) == NULL) {
 			elferr = elf_errno();
 			if (elferr != 0)
 				warnx("elf_getdata failed: %s",
 				    elf_errmsg(elferr));
 			continue;
 		}
+		(void) elf_errno();
 		if (d->d_size <= 0 || d->d_buf == NULL) {
 			printf("\nSection '%s' has no data to dump.\n",
 			    s->name);
@@ -7355,10 +7364,13 @@ _read_lsb(Elf_Data *d, uint64_t *offsetp, int bytes_to_read)
 	case 8:
 		ret |= ((uint64_t) src[4]) << 32 | ((uint64_t) src[5]) << 40;
 		ret |= ((uint64_t) src[6]) << 48 | ((uint64_t) src[7]) << 56;
+		/* FALLTHROUGH */
 	case 4:
 		ret |= ((uint64_t) src[2]) << 16 | ((uint64_t) src[3]) << 24;
+		/* FALLTHROUGH */
 	case 2:
 		ret |= ((uint64_t) src[1]) << 8;
+		/* FALLTHROUGH */
 	case 1:
 		ret |= src[0];
 		break;
@@ -7418,10 +7430,13 @@ _decode_lsb(uint8_t **data, int bytes_to_read)
 	case 8:
 		ret |= ((uint64_t) src[4]) << 32 | ((uint64_t) src[5]) << 40;
 		ret |= ((uint64_t) src[6]) << 48 | ((uint64_t) src[7]) << 56;
+		/* FALLTHROUGH */
 	case 4:
 		ret |= ((uint64_t) src[2]) << 16 | ((uint64_t) src[3]) << 24;
+		/* FALLTHROUGH */
 	case 2:
 		ret |= ((uint64_t) src[1]) << 8;
+		/* FALLTHROUGH */
 	case 1:
 		ret |= src[0];
 		break;
@@ -7543,6 +7558,10 @@ Usage: %s [options] file...\n\
   -s | --syms | --symbols  Print symbol tables.\n\
   -t | --section-details   Print additional information about sections.\n\
   -v | --version           Print a version identifier and exit.\n\
+  -w[afilmoprsFLR] | --debug-dump={abbrev,aranges,decodedline,frames,\n\
+                               frames-interp,info,loc,macro,pubnames,\n\
+                               ranges,Ranges,rawline,str}\n\
+                           Display DWARF information.\n\
   -x INDEX | --hex-dump=INDEX\n\
                            Display contents of a section as hexadecimal.\n\
   -A | --arch-specific     (accepted, but ignored)\n\

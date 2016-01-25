@@ -25,6 +25,7 @@
  */
 
 #include <sys/param.h>
+#include <assert.h>
 #include <err.h>
 #include <fnmatch.h>
 #include <stdio.h>
@@ -102,7 +103,8 @@ static int
 is_global_symbol(unsigned char st_info)
 {
 
-	if (GELF_ST_BIND(st_info) == STB_GLOBAL)
+	if (GELF_ST_BIND(st_info) == STB_GLOBAL ||
+	    GELF_ST_BIND(st_info) == STB_GNU_UNIQUE)
 		return (1);
 
 	return (0);
@@ -190,12 +192,6 @@ is_remove_symbol(struct elfcopy *ecp, size_t sc, int i, GElf_Sym *s,
 		SHN_UNDEF,	/* st_shndx */
 	};
 
-	if (lookup_symop_list(ecp, name, SYMOP_KEEP) != NULL)
-		return (0);
-
-	if (lookup_symop_list(ecp, name, SYMOP_STRIP) != NULL)
-		return (1);
-
 	/*
 	 * Keep the first symbol if it is the special reserved symbol.
 	 * XXX Should we generate one if it's missing?
@@ -208,14 +204,33 @@ is_remove_symbol(struct elfcopy *ecp, size_t sc, int i, GElf_Sym *s,
 	    ecp->secndx[s->st_shndx] == 0)
 		return (1);
 
+	/* Keep the symbol if specified by command line option -K. */
+	if (lookup_symop_list(ecp, name, SYMOP_KEEP) != NULL)
+		return (0);
+
 	if (ecp->strip == STRIP_ALL)
 		return (1);
 
+	/* Mark symbols used in relocation. */
 	if (ecp->v_rel == NULL)
 		mark_reloc_symbols(ecp, sc);
 
+	/* Mark symbols used in section groups. */
 	if (ecp->v_grp == NULL)
 		mark_section_group_symbols(ecp, sc);
+
+	/*
+	 * Strip the symbol if specified by command line option -N,
+	 * unless it's used in relocation.
+	 */
+	if (lookup_symop_list(ecp, name, SYMOP_STRIP) != NULL) {
+		if (BIT_ISSET(ecp->v_rel, i)) {
+			warnx("not stripping symbol `%s' because it is named"
+			    " in a relocation", name);
+			return (0);
+		}
+		return (1);
+	}
 
 	if (is_needed_symbol(ecp, i, s))
 		return (0);
@@ -565,8 +580,11 @@ generate_symbols(struct elfcopy *ecp)
 		 * If the symbol is a STT_SECTION symbol, mark the section
 		 * it points to.
 		 */
-		if (GELF_ST_TYPE(sym.st_info) == STT_SECTION)
+		if (GELF_ST_TYPE(sym.st_info) == STT_SECTION &&
+		    sym.st_shndx < SHN_LORESERVE) {
+			assert(ecp->secndx[sym.st_shndx] < (uint64_t)ecp->nos);
 			BIT_SET(ecp->v_secsym, ecp->secndx[sym.st_shndx]);
+		}
 	}
 
 	/*
@@ -861,6 +879,8 @@ add_to_symtab(struct elfcopy *ecp, const char *name, uint64_t st_value,
 	 * It handles buffer growing, st_name calculating and st_shndx
 	 * updating for symbols with non-special section index.
 	 */
+#define	_ST_NAME_EMPTY_l 0
+#define	_ST_NAME_EMPTY_g -1
 #define	_ADDSYM(B, SZ) do {						\
 	if (sy_buf->B##SZ == NULL) {					\
 		sy_buf->B##SZ = malloc(sy_buf->B##cap *			\
@@ -920,7 +940,8 @@ add_to_symtab(struct elfcopy *ecp, const char *name, uint64_t st_value,
 			st_buf->B.sz += strlen(name) + 1;		\
 		}							\
 	} else								\
-		sy_buf->B##SZ[sy_buf->n##B##s].st_name = 0;		\
+		sy_buf->B##SZ[sy_buf->n##B##s].st_name = 		\
+		    (Elf##SZ##_Word)_ST_NAME_EMPTY_##B;			\
 	sy_buf->n##B##s++;						\
 } while (0)
 
@@ -945,6 +966,8 @@ add_to_symtab(struct elfcopy *ecp, const char *name, uint64_t st_value,
 	ecp->strtab->sz = st_buf->l.sz + st_buf->g.sz;
 
 #undef	_ADDSYM
+#undef	_ST_NAME_EMPTY_l
+#undef	_ST_NAME_EMPTY_g
 }
 
 void
@@ -961,10 +984,17 @@ finalize_external_symtab(struct elfcopy *ecp)
 	sy_buf = ecp->symtab->buf;
 	st_buf = ecp->strtab->buf;
 	for (i = 0; (size_t) i < sy_buf->ngs; i++) {
-		if (ecp->oec == ELFCLASS32)
-			sy_buf->g32[i].st_name += st_buf->l.sz;
-		else
-			sy_buf->g64[i].st_name += st_buf->l.sz;
+		if (ecp->oec == ELFCLASS32) {
+			if (sy_buf->g32[i].st_name == (Elf32_Word)-1)
+				sy_buf->g32[i].st_name = 0;
+			else
+				sy_buf->g32[i].st_name += st_buf->l.sz;
+		} else {
+			if (sy_buf->g64[i].st_name == (Elf64_Word)-1)
+				sy_buf->g64[i].st_name = 0;
+			else
+				sy_buf->g64[i].st_name += st_buf->l.sz;
+		}
 	}
 }
 

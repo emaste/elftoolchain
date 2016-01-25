@@ -722,6 +722,15 @@ create_file(struct elfcopy *ecp, const char *src, const char *dst)
 				create_srec(ecp, ofd, ofd0,
 				    dst != NULL ? dst : src);
 				break;
+			case ETF_PE:
+			case ETF_EFI:
+#if	WITH_PE
+				create_pe(ecp, ofd, ofd0);
+#else
+				errx(EXIT_FAILURE, "PE/EFI support not enabled"
+				    " at compile time");
+#endif
+				break;
 			default:
 				errx(EXIT_FAILURE, "Internal: unsupported"
 				    " output flavour %d", ecp->oec);
@@ -1345,6 +1354,9 @@ set_output_target(struct elfcopy *ecp, const char *target_name)
 		ecp->oed = elftc_bfd_target_byteorder(tgt);
 		ecp->oem = elftc_bfd_target_machine(tgt);
 	}
+	if (ecp->otf == ETF_EFI || ecp->otf == ETF_PE)
+		ecp->oem = elftc_bfd_target_machine(tgt);
+
 	ecp->otgt = target_name;
 }
 
@@ -1382,6 +1394,8 @@ Usage: %s [options] infile [outfile]\n\
   -N SYM | --strip-symbol=SYM  Do not copy symbol SYM to the output.\n\
   -O FORMAT | --output-target=FORMAT\n\
                                Specify object format for the output file.\n\
+                               FORMAT should be a target name understood by\n\
+                               elftc_bfd_find_target(3).\n\
   -R NAME | --remove-section=NAME\n\
                                Remove the named section.\n\
   -S | --strip-all             Remove all symbol and relocation information\n\

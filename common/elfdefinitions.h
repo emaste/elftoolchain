@@ -1228,6 +1228,7 @@ _ELF_DEFINE_STB(STB_GLOBAL,          1,					\
 _ELF_DEFINE_STB(STB_WEAK,            2,					\
 	"visible across all object files but with low precedence")	\
 _ELF_DEFINE_STB(STB_LOOS,            10, "start of OS-specific range")	\
+_ELF_DEFINE_STB(STB_GNU_UNIQUE,      10, "unique symbol (GNU)")		\
 _ELF_DEFINE_STB(STB_HIOS,            12, "end of OS-specific range")	\
 _ELF_DEFINE_STB(STB_LOPROC,          13,				\
 	"start of processor-specific range")				\
@@ -1259,6 +1260,7 @@ _ELF_DEFINE_STT(STT_LOPROC,          13,				\
 	"start of processor-specific types")				\
 _ELF_DEFINE_STT(STT_ARM_TFUNC,       13, "Thumb function (GNU)")	\
 _ELF_DEFINE_STT(STT_ARM_16BIT,       15, "Thumb label (GNU)")		\
+_ELF_DEFINE_STT(STT_SPARC_REGISTER,  13, "SPARC register information")	\
 _ELF_DEFINE_STT(STT_HIPROC,          15,				\
 	"end of processor-specific types")
 
@@ -1926,7 +1928,7 @@ _ELF_DEFINE_RELOC(R_RISCV_SUB32,		39)	\
 _ELF_DEFINE_RELOC(R_RISCV_SUB64,		40)	\
 _ELF_DEFINE_RELOC(R_RISCV_GNU_VTINHERIT,	41)	\
 _ELF_DEFINE_RELOC(R_RISCV_GNU_VTENTRY,		42)	\
-_ELF_DEFINE_RELOC(R_RISCV_ALIGN			43)	\
+_ELF_DEFINE_RELOC(R_RISCV_ALIGN,		43)	\
 _ELF_DEFINE_RELOC(R_RISCV_RVC_BRANCH,		44)	\
 _ELF_DEFINE_RELOC(R_RISCV_RVC_JUMP,		45)
 
@@ -2042,6 +2044,7 @@ _ELF_DEFINE_IA64_RELOCATIONS()			\
 _ELF_DEFINE_MIPS_RELOCATIONS()			\
 _ELF_DEFINE_PPC32_RELOCATIONS()			\
 _ELF_DEFINE_PPC64_RELOCATIONS()			\
+_ELF_DEFINE_RISCV_RELOCATIONS()			\
 _ELF_DEFINE_SPARC_RELOCATIONS()			\
 _ELF_DEFINE_X86_64_RELOCATIONS()
 
