@@ -80,7 +80,6 @@ static int	lookup_exact_string(hash_head *hash, const char *buf,
 static int	generate_symbols(struct elfcopy *ecp);
 static void	mark_reloc_symbols(struct elfcopy *ecp, size_t sc);
 static void	mark_section_group_symbols(struct elfcopy *ecp, size_t sc);
-static int	match_wildcard(const char *name, const char *pattern);
 uint32_t	str_hash(const char *s);
 
 /* Convenient bit vector operation macros. */
@@ -1135,46 +1134,47 @@ add_to_symop_list(struct elfcopy *ecp, const char *name, const char *newname,
 {
 	struct symop *s;
 
-	if ((s = lookup_symop_list(ecp, name, ~0U)) == NULL) {
-		if ((s = calloc(1, sizeof(*s))) == NULL)
-			errx(EXIT_FAILURE, "not enough memory");
-		s->name = name;
-		if (op == SYMOP_REDEF)
-			s->newname = newname;
-	}
+	assert (name != NULL);
+	STAILQ_FOREACH(s, &ecp->v_symop, symop_list)
+		if (!strcmp(name, s->name))
+			goto found;
 
-	s->op |= op;
+	if ((s = calloc(1, sizeof(*s))) == NULL)
+		errx(EXIT_FAILURE, "not enough memory");
 	STAILQ_INSERT_TAIL(&ecp->v_symop, s, symop_list);
-}
-
-static int
-match_wildcard(const char *name, const char *pattern)
-{
-	int reverse, match;
-
-	reverse = 0;
-	if (*pattern == '!') {
-		reverse = 1;
-		pattern++;
-	}
-
-	match = 0;
-	if (!fnmatch(pattern, name, 0))
-		match = 1;
-
-	return (reverse ? !match : match);
+	s->name = name;
+found:
+	if (op == SYMOP_REDEF)
+		s->newname = newname;
+	s->op |= op;
 }
 
 struct symop *
 lookup_symop_list(struct elfcopy *ecp, const char *name, unsigned int op)
 {
-	struct symop *s;
+	struct symop *s, *ret;
+	const char *pattern;
 
 	STAILQ_FOREACH(s, &ecp->v_symop, symop_list) {
-		if (name == NULL || !strcmp(name, s->name) ||
-		    ((ecp->flags & WILDCARD) && match_wildcard(name, s->name)))
-			if ((s->op & op) != 0)
+		if ((s->op & op) == 0)
+			continue;
+		if (name == NULL || !strcmp(name, s->name))
 				return (s);
+		if ((ecp->flags & WILDCARD) == 0)
+			continue;
+
+		/* Handle wildcards. */
+		pattern = s->name;
+		if (pattern[0] == '!') {
+			/* Negative match. */
+			pattern++;
+			ret = NULL;
+		} else {
+			/* Regular wildcard match. */
+			ret = s;
+		}
+		if (!fnmatch(pattern, name, 0))
+			return (ret);
 	}
 
 	return (NULL);
