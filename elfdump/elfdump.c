@@ -533,7 +533,7 @@ r_type(unsigned int mach, unsigned int type)
 		case 4: return "R_386_PLT32";
 		case 5: return "R_386_COPY";
 		case 6: return "R_386_GLOB_DAT";
-		case 7: return "R_386_JMP_SLOT";
+		case 7: return "R_386_JUMP_SLOT";
 		case 8: return "R_386_RELATIVE";
 		case 9: return "R_386_GOTOFF";
 		case 10: return "R_386_GOTPC";
@@ -876,7 +876,7 @@ r_type(unsigned int mach, unsigned int type)
 		case 4: return "R_X86_64_PLT32";
 		case 5: return "R_X86_64_COPY";
 		case 6: return "R_X86_64_GLOB_DAT";
-		case 7: return "R_X86_64_JMP_SLOT";
+		case 7: return "R_X86_64_JUMP_SLOT";
 		case 8: return "R_X86_64_RELATIVE";
 		case 9: return "R_X86_64_GOTPCREL";
 		case 10: return "R_X86_64_32";
