@@ -316,6 +316,7 @@ create_elf(struct elfcopy *ecp)
 	oeh.e_entry	      = ieh.e_entry;
 	oeh.e_version	      = ieh.e_version;
 
+	ecp->flags &= ~(EXECUTABLE | DYNAMIC | RELOCATABLE);
 	if (ieh.e_type == ET_EXEC)
 		ecp->flags |= EXECUTABLE;
 	else if (ieh.e_type == ET_DYN)
@@ -640,6 +641,18 @@ create_file(struct elfcopy *ecp, const char *src, const char *dst)
 	 * ELF object before processing.
 	 */
 	if (ecp->itf != ETF_ELF) {
+		/*
+		 * If the output object is not an ELF file, choose an arbitrary
+		 * ELF format for the intermediate file. srec, ihex and binary
+		 * formats are independent of class, endianness and machine
+		 * type so these choices do not affect the output.
+		 */
+		if (ecp->otf != ETF_ELF) {
+			if (ecp->oec == ELFCLASSNONE)
+				ecp->oec = ELFCLASS64;
+			if (ecp->oed == ELFDATANONE)
+				ecp->oed = ELFDATA2LSB;
+		}
 		create_tempfile(&elftemp, &efd);
 		if ((ecp->eout = elf_begin(efd, ELF_C_WRITE, NULL)) == NULL)
 			errx(EXIT_FAILURE, "elf_begin() failed: %s",
@@ -1485,6 +1498,7 @@ Usage: %s [options] file...\n\
   Options:\n\
   -d | -g | -S | --strip-debug    Remove debugging symbols.\n\
   -h | --help                     Print a help message.\n\
+  -o FILE | --output-file FILE    Write output to FILE.\n\
   --only-keep-debug               Keep debugging information only.\n\
   -p | --preserve-dates           Preserve access and modification times.\n\
   -s | --strip-all                Remove all symbols.\n\
