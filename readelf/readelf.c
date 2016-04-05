@@ -650,7 +650,7 @@ section_type(unsigned int mach, unsigned int stype)
 		switch (mach) {
 		case EM_X86_64:
 			switch (stype) {
-			case SHT_AMD64_UNWIND: return "AMD64_UNWIND";
+			case SHT_X86_64_UNWIND: return "X86_64_UNWIND";
 			default:
 				break;
 			}
@@ -920,6 +920,8 @@ dt_type(unsigned int mach, unsigned int dtype)
 	case DT_SYMINSZ: return "SYMINSZ";
 	case DT_SYMINENT: return "SYMINENT";
 	case DT_GNU_HASH: return "GNU_HASH";
+	case DT_TLSDESC_PLT: return "DT_TLSDESC_PLT";
+	case DT_TLSDESC_GOT: return "DT_TLSDESC_GOT";
 	case DT_GNU_CONFLICT: return "GNU_CONFLICT";
 	case DT_GNU_LIBLIST: return "GNU_LIBLIST";
 	case DT_CONFIG: return "CONFIG";
