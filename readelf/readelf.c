@@ -334,7 +334,7 @@ static const char *note_type_openbsd(unsigned int nt);
 static const char *note_type_unknown(unsigned int nt);
 static const char *note_type_xen(unsigned int nt);
 static const char *option_kind(uint8_t kind);
-static const char *phdr_type(unsigned int ptype);
+static const char *phdr_type(unsigned int mach, unsigned int ptype);
 static const char *ppc_abi_fp(uint64_t fp);
 static const char *ppc_abi_vector(uint64_t vec);
 static void readelf_usage(int status);
@@ -431,6 +431,7 @@ elf_osabi(unsigned int abi)
 	case ELFOSABI_OPENVMS: return "OpenVMS";
 	case ELFOSABI_NSK: return "NSK";
 	case ELFOSABI_CLOUDABI: return "CloudABI";
+	case ELFOSABI_ARM_AEABI: return "ARM EABI";
 	case ELFOSABI_ARM: return "ARM";
 	case ELFOSABI_STANDALONE: return "StandAlone";
 	default:
@@ -613,9 +614,23 @@ elf_ver(unsigned int ver)
 }
 
 static const char *
-phdr_type(unsigned int ptype)
+phdr_type(unsigned int mach, unsigned int ptype)
 {
 	static char s_ptype[32];
+
+	if (ptype >= PT_LOPROC && ptype <= PT_HIPROC) {
+		switch (mach) {
+		case EM_ARM:
+			switch (ptype) {
+			case PT_ARM_ARCHEXT: return "ARM_ARCHEXT";
+			case PT_ARM_EXIDX: return "ARM_EXIDX";
+			}
+			break;
+		}
+		snprintf(s_ptype, sizeof(s_ptype), "LOPROC+%#x",
+		    ptype - PT_LOPROC);
+		return (s_ptype);
+	}
 
 	switch (ptype) {
 	case PT_NULL: return "NULL";
@@ -630,10 +645,7 @@ phdr_type(unsigned int ptype)
 	case PT_GNU_STACK: return "GNU_STACK";
 	case PT_GNU_RELRO: return "GNU_RELRO";
 	default:
-		if (ptype >= PT_LOPROC && ptype <= PT_HIPROC)
-			snprintf(s_ptype, sizeof(s_ptype), "LOPROC+%#x",
-			    ptype - PT_LOPROC);
-		else if (ptype >= PT_LOOS && ptype <= PT_HIOS)
+		if (ptype >= PT_LOOS && ptype <= PT_HIOS)
 			snprintf(s_ptype, sizeof(s_ptype), "LOOS+%#x",
 			    ptype - PT_LOOS);
 		else
@@ -650,6 +662,15 @@ section_type(unsigned int mach, unsigned int stype)
 
 	if (stype >= SHT_LOPROC && stype <= SHT_HIPROC) {
 		switch (mach) {
+		case EM_ARM:
+			switch (stype) {
+			case SHT_ARM_EXIDX: return "ARM_EXIDX";
+			case SHT_ARM_PREEMPTMAP: return "ARM_PREEMPTMAP";
+			case SHT_ARM_ATTRIBUTES: return "ARM_ATTRIBUTES";
+			case SHT_ARM_DEBUGOVERLAY: return "ARM_DEBUGOVERLAY";
+			case SHT_ARM_OVERLAYSECTION: return "ARM_OVERLAYSECTION";
+			}
+			break;
 		case EM_X86_64:
 			switch (stype) {
 			case SHT_X86_64_UNWIND: return "X86_64_UNWIND";
@@ -989,7 +1010,8 @@ st_type(unsigned int mach, unsigned int os, unsigned int stype)
 	case STT_TLS: return "TLS";
 	default:
 		if (stype >= STT_LOOS && stype <= STT_HIOS) {
-			if (os == ELFOSABI_FREEBSD && stype == STT_GNU_IFUNC)
+			if ((os == ELFOSABI_GNU || os == ELFOSABI_FREEBSD) &&
+			    stype == STT_GNU_IFUNC)
 				return "IFUNC";
 			snprintf(s_stype, sizeof(s_stype), "OS+%#x",
 			    stype - STT_LOOS);
@@ -1055,6 +1077,7 @@ static struct {
 	{"OS NONCONF", 'O', SHF_OS_NONCONFORMING},
 	{"GROUP", 'G', SHF_GROUP},
 	{"TLS", 'T', SHF_TLS},
+	{"COMPRESSED", 'C', SHF_COMPRESSED},
 	{NULL, 0, 0}
 };
 
@@ -2262,9 +2285,10 @@ dump_phdr(struct readelf *re)
 
 #define	PH_HDR	"Type", "Offset", "VirtAddr", "PhysAddr", "FileSiz",	\
 		"MemSiz", "Flg", "Align"
-#define	PH_CT	phdr_type(phdr.p_type), (uintmax_t)phdr.p_offset,	\
-		(uintmax_t)phdr.p_vaddr, (uintmax_t)phdr.p_paddr,	\
-		(uintmax_t)phdr.p_filesz, (uintmax_t)phdr.p_memsz,	\
+#define	PH_CT	phdr_type(re->ehdr.e_machine, phdr.p_type),		\
+		(uintmax_t)phdr.p_offset, (uintmax_t)phdr.p_vaddr,	\
+		(uintmax_t)phdr.p_paddr, (uintmax_t)phdr.p_filesz,	\
+		(uintmax_t)phdr.p_memsz,				\
 		phdr.p_flags & PF_R ? 'R' : ' ',			\
 		phdr.p_flags & PF_W ? 'W' : ' ',			\
 		phdr.p_flags & PF_X ? 'E' : ' ',			\
@@ -2755,6 +2779,8 @@ dump_rel(struct readelf *re, struct section *s, Elf_Data *d)
 	const char *symname;
 	uint64_t symval;
 	int i, len;
+	uint32_t type;
+	uint8_t type2, type3;
 
 	if (s->link >= re->shnum)
 		return;
@@ -2764,8 +2790,8 @@ dump_rel(struct readelf *re, struct section *s, Elf_Data *d)
 		elftc_reloc_type_str(re->ehdr.e_machine,	    \
 		ELF32_R_TYPE(r.r_info)), (uintmax_t)symval, symname
 #define	REL_CT64 (uintmax_t)r.r_offset, (uintmax_t)r.r_info,	    \
-		elftc_reloc_type_str(re->ehdr.e_machine,	    \
-		ELF64_R_TYPE(r.r_info)), (uintmax_t)symval, symname
+		elftc_reloc_type_str(re->ehdr.e_machine, type),	    \
+		(uintmax_t)symval, symname
 
 	printf("\nRelocation section (%s):\n", s->name);
 	if (re->ec == ELFCLASS32)
@@ -2791,12 +2817,35 @@ dump_rel(struct readelf *re, struct section *s, Elf_Data *d)
 			    ELF64_R_TYPE(r.r_info));
 			printf("%8.8jx %8.8jx %-19.19s %8.8jx %s\n", REL_CT32);
 		} else {
+			type = ELF64_R_TYPE(r.r_info);
+			if (re->ehdr.e_machine == EM_MIPS) {
+				type2 = (type >> 8) & 0xFF;
+				type3 = (type >> 16) & 0xFF;
+				type = type & 0xFF;
+			}
 			if (re->options & RE_WW)
 				printf("%16.16jx %16.16jx %-24.24s"
 				    " %16.16jx %s\n", REL_CT64);
 			else
 				printf("%12.12jx %12.12jx %-19.19s"
 				    " %16.16jx %s\n", REL_CT64);
+			if (re->ehdr.e_machine == EM_MIPS) {
+				if (re->options & RE_WW) {
+					printf("%32s: %s\n", "Type2",
+					    elftc_reloc_type_str(EM_MIPS,
+					    type2));
+					printf("%32s: %s\n", "Type3",
+					    elftc_reloc_type_str(EM_MIPS,
+					    type3));
+				} else {
+					printf("%24s: %s\n", "Type2",
+					    elftc_reloc_type_str(EM_MIPS,
+					    type2));
+					printf("%24s: %s\n", "Type3",
+					    elftc_reloc_type_str(EM_MIPS,
+					    type3));
+				}
+			}
 		}
 	}
 
@@ -2811,6 +2860,8 @@ dump_rela(struct readelf *re, struct section *s, Elf_Data *d)
 	const char *symname;
 	uint64_t symval;
 	int i, len;
+	uint32_t type;
+	uint8_t type2, type3;
 
 	if (s->link >= re->shnum)
 		return;
@@ -2821,8 +2872,8 @@ dump_rela(struct readelf *re, struct section *s, Elf_Data *d)
 		elftc_reloc_type_str(re->ehdr.e_machine,	    \
 		ELF32_R_TYPE(r.r_info)), (uintmax_t)symval, symname
 #define	RELA_CT64 (uintmax_t)r.r_offset, (uintmax_t)r.r_info,	    \
-		elftc_reloc_type_str(re->ehdr.e_machine,	    \
-		ELF64_R_TYPE(r.r_info)), (uintmax_t)symval, symname
+		elftc_reloc_type_str(re->ehdr.e_machine, type),	    \
+		(uintmax_t)symval, symname
 
 	printf("\nRelocation section with addend (%s):\n", s->name);
 	if (re->ec == ELFCLASS32)
@@ -2849,6 +2900,12 @@ dump_rela(struct readelf *re, struct section *s, Elf_Data *d)
 			printf("%8.8jx %8.8jx %-19.19s %8.8jx %s", RELA_CT32);
 			printf(" + %x\n", (uint32_t) r.r_addend);
 		} else {
+			type = ELF64_R_TYPE(r.r_info);
+			if (re->ehdr.e_machine == EM_MIPS) {
+				type2 = (type >> 8) & 0xFF;
+				type3 = (type >> 16) & 0xFF;
+				type = type & 0xFF;
+			}
 			if (re->options & RE_WW)
 				printf("%16.16jx %16.16jx %-24.24s"
 				    " %16.16jx %s", RELA_CT64);
@@ -2856,6 +2913,23 @@ dump_rela(struct readelf *re, struct section *s, Elf_Data *d)
 				printf("%12.12jx %12.12jx %-19.19s"
 				    " %16.16jx %s", RELA_CT64);
 			printf(" + %jx\n", (uintmax_t) r.r_addend);
+			if (re->ehdr.e_machine == EM_MIPS) {
+				if (re->options & RE_WW) {
+					printf("%32s: %s\n", "Type2",
+					    elftc_reloc_type_str(EM_MIPS,
+					    type2));
+					printf("%32s: %s\n", "Type3",
+					    elftc_reloc_type_str(EM_MIPS,
+					    type3));
+				} else {
+					printf("%24s: %s\n", "Type2",
+					    elftc_reloc_type_str(EM_MIPS,
+					    type2));
+					printf("%24s: %s\n", "Type3",
+					    elftc_reloc_type_str(EM_MIPS,
+					    type3));
+				}
+			}
 		}
 	}
 
@@ -3180,6 +3254,10 @@ dump_gnu_hash(struct readelf *re, struct section *s)
 	ds = &re->sl[s->link];
 	if (!get_ent_count(ds, &dynsymcount))
 		return;
+	if (symndx >= (uint32_t)dynsymcount) {
+		warnx("Malformed .gnu.hash section (symndx out of range)");
+		return;
+	}
 	nchain = dynsymcount - symndx;
 	if (d->d_size != 4 * sizeof(uint32_t) + maskwords *
 	    (re->ec == ELFCLASS32 ? sizeof(uint32_t) : sizeof(uint64_t)) +
@@ -3245,7 +3323,7 @@ dump_notes(struct readelf *re)
 	const char *rawfile;
 	GElf_Phdr phdr;
 	Elf_Data *d;
-	size_t phnum;
+	size_t filesize, phnum;
 	int i, elferr;
 
 	if (re->ehdr.e_type == ET_CORE) {
@@ -3259,7 +3337,7 @@ dump_notes(struct readelf *re)
 		}
 		if (phnum == 0)
 			return;
-		if ((rawfile = elf_rawfile(re->elf, NULL)) == NULL) {
+		if ((rawfile = elf_rawfile(re->elf, &filesize)) == NULL) {
 			warnx("elf_rawfile failed: %s", elf_errmsg(-1));
 			return;
 		}
@@ -3269,9 +3347,15 @@ dump_notes(struct readelf *re)
 				    elf_errmsg(-1));
 				continue;
 			}
-			if (phdr.p_type == PT_NOTE)
+			if (phdr.p_type == PT_NOTE) {
+				if (phdr.p_offset >= filesize ||
+				    phdr.p_filesz > filesize - phdr.p_offset) {
+					warnx("invalid PHDR offset");
+					continue;
+				}
 				dump_notes_content(re, rawfile + phdr.p_offset,
 				    phdr.p_filesz, phdr.p_offset);
+			}
 		}
 
 	} else {
@@ -6261,9 +6345,12 @@ get_symbol_name(struct readelf *re, int symtab, int i)
 	if (gelf_getsym(data, i, &sym) != &sym)
 		return ("");
 	/* Return section name for STT_SECTION symbol. */
-	if (GELF_ST_TYPE(sym.st_info) == STT_SECTION &&
-	    re->sl[sym.st_shndx].name != NULL)
-		return (re->sl[sym.st_shndx].name);
+	if (GELF_ST_TYPE(sym.st_info) == STT_SECTION) {
+		if (sym.st_shndx < re->shnum &&
+		    re->sl[sym.st_shndx].name != NULL)
+			return (re->sl[sym.st_shndx].name);
+		return ("");
+	}
 	if (s->link >= re->shnum ||
 	    (name = elf_strptr(re->elf, s->link, sym.st_name)) == NULL)
 		return ("");

@@ -263,21 +263,68 @@ e_machines(unsigned int mach)
 	return (machdesc);
 }
 
-static const char *e_types[] = {
-	"ET_NONE", "ET_REL", "ET_EXEC", "ET_DYN", "ET_CORE"
-};
+static const char *
+elf_type_str(unsigned int type)
+{
+	static char s_type[32];
 
-static const char *ei_versions[] = {
-	"EV_NONE", "EV_CURRENT"
-};
+	switch (type)
+	{
+	case ET_NONE:	return "ET_NONE";
+	case ET_REL:	return "ET_REL";
+	case ET_EXEC:	return "ET_EXEC";
+	case ET_DYN:	return "ET_DYN";
+	case ET_CORE:	return "ET_CORE";
+	}
+	if (type >= ET_LOPROC)
+		snprintf(s_type, sizeof(s_type), "<proc: %#x>", type);
+	else if (type >= ET_LOOS && type <= ET_HIOS)
+		snprintf(s_type, sizeof(s_type), "<os: %#x>", type);
+	else
+		snprintf(s_type, sizeof(s_type), "<unknown: %#x", type);
+	return (s_type);
+}
 
-static const char *ei_classes[] = {
-	"ELFCLASSNONE", "ELFCLASS32", "ELFCLASS64"
-};
+static const char *
+elf_version_str(unsigned int ver)
+{
+	static char s_ver[32];
 
-static const char *ei_data[] = {
-	"ELFDATANONE", "ELFDATA2LSB", "ELFDATA2MSB"
-};
+	switch (ver) {
+	case EV_NONE:		return "EV_NONE";
+	case EV_CURRENT:	return "EV_CURRENT";
+	}
+	snprintf(s_ver, sizeof(s_ver), "<unknown: %#x>", ver);
+	return (s_ver);
+}
+
+static const char *
+elf_class_str(unsigned int class)
+{
+	static char s_class[32];
+
+	switch (class) {
+	case ELFCLASSNONE:	return "ELFCLASSNONE";
+	case ELFCLASS32:	return "ELFCLASS32";
+	case ELFCLASS64:	return "ELFCLASS64";
+	}
+	snprintf(s_class, sizeof(s_class), "<unknown: %#x>", class);
+	return (s_class);
+}
+
+static const char *
+elf_data_str(unsigned int data)
+{
+	static char s_data[32];
+
+	switch (data) {
+	case ELFDATANONE:	return "ELFDATANONE";
+	case ELFDATA2LSB:	return "ELFDATA2LSB";
+	case ELFDATA2MSB:	return "ELFDATA2MSB";
+	}
+	snprintf(s_data, sizeof(s_data), "<unknown: %#x>", data);
+	return (s_data);
+}
 
 static const char *ei_abis[256] = {
 	"ELFOSABI_NONE", "ELFOSABI_HPUX", "ELFOSABI_NETBSD", "ELFOSABI_LINUX",
@@ -285,13 +332,32 @@ static const char *ei_abis[256] = {
 	"ELFOSABI_IRIX", "ELFOSABI_FREEBSD", "ELFOSABI_TRU64",
 	"ELFOSABI_MODESTO", "ELFOSABI_OPENBSD",
 	[17] = "ELFOSABI_CLOUDABI",
+	[64] = "ELFOSABI_ARM_AEABI",
+	[97] = "ELFOSABI_ARM",
 	[255] = "ELFOSABI_STANDALONE"
 };
 
-static const char *p_types[] = {
-	"PT_NULL", "PT_LOAD", "PT_DYNAMIC", "PT_INTERP", "PT_NOTE",
-	"PT_SHLIB", "PT_PHDR", "PT_TLS"
-};
+static const char *
+elf_phdr_type_str(unsigned int type)
+{
+	static char s_type[32];
+
+	switch (type) {
+	case PT_NULL:		return "PT_NULL";
+	case PT_LOAD:		return "PT_LOAD";
+	case PT_DYNAMIC:	return "PT_DYNAMIC";
+	case PT_INTERP:		return "PT_INTERP";
+	case PT_NOTE:		return "PT_NOTE";
+	case PT_SHLIB:		return "PT_SHLIB";
+	case PT_PHDR:		return "PT_PHDR";
+	case PT_TLS:		return "PT_TLS";
+	case PT_GNU_EH_FRAME:	return "PT_GNU_EH_FRAME";
+	case PT_GNU_STACK:	return "PT_GNU_STACK";
+	case PT_GNU_RELRO:	return "PT_GNU_RELRO";
+	}
+	snprintf(s_type, sizeof(s_type), "<unknown: %#x>", type);
+	return (s_type);
+}
 
 static const char *p_flags[] = {
 	"", "PF_X", "PF_W", "PF_X|PF_W", "PF_R", "PF_X|PF_R", "PF_W|PF_R",
@@ -408,7 +474,8 @@ sh_types(uint64_t mach, uint64_t sht) {
 	DEFINE_SHF(LINK_ORDER)			\
 	DEFINE_SHF(OS_NONCONFORMING)		\
 	DEFINE_SHF(GROUP)			\
-	DEFINE_SHF(TLS)
+	DEFINE_SHF(TLS)				\
+	DEFINE_SHF(COMPRESSED)
 
 #undef	DEFINE_SHF
 #define	DEFINE_SHF(F) "SHF_" #F "|"
@@ -551,7 +618,7 @@ static void	find_gotrel(struct elfdump *ed, struct section *gs,
     struct rel_entry *got);
 static struct spec_name	*find_name(struct elfdump *ed, const char *name);
 static int	get_ent_count(const struct section *s, int *ent_count);
-static const char *get_symbol_name(struct elfdump *ed, int symtab, int i);
+static const char *get_symbol_name(struct elfdump *ed, uint32_t symtab, int i);
 static const char *get_string(struct elfdump *ed, int strtab, size_t off);
 static void	get_versym(struct elfdump *ed, int i, uint16_t **vs, int *nvs);
 static void	load_sections(struct elfdump *ed);
@@ -730,8 +797,8 @@ ac_print_ar(struct elfdump *ed, int fd)
 	char			 idx[10], *b;
 	void			*buff;
 	size_t			 size;
-	uint32_t		 cnt;
-	int			 i, r;
+	uint32_t		 cnt, i;
+	int			 r;
 
 	if (lseek(fd, 0, SEEK_SET) == -1)
 		err(EXIT_FAILURE, "lseek failed");
@@ -780,11 +847,11 @@ ac_print_ar(struct elfdump *ed, int fd)
 			if (arsym == NULL)
 				err(EXIT_FAILURE, "calloc failed");
 			b += sizeof(uint32_t);
-			for (i = 0; (size_t)i < cnt; i++) {
+			for (i = 0; i < cnt; i++) {
 				arsym[i].off = be32dec(b);
 				b += sizeof(uint32_t);
 			}
-			for (i = 0; (size_t)i < cnt; i++) {
+			for (i = 0; i < cnt; i++) {
 				arsym[i].sym_name = b;
 				b += strlen(b) + 1;
 			}
@@ -793,7 +860,7 @@ ac_print_ar(struct elfdump *ed, int fd)
 				PRT("     index    offset    symbol\n");
 			} else
 				PRT("\nsymbol table (archive):\n");
-			for (i = 0; (size_t)i < cnt; i++) {
+			for (i = 0; i < cnt; i++) {
 				if (ed->flags & SOLARIS_FMT) {
 					snprintf(idx, sizeof(idx), "[%d]", i);
 					PRT("%10s  ", idx);
@@ -849,8 +916,7 @@ elf_print_ar(struct elfdump *ed, int fd)
 	Elf_Arsym	*arsym;
 	Elf_Cmd		 cmd;
 	char		 idx[10];
-	size_t		 cnt;
-	int		 i;
+	size_t		 cnt, i;
 
 	ed->ar = ed->elf;
 
@@ -867,7 +933,7 @@ elf_print_ar(struct elfdump *ed, int fd)
 			PRT("     index    offset    member name and symbol\n");
 		} else
 			PRT("\nsymbol table (archive):\n");
-		for (i = 0; (size_t)i < cnt - 1; i++) {
+		for (i = 0; i < cnt - 1; i++) {
 			if (elf_rand(ed->ar, arsym[i].as_off) !=
 			    arsym[i].as_off) {
 				warnx("elf_rand failed: %s", elf_errmsg(-1));
@@ -883,14 +949,14 @@ elf_print_ar(struct elfdump *ed, int fd)
 				break;
 			}
 			if (ed->flags & SOLARIS_FMT) {
-				snprintf(idx, sizeof(idx), "[%d]", i);
+				snprintf(idx, sizeof(idx), "[%zu]", i);
 				PRT("%10s  ", idx);
 				PRT("0x%8.8jx  ",
 				    (uintmax_t)arsym[i].as_off);
 				PRT("(%s):%s\n", arh->ar_name,
 				    arsym[i].as_name);
 			} else {
-				PRT("\nentry: %d\n", i);
+				PRT("\nentry: %zu\n", i);
 				PRT("\toffset: %#jx\n",
 				    (uintmax_t)arsym[i].as_off);
 				PRT("\tmember: %s\n", arh->ar_name);
@@ -1151,7 +1217,7 @@ find_name(struct elfdump *ed, const char *name)
  * table and the index of the symbol within that table.
  */
 static const char *
-get_symbol_name(struct elfdump *ed, int symtab, int i)
+get_symbol_name(struct elfdump *ed, uint32_t symtab, int i)
 {
 	static char	 sname[64];
 	struct section	*s;
@@ -1160,6 +1226,8 @@ get_symbol_name(struct elfdump *ed, int symtab, int i)
 	Elf_Data	*data;
 	int		 elferr;
 
+	if (symtab >= ed->shnum)
+		return ("");
 	s = &ed->sl[symtab];
 	if (s->type != SHT_SYMTAB && s->type != SHT_DYNSYM)
 		return ("");
@@ -1216,11 +1284,13 @@ elf_print_ehdr(struct elfdump *ed)
 		    ed->ehdr.e_ident[0], ed->ehdr.e_ident[1],
 		    ed->ehdr.e_ident[2], ed->ehdr.e_ident[3]);
 		PRT("  ei_class:   %-18s",
-		    ei_classes[ed->ehdr.e_ident[EI_CLASS]]);
-		PRT("  ei_data:      %s\n", ei_data[ed->ehdr.e_ident[EI_DATA]]);
+		    elf_class_str(ed->ehdr.e_ident[EI_CLASS]));
+		PRT("  ei_data:      %s\n",
+		    elf_data_str(ed->ehdr.e_ident[EI_DATA]));
 		PRT("  e_machine:  %-18s", e_machines(ed->ehdr.e_machine));
-		PRT("  e_version:    %s\n", ei_versions[ed->ehdr.e_version]);
-		PRT("  e_type:     %s\n", e_types[ed->ehdr.e_type]);
+		PRT("  e_version:    %s\n",
+		    elf_version_str(ed->ehdr.e_version));
+		PRT("  e_type:     %s\n", elf_type_str(ed->ehdr.e_type));
 		PRT("  e_flags:    %18d\n", ed->ehdr.e_flags);
 		PRT("  e_entry:    %#18jx", (uintmax_t)ed->ehdr.e_entry);
 		PRT("  e_ehsize: %6d", ed->ehdr.e_ehsize);
@@ -1235,12 +1305,12 @@ elf_print_ehdr(struct elfdump *ed)
 		PRT("\nelf header:\n");
 		PRT("\n");
 		PRT("\te_ident: %s %s %s\n",
-		    ei_classes[ed->ehdr.e_ident[EI_CLASS]],
-		    ei_data[ed->ehdr.e_ident[EI_DATA]],
+		    elf_class_str(ed->ehdr.e_ident[EI_CLASS]),
+		    elf_data_str(ed->ehdr.e_ident[EI_DATA]),
 		    ei_abis[ed->ehdr.e_ident[EI_OSABI]]);
-		PRT("\te_type: %s\n", e_types[ed->ehdr.e_type]);
+		PRT("\te_type: %s\n", elf_type_str(ed->ehdr.e_type));
 		PRT("\te_machine: %s\n", e_machines(ed->ehdr.e_machine));
-		PRT("\te_version: %s\n", ei_versions[ed->ehdr.e_version]);
+		PRT("\te_version: %s\n", elf_version_str(ed->ehdr.e_version));
 		PRT("\te_entry: %#jx\n", (uintmax_t)ed->ehdr.e_entry);
 		PRT("\te_phoff: %ju\n", (uintmax_t)ed->ehdr.e_phoff);
 		PRT("\te_shoff: %ju\n", (uintmax_t) ed->ehdr.e_shoff);
@@ -1261,28 +1331,30 @@ static void
 elf_print_phdr(struct elfdump *ed)
 {
 	GElf_Phdr	 ph;
-	size_t		 phnum;
-	int		 header, i;
+	size_t		 phnum, i;
+	int		 header;
 
 	if (elf_getphnum(ed->elf, &phnum) == 0) {
 		warnx("elf_getphnum failed: %s", elf_errmsg(-1));
 		return;
 	}
 	header = 0;
-	for (i = 0; (size_t) i < phnum; i++) {
+	for (i = 0; i < phnum; i++) {
 		if (gelf_getphdr(ed->elf, i, &ph) != &ph) {
 			warnx("elf_getphdr failed: %s", elf_errmsg(-1));
 			continue;
 		}
 		if (!STAILQ_EMPTY(&ed->snl) &&
-		    find_name(ed, p_types[ph.p_type & 0x7]) == NULL)
+		    find_name(ed, elf_phdr_type_str(ph.p_type)) == NULL)
 			continue;
 		if (ed->flags & SOLARIS_FMT) {
-			PRT("\nProgram Header[%d]:\n", i);
+			PRT("\nProgram Header[%zu]:\n", i);
 			PRT("    p_vaddr:      %#-14jx", (uintmax_t)ph.p_vaddr);
-			PRT("  p_flags:    [ %s ]\n", p_flags[ph.p_flags]);
+			PRT("  p_flags:    [ %s ]\n",
+			    p_flags[ph.p_flags & 0x7]);
 			PRT("    p_paddr:      %#-14jx", (uintmax_t)ph.p_paddr);
-			PRT("  p_type:     [ %s ]\n", p_types[ph.p_type & 0x7]);
+			PRT("  p_type:     [ %s ]\n",
+			    elf_phdr_type_str(ph.p_type));
 			PRT("    p_filesz:     %#-14jx",
 			    (uintmax_t)ph.p_filesz);
 			PRT("  p_memsz:    %#jx\n", (uintmax_t)ph.p_memsz);
@@ -1295,14 +1367,14 @@ elf_print_phdr(struct elfdump *ed)
 				header = 1;
 			}
 			PRT("\n");
-			PRT("entry: %d\n", i);
-			PRT("\tp_type: %s\n", p_types[ph.p_type & 0x7]);
+			PRT("entry: %zu\n", i);
+			PRT("\tp_type: %s\n", elf_phdr_type_str(ph.p_type));
 			PRT("\tp_offset: %ju\n", (uintmax_t)ph.p_offset);
 			PRT("\tp_vaddr: %#jx\n", (uintmax_t)ph.p_vaddr);
 			PRT("\tp_paddr: %#jx\n", (uintmax_t)ph.p_paddr);
 			PRT("\tp_filesz: %ju\n", (uintmax_t)ph.p_filesz);
 			PRT("\tp_memsz: %ju\n", (uintmax_t)ph.p_memsz);
-			PRT("\tp_flags: %s\n", p_flags[ph.p_flags]);
+			PRT("\tp_flags: %s\n", p_flags[ph.p_flags & 0x7]);
 			PRT("\tp_align: %ju\n", (uintmax_t)ph.p_align);
 		}
 	}
@@ -1315,19 +1387,19 @@ static void
 elf_print_shdr(struct elfdump *ed)
 {
 	struct section *s;
-	int i;
+	size_t i;
 
 	if (!STAILQ_EMPTY(&ed->snl))
 		return;
 
 	if ((ed->flags & SOLARIS_FMT) == 0)
 		PRT("\nsection header:\n");
-	for (i = 0; (size_t)i < ed->shnum; i++) {
+	for (i = 0; i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if (ed->flags & SOLARIS_FMT) {
 			if (i == 0)
 				continue;
-			PRT("\nSection Header[%d]:", i);
+			PRT("\nSection Header[%zu]:", i);
 			PRT("  sh_name: %s\n", s->name);
 			PRT("    sh_addr:      %#-14jx", (uintmax_t)s->addr);
 			if (s->flags != 0)
@@ -1387,15 +1459,16 @@ get_versym(struct elfdump *ed, int i, uint16_t **vs, int *nvs)
 {
 	struct section	*s;
 	Elf_Data	*data;
-	int		 j, elferr;
+	size_t		 j;
+	int		 elferr;
 
 	s = NULL;
-	for (j = 0; (size_t)j < ed->shnum; j++) {
+	for (j = 0; j < ed->shnum; j++) {
 		s = &ed->sl[j];
 		if (s->type == SHT_SUNW_versym && s->link == (uint32_t)i)
 			break;
 	}
-	if ((size_t)j >= ed->shnum) {
+	if (j >= ed->shnum) {
 		*vs = NULL;
 		return;
 	}
@@ -1500,9 +1573,9 @@ elf_print_symtab(struct elfdump *ed, int i)
 static void
 elf_print_symtabs(struct elfdump *ed)
 {
-	int i;
+	size_t i;
 
-	for (i = 0; (size_t)i < ed->shnum; i++)
+	for (i = 0; i < ed->shnum; i++)
 		if ((ed->sl[i].type == SHT_SYMTAB ||
 		    ed->sl[i].type == SHT_DYNSYM) &&
 		    (STAILQ_EMPTY(&ed->snl) || find_name(ed, ed->sl[i].name)))
@@ -1726,9 +1799,10 @@ elf_print_reloc(struct elfdump *ed)
 {
 	struct section	*s;
 	Elf_Data	*data;
-	int		 i, elferr;
+	size_t		 i;
+	int		 elferr;
 
-	for (i = 0; (size_t)i < ed->shnum; i++) {
+	for (i = 0; i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if ((s->type == SHT_REL || s->type == SHT_RELA) &&
 		    (STAILQ_EMPTY(&ed->snl) || find_name(ed, s->name))) {
@@ -1756,13 +1830,12 @@ elf_print_interp(struct elfdump *ed)
 {
 	const char *s;
 	GElf_Phdr phdr;
-	size_t phnum;
-	int i;
+	size_t filesize, i, phnum;
 
 	if (!STAILQ_EMPTY(&ed->snl) && find_name(ed, "PT_INTERP") == NULL)
 		return;
 
-	if ((s = elf_rawfile(ed->elf, NULL)) == NULL) {
+	if ((s = elf_rawfile(ed->elf, &filesize)) == NULL) {
 		warnx("elf_rawfile failed: %s", elf_errmsg(-1));
 		return;
 	}
@@ -1770,12 +1843,16 @@ elf_print_interp(struct elfdump *ed)
 		warnx("elf_getphnum failed: %s", elf_errmsg(-1));
 		return;
 	}
-	for (i = 0; (size_t)i < phnum; i++) {
+	for (i = 0; i < phnum; i++) {
 		if (gelf_getphdr(ed->elf, i, &phdr) != &phdr) {
 			warnx("elf_getphdr failed: %s", elf_errmsg(-1));
 			continue;
 		}
 		if (phdr.p_type == PT_INTERP) {
+			if (phdr.p_offset >= filesize) {
+				warnx("invalid phdr offset");
+				continue;
+			}
 			PRT("\ninterp:\n");
 			PRT("\t%s\n", s + phdr.p_offset);
 		}
@@ -1783,7 +1860,7 @@ elf_print_interp(struct elfdump *ed)
 }
 
 /*
- * Search the relocation sections for entries refering to the .got section.
+ * Search the relocation sections for entries referring to the .got section.
  */
 static void
 find_gotrel(struct elfdump *ed, struct section *gs, struct rel_entry *got)
@@ -1791,9 +1868,10 @@ find_gotrel(struct elfdump *ed, struct section *gs, struct rel_entry *got)
 	struct section		*s;
 	struct rel_entry	 r;
 	Elf_Data		*data;
-	int			 elferr, i, j, k, len;
+	size_t			 i;
+	int			 elferr, j, k, len;
 
-	for(i = 0; (size_t)i < ed->shnum; i++) {
+	for(i = 0; i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if (s->type != SHT_REL && s->type != SHT_RELA)
 			continue;
@@ -1870,7 +1948,7 @@ elf_print_got_section(struct elfdump *ed, struct section *s)
 
 	/*
 	 * GOT section has section type SHT_PROGBITS, thus libelf treats it as
-	 * byte stream and will not perfrom any translation on it. As a result,
+	 * byte stream and will not perform any translation on it. As a result,
 	 * an exlicit call to gelf_xlatetom is needed here. Depends on arch,
 	 * GOT section should be translated to either WORD or XWORD.
 	 */
@@ -1945,13 +2023,13 @@ static void
 elf_print_got(struct elfdump *ed)
 {
 	struct section	*s;
-	int		 i;
+	size_t		 i;
 
 	if (!STAILQ_EMPTY(&ed->snl))
 		return;
 
 	s = NULL;
-	for (i = 0; (size_t)i < ed->shnum; i++) {
+	for (i = 0; i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if (s->name && !strncmp(s->name, ".got", 4) &&
 		    (STAILQ_EMPTY(&ed->snl) || find_name(ed, s->name)))
@@ -2005,6 +2083,10 @@ elf_print_note(struct elfdump *ed)
 		descsz = en->n_descsz;
 		src += sizeof(Elf_Note);
 		count -= sizeof(Elf_Note);
+		if (roundup2(namesz, 4) + roundup2(descsz, 4) > count) {
+			warnx("truncated note section");
+			return;
+		}
 		if (ed->flags & SOLARIS_FMT) {
 			PRT("\n    type   %#x\n", en->n_type);
 			PRT("    namesz %#x:\n", en->n_namesz);
@@ -2055,7 +2137,8 @@ elf_print_svr4_hash(struct elfdump *ed, struct section *s)
 	uint32_t	*bucket, *chain;
 	uint32_t	 nbucket, nchain;
 	uint32_t	*bl, *c, maxl, total;
-	int		 i, j, first, elferr;
+	uint32_t	 i, j;
+	int		 first, elferr;
 	char		 idx[10];
 
 	if (ed->flags & SOLARIS_FMT)
@@ -2081,7 +2164,8 @@ elf_print_svr4_hash(struct elfdump *ed, struct section *s)
 		warnx("Malformed .hash section");
 		return;
 	}
-	if (data->d_size != (nbucket + nchain + 2) * sizeof(uint32_t)) {
+	if (data->d_size !=
+	    ((uint64_t)nbucket + (uint64_t)nchain + 2) * sizeof(uint32_t)) {
 		warnx("Malformed .hash section");
 		return;
 	}
@@ -2092,20 +2176,18 @@ elf_print_svr4_hash(struct elfdump *ed, struct section *s)
 		maxl = 0;
 		if ((bl = calloc(nbucket, sizeof(*bl))) == NULL)
 			err(EXIT_FAILURE, "calloc failed");
-		for (i = 0; (uint32_t)i < nbucket; i++)
-			for (j = bucket[i]; j > 0 && (uint32_t)j < nchain;
-			     j = chain[j])
+		for (i = 0; i < nbucket; i++)
+			for (j = bucket[i]; j > 0 && j < nchain; j = chain[j])
 				if (++bl[i] > maxl)
 					maxl = bl[i];
 		if ((c = calloc(maxl + 1, sizeof(*c))) == NULL)
 			err(EXIT_FAILURE, "calloc failed");
-		for (i = 0; (uint32_t)i < nbucket; i++)
+		for (i = 0; i < nbucket; i++)
 			c[bl[i]]++;
 		PRT("    bucket    symndx    name\n");
-		for (i = 0; (uint32_t)i < nbucket; i++) {
+		for (i = 0; i < nbucket; i++) {
 			first = 1;
-			for (j = bucket[i]; j > 0 && (uint32_t)j < nchain;
-			     j = chain[j]) {
+			for (j = bucket[i]; j > 0 && j < nchain; j = chain[j]) {
 				if (first) {
 					PRT("%10d  ", i);
 					first = 0;
@@ -2118,7 +2200,7 @@ elf_print_svr4_hash(struct elfdump *ed, struct section *s)
 		}
 		PRT("\n");
 		total = 0;
-		for (i = 0; (uint32_t)i <= maxl; i++) {
+		for (i = 0; i <= maxl; i++) {
 			total += c[i] * i;
 			PRT("%10u  buckets contain %8d symbols\n", c[i], i);
 		}
@@ -2127,9 +2209,9 @@ elf_print_svr4_hash(struct elfdump *ed, struct section *s)
 	} else {
 		PRT("\nnbucket: %u\n", nbucket);
 		PRT("nchain: %u\n\n", nchain);
-		for (i = 0; (uint32_t)i < nbucket; i++)
+		for (i = 0; i < nbucket; i++)
 			PRT("bucket[%d]:\n\t%u\n\n", i, bucket[i]);
-		for (i = 0; (uint32_t)i < nchain; i++)
+		for (i = 0; i < nchain; i++)
 			PRT("chain[%d]:\n\t%u\n\n", i, chain[i]);
 	}
 }
@@ -2145,7 +2227,8 @@ elf_print_svr4_hash64(struct elfdump *ed, struct section *s)
 	uint64_t	*bucket, *chain;
 	uint64_t	 nbucket, nchain;
 	uint64_t	*bl, *c, maxl, total;
-	int		 i, j, elferr, first;
+	uint64_t	 i, j;
+	int		 elferr, first;
 	char		 idx[10];
 
 	if (ed->flags & SOLARIS_FMT)
@@ -2195,35 +2278,33 @@ elf_print_svr4_hash64(struct elfdump *ed, struct section *s)
 		maxl = 0;
 		if ((bl = calloc(nbucket, sizeof(*bl))) == NULL)
 			err(EXIT_FAILURE, "calloc failed");
-		for (i = 0; (uint64_t)i < nbucket; i++)
-			for (j = bucket[i]; j > 0 && (uint64_t)j < nchain;
-			     j = chain[j])
+		for (i = 0; i < nbucket; i++)
+			for (j = bucket[i]; j > 0 && j < nchain; j = chain[j])
 				if (++bl[i] > maxl)
 					maxl = bl[i];
 		if ((c = calloc(maxl + 1, sizeof(*c))) == NULL)
 			err(EXIT_FAILURE, "calloc failed");
-		for (i = 0; (uint64_t)i < nbucket; i++)
+		for (i = 0; i < nbucket; i++)
 			c[bl[i]]++;
 		PRT("    bucket    symndx    name\n");
-		for (i = 0; (uint64_t)i < nbucket; i++) {
+		for (i = 0; i < nbucket; i++) {
 			first = 1;
-			for (j = bucket[i]; j > 0 && (uint64_t)j < nchain;
-			     j = chain[j]) {
+			for (j = bucket[i]; j > 0 && j < nchain; j = chain[j]) {
 				if (first) {
-					PRT("%10d  ", i);
+					PRT("%10zu  ", i);
 					first = 0;
 				} else
 					PRT("            ");
-				snprintf(idx, sizeof(idx), "[%d]", j);
+				snprintf(idx, sizeof(idx), "[%zu]", (size_t)j);
 				PRT("%-10s  ", idx);
 				PRT("%s\n", get_symbol_name(ed, s->link, j));
 			}
 		}
 		PRT("\n");
 		total = 0;
-		for (i = 0; (uint64_t)i <= maxl; i++) {
+		for (i = 0; i <= maxl; i++) {
 			total += c[i] * i;
-			PRT("%10ju  buckets contain %8d symbols\n",
+			PRT("%10ju  buckets contain %8zu symbols\n",
 			    (uintmax_t)c[i], i);
 		}
 		PRT("%10ju  buckets         %8ju symbols (globals)\n",
@@ -2231,10 +2312,10 @@ elf_print_svr4_hash64(struct elfdump *ed, struct section *s)
 	} else {
 		PRT("\nnbucket: %ju\n", (uintmax_t)nbucket);
 		PRT("nchain: %ju\n\n", (uintmax_t)nchain);
-		for (i = 0; (uint64_t)i < nbucket; i++)
-			PRT("bucket[%d]:\n\t%ju\n\n", i, (uintmax_t)bucket[i]);
-		for (i = 0; (uint64_t)i < nchain; i++)
-			PRT("chain[%d]:\n\t%ju\n\n", i, (uintmax_t)chain[i]);
+		for (i = 0; i < nbucket; i++)
+			PRT("bucket[%zu]:\n\t%ju\n\n", i, (uintmax_t)bucket[i]);
+		for (i = 0; i < nchain; i++)
+			PRT("chain[%zu]:\n\t%ju\n\n", i, (uintmax_t)chain[i]);
 	}
 
 }
@@ -2251,7 +2332,8 @@ elf_print_gnu_hash(struct elfdump *ed, struct section *s)
 	uint32_t	*bucket, *chain;
 	uint32_t	 nbucket, nchain, symndx, maskwords, shift2;
 	uint32_t	*bl, *c, maxl, total;
-	int		 i, j, first, elferr, dynsymcount;
+	uint32_t	 i, j;
+	int		 first, elferr, dynsymcount;
 	char		 idx[10];
 
 	if (ed->flags & SOLARIS_FMT)
@@ -2276,13 +2358,21 @@ elf_print_gnu_hash(struct elfdump *ed, struct section *s)
 	maskwords = buf[2];
 	shift2 = buf[3];
 	buf += 4;
+	if (s->link >= ed->shnum) {
+		warnx("Malformed .gnu.hash section");
+		return;
+	}
 	ds = &ed->sl[s->link];
 	if (!get_ent_count(ds, &dynsymcount))
 		return;
+	if (symndx >= (uint32_t)dynsymcount) {
+		warnx("Malformed .gnu.hash section");
+		return;
+	}
 	nchain = dynsymcount - symndx;
 	if (data->d_size != 4 * sizeof(uint32_t) + maskwords *
 	    (ed->ec == ELFCLASS32 ? sizeof(uint32_t) : sizeof(uint64_t)) +
-	    (nbucket + nchain) * sizeof(uint32_t)) {
+	    ((uint64_t)nbucket + (uint64_t)nchain) * sizeof(uint32_t)) {
 		warnx("Malformed .gnu.hash section");
 		return;
 	}
@@ -2293,10 +2383,8 @@ elf_print_gnu_hash(struct elfdump *ed, struct section *s)
 		maxl = 0;
 		if ((bl = calloc(nbucket, sizeof(*bl))) == NULL)
 			err(EXIT_FAILURE, "calloc failed");
-		for (i = 0; (uint32_t)i < nbucket; i++)
-			for (j = bucket[i];
-			     j > 0 && (uint32_t)j - symndx < nchain;
-			     j++) {
+		for (i = 0; i < nbucket; i++)
+			for (j = bucket[i]; j > 0 && j - symndx < nchain; j++) {
 				if (++bl[i] > maxl)
 					maxl = bl[i];
 				if (chain[j - symndx] & 1)
@@ -2304,14 +2392,12 @@ elf_print_gnu_hash(struct elfdump *ed, struct section *s)
 			}
 		if ((c = calloc(maxl + 1, sizeof(*c))) == NULL)
 			err(EXIT_FAILURE, "calloc failed");
-		for (i = 0; (uint32_t)i < nbucket; i++)
+		for (i = 0; i < nbucket; i++)
 			c[bl[i]]++;
 		PRT("    bucket    symndx    name\n");
-		for (i = 0; (uint32_t)i < nbucket; i++) {
+		for (i = 0; i < nbucket; i++) {
 			first = 1;
-			for (j = bucket[i];
-			     j > 0 && (uint32_t)j - symndx < nchain;
-			     j++) {
+			for (j = bucket[i]; j > 0 && j - symndx < nchain; j++) {
 				if (first) {
 					PRT("%10d  ", i);
 					first = 0;
@@ -2326,7 +2412,7 @@ elf_print_gnu_hash(struct elfdump *ed, struct section *s)
 		}
 		PRT("\n");
 		total = 0;
-		for (i = 0; (uint32_t)i <= maxl; i++) {
+		for (i = 0; i <= maxl; i++) {
 			total += c[i] * i;
 			PRT("%10u  buckets contain %8d symbols\n", c[i], i);
 		}
@@ -2338,9 +2424,9 @@ elf_print_gnu_hash(struct elfdump *ed, struct section *s)
 		PRT("maskwords: %u\n", maskwords);
 		PRT("shift2: %u\n", shift2);
 		PRT("nchain: %u\n\n", nchain);
-		for (i = 0; (uint32_t)i < nbucket; i++)
+		for (i = 0; i < nbucket; i++)
 			PRT("bucket[%d]:\n\t%u\n\n", i, bucket[i]);
-		for (i = 0; (uint32_t)i < nchain; i++)
+		for (i = 0; i < nchain; i++)
 			PRT("chain[%d]:\n\t%u\n\n", i, chain[i]);
 	}
 }
@@ -2352,9 +2438,9 @@ static void
 elf_print_hash(struct elfdump *ed)
 {
 	struct section	*s;
-	int		 i;
+	size_t		 i;
 
-	for (i = 0; (size_t)i < ed->shnum; i++) {
+	for (i = 0; i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if ((s->type == SHT_HASH || s->type == SHT_GNU_HASH) &&
 		    (STAILQ_EMPTY(&ed->snl) || find_name(ed, s->name))) {
@@ -2537,9 +2623,9 @@ static void
 elf_print_symver(struct elfdump *ed)
 {
 	struct section	*s;
-	int		 i;
+	size_t		 i;
 
-	for (i = 0; (size_t)i < ed->shnum; i++) {
+	for (i = 0; i < ed->shnum; i++) {
 		s = &ed->sl[i];
 		if (!STAILQ_EMPTY(&ed->snl) && !find_name(ed, s->name))
 			continue;
