@@ -84,6 +84,7 @@ SHLIB_MAJOR=	3
 
 WARNS?=	6
 
+DPADD+=		${LIBELF}
 LDADD+=		-lelf
 
 MAN=	dwarf.3                                         \
