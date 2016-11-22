@@ -7,8 +7,8 @@ SRCS=		as.c
 
 LSRC=
 YSRC=
-DPADD=		${LIBELFTC}
-LDADD=		-lelftc
+DPADD=		${LIBELF} ${LIBELFTC}
+LDADD=		-lelf -lelftc
 
 MAN=		as.1
 
