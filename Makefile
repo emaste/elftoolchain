@@ -26,6 +26,7 @@ SUBDIR += isa  # ('isa' does not build on all platforms yet).
 # Build tools after the libraries.
 SUBDIR += addr2line
 SUBDIR += ar
+SUBDIR += as
 SUBDIR += brandelf
 SUBDIR += cxxfilt
 SUBDIR += elfcopy
