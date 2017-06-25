@@ -646,6 +646,7 @@ phdr_type(unsigned int mach, unsigned int ptype)
 	case PT_GNU_RELRO: return "GNU_RELRO";
 	case PT_OPENBSD_RANDOMIZE: return "OPENBSD_RANDOMIZE";
 	case PT_OPENBSD_WXNEEDED: return "OPENBSD_WXNEEDED";
+	case PT_OPENBSD_BOOTDATA: return "OPENBSD_BOOTDATA";
 	default:
 		if (ptype >= PT_LOOS && ptype <= PT_HIOS)
 			snprintf(s_ptype, sizeof(s_ptype), "LOOS+%#x",
@@ -937,6 +938,7 @@ dt_type(unsigned int mach, unsigned int dtype)
 	case DT_SUNW_RTLDINF: return "SUNW_RTLDINF";
 	case DT_SUNW_FILTER: return "SUNW_FILTER";
 	case DT_SUNW_CAP: return "SUNW_CAP";
+	case DT_SUNW_ASLR: return "SUNW_ASLR";
 	case DT_CHECKSUM: return "CHECKSUM";
 	case DT_PLTPADSZ: return "PLTPADSZ";
 	case DT_MOVEENT: return "MOVEENT";
@@ -6201,9 +6203,7 @@ dump_dwarf_loclist(struct readelf *re)
 	Dwarf_Half tag, version, pointer_size, off_size;
 	Dwarf_Error de;
 	struct loc_at *la;
-	int i, j, ret;
-
-	printf("\nContents of section .debug_loc:\n");
+	int i, j, ret, has_content;
 
 	/* Search .debug_info section. */
 	while ((ret = dwarf_next_cu_header_b(re->dbg, NULL, &version, NULL,
@@ -6220,7 +6220,7 @@ dump_dwarf_loclist(struct readelf *re)
 		lowpc = 0;
 		if (tag == DW_TAG_compile_unit) {
 			if (dwarf_attrval_unsigned(die, DW_AT_low_pc,
-				&lowpc, &de) != DW_DLV_OK)
+			    &lowpc, &de) != DW_DLV_OK)
 				lowpc = 0;
 		}
 
@@ -6266,13 +6266,19 @@ dump_dwarf_loclist(struct readelf *re)
 	if (TAILQ_EMPTY(&lalist))
 		return;
 
-	printf("    Offset   Begin    End      Expression\n");
-
+	has_content = 0;
 	TAILQ_FOREACH(la, &lalist, la_next) {
-		if (dwarf_loclist_n(la->la_at, &llbuf, &lcnt, &de) !=
+		if ((ret = dwarf_loclist_n(la->la_at, &llbuf, &lcnt, &de)) !=
 		    DW_DLV_OK) {
-			warnx("dwarf_loclist_n failed: %s", dwarf_errmsg(de));
+			if (ret != DW_DLV_NO_ENTRY)
+				warnx("dwarf_loclist_n failed: %s",
+				    dwarf_errmsg(de));
 			continue;
+		}
+		if (!has_content) {
+			has_content = 1;
+			printf("\nContents of section .debug_loc:\n");
+			printf("    Offset   Begin    End      Expression\n");
 		}
 		set_cu_context(re, la->la_cu_psize, la->la_cu_osize,
 		    la->la_cu_ver);
@@ -6308,6 +6314,9 @@ dump_dwarf_loclist(struct readelf *re)
 		}
 		dwarf_dealloc(re->dbg, llbuf, DW_DLA_LIST);
 	}
+
+	if (!has_content)
+		printf("\nSection '.debug_loc' has no debugging data.\n");
 }
 
 /*
@@ -6655,8 +6664,9 @@ dump_elf(struct readelf *re)
 static void
 dump_dwarf(struct readelf *re)
 {
-	int error;
+	struct loc_at *la, *_la;
 	Dwarf_Error de;
+	int error;
 
 	if (dwarf_elf_init(re->elf, DW_DLC_READ, NULL, NULL, &re->dbg, &de)) {
 		if ((error = dwarf_errno(de)) != DW_DLE_DEBUG_INFO_NULL)
@@ -6691,6 +6701,11 @@ dump_dwarf(struct readelf *re)
 		dump_dwarf_str(re);
 	if (re->dop & DW_O)
 		dump_dwarf_loclist(re);
+
+	TAILQ_FOREACH_SAFE(la, &lalist, la_next, _la) {
+		TAILQ_REMOVE(&lalist, la, la_next);
+		free(la);
+	}
 
 	dwarf_finish(re->dbg, &de);
 }
