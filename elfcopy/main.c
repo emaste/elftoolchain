@@ -545,10 +545,19 @@ create_tempfile(char **fn, int *fd)
 		if (tmpf == NULL)
 			err(EXIT_FAILURE, "strdup failed");
 	}
+#if defined(_WIN32)
+	tmpf = strdup(_TEMPFILE);
+	tmpf = _mktemp(tmpf);
+	if (tmpf == NULL)
+		err(EXIT_FAILURE, "_mktemp failed");
+	if ((*fd = open(tmpf, O_CREAT|O_BINARY, 0644)) < 0)
+		err(EXIT_FAILURE, "fopen failed");
+#else
 	if ((*fd = mkstemp(tmpf)) == -1)
 		err(EXIT_FAILURE, "mkstemp %s failed", tmpf);
 	if (fchmod(*fd, 0644) == -1)
 		err(EXIT_FAILURE, "fchmod %s failed", tmpf);
+#endif
 	*fn = tmpf;
 
 #undef _TEMPFILE
@@ -587,7 +596,7 @@ copy_from_tempfile(const char *src, const char *dst, int infd, int *outfd,
 			return (-1);
 	}
 
-	if ((tmpfd = open(dst, O_CREAT | O_TRUNC | O_WRONLY, 0755)) < 0)
+	if ((tmpfd = open(dst, O_CREAT|O_TRUNC|O_WRONLY|O_BINARY, 0755)) < 0)
 		return (-1);
 
 	if (elftc_copyfile(infd, tmpfd) < 0)
@@ -622,7 +631,7 @@ create_file(struct elfcopy *ecp, const char *src, const char *dst)
 
 	if (src == NULL)
 		errx(EXIT_FAILURE, "internal: src == NULL");
-	if ((ifd = open(src, O_RDONLY)) == -1)
+	if ((ifd = open(src, O_RDONLY|O_BINARY)) == -1)
 		err(EXIT_FAILURE, "open %s failed", src);
 
 	if (fstat(ifd, &sb) == -1)
@@ -631,7 +640,7 @@ create_file(struct elfcopy *ecp, const char *src, const char *dst)
 	if (dst == NULL)
 		create_tempfile(&tempfile, &ofd);
 	else
-		if ((ofd = open(dst, O_RDWR|O_CREAT, 0755)) == -1)
+		if ((ofd = open(dst, O_RDWR|O_CREAT|O_BINARY, 0755)) == -1)
 			err(EXIT_FAILURE, "open %s failed", dst);
 
 #ifndef LIBELF_AR
@@ -679,7 +688,7 @@ create_file(struct elfcopy *ecp, const char *src, const char *dst)
 
 		/* Open intermediate ELF object as new input object. */
 		close(ifd);
-		if ((ifd = open(elftemp, O_RDONLY)) == -1)
+		if ((ifd = open(elftemp, O_RDONLY|O_BINARY)) == -1)
 			err(EXIT_FAILURE, "open %s failed", src);
 		close(efd);
 		free(elftemp);
@@ -795,8 +804,10 @@ copy_done:
 		ofd = tfd;
 	}
 
+#if !defined(_WIN32)
 	if (strcmp(dst, "/dev/null") && fchmod(ofd, sb.st_mode) == -1)
 		err(EXIT_FAILURE, "fchmod %s failed", dst);
+#endif
 
 	if ((ecp->flags & PRESERVE_DATE) &&
 	    elftc_set_timestamps(dst, &sb) < 0)

@@ -187,3 +187,15 @@
 #endif
 
 #endif /* defined(__linux__) || defined(__GNU__) || defined(__GLIBC__) */
+
+#if defined(_WIN32)
+#if defined(_M_X64)
+#define	LIBELF_ARCH		EM_X86_64
+#define	LIBELF_BYTEORDER	ELFDATA2LSB
+#define LIBELF_CLASS		ELFCLASS64
+#elif defined(_M_X86)
+#define	LIBELF_ARCH		EM_386
+#define	LIBELF_BYTEORDER	ELFDATA2LSB
+#define LIBELF_CLASS		ELFCLASS32
+#endif
+#endif

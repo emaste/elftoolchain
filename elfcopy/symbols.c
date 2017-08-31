@@ -35,6 +35,15 @@
 
 #include "elfcopy.h"
 
+#if defined(_WIN32)
+#include "Shlwapi.h"
+
+int fnmatch(const char *pattern, const char *string, int flags) {
+  assert(flags == 0);
+  return PathMatchSpec(string, pattern) == TRUE;
+}
+#endif
+
 ELFTC_VCSID("$Id$");
 
 /* Symbol table buffer structure. */

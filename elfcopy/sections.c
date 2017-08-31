@@ -35,6 +35,13 @@
 
 #include "elfcopy.h"
 
+#if defined(_WIN32)
+#include <Shlwapi.h>
+char *basename(char *path) {
+  return PathFindFileNameA(path);
+}
+#endif
+
 ELFTC_VCSID("$Id$");
 
 static void	add_gnu_debuglink(struct elfcopy *ecp);

@@ -50,6 +50,19 @@ struct align {
 		.a32 = __alignof__(int32_t),			\
 		.a64 = __alignof__(int64_t)			\
 	    }
+#elif defined(_MSC_VER)
+#define	MALIGN(N)	{					\
+		.a32 = _Alignof(Elf32_##N),			\
+		.a64 = _Alignof(Elf64_##N)			\
+	}
+#define	MALIGN64(V)	  {					\
+		.a32 = 0,					\
+		.a64 = _Alignof(Elf64_##V)			\
+	}
+#define	MALIGN_WORD()	{					\
+		.a32 = _Alignof(int32_t),			\
+		.a64 = _Alignof(int64_t)			\
+	    }
 #else
 #error	Need the __alignof__ builtin.
 #endif

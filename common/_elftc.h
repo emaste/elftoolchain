@@ -323,6 +323,10 @@ struct name {							\
 #endif	/* __GNUC__ */
 #endif
 
+#if defined(_WIN32)
+#define ELFTC_VCSID(ID)		/**/
+#endif
+
 #endif	/* ELFTC_VCSID */
 
 /*
@@ -362,6 +366,13 @@ extern const char *__progname;
 #define	ELFTC_GETPROGNAME()	__progname
 
 #endif	/* __OpenBSD__ */
+
+#if defined(_WIN32)
+
+// TODO(compnerd) use getprogname() from libbsd
+#define ELFTC_GETPROGNAME()	NULL
+
+#endif
 
 #endif	/* ELFTC_GETPROGNAME */
 
@@ -483,5 +494,29 @@ extern const char *__progname;
 #define	roundup2	roundup
 
 #endif	/* __OpenBSD__ */
+
+#if defined(_WIN32)
+
+#include <Winsock2.h>
+
+#define	htobe32(x)	htonl(x)
+
+#define	lstat		stat
+
+#define S_ISREG(mode) ((mode) & _S_IFREG)
+#define S_ISCHR(mode) ((mode) & _S_IFCHR)
+#define S_ISLNK(mode) 0
+#define S_ISFIFO(mode) ((mode) & _S_IFIFO)
+#define S_ISSOCK(mode) 0
+
+#define	ELFTC_HAVE_MMAP				0
+
+#define	roundup(x, y)	((((x) + ((y)-1)) / (y)) * (y))
+#define	roundup2	roundup
+#endif
+
+#if !defined(_WIN32)
+#define O_BINARY 0
+#endif
 
 #endif	/* _ELFTC_H */
