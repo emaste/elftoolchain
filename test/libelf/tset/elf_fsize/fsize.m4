@@ -31,7 +31,9 @@ include(`elfts.m4')
 #include <fcntl.h>
 #include <gelf.h>
 #include <libelf.h>
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
+#endif
 
 #include "elfts.h"
 #include "tet_api.h"

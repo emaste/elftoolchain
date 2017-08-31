@@ -45,7 +45,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
+#endif
 #include "dwarf.h"
 #define oom() ld_fatal(ld, "out of memory")
 #include "utarray.h"

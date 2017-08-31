@@ -31,7 +31,11 @@
 #include <errno.h>
 #include <libelf.h>
 #include <stdlib.h>
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
+#elif defined(_WIN32)
+#include <io.h>
+#endif
 
 #include "_libelf.h"
 

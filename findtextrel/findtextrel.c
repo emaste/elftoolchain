@@ -33,7 +33,9 @@
 #include <libelftc.h>
 #include <stdio.h>
 #include <stdlib.h>
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
+#endif
 
 #include "_elftc.h"
 

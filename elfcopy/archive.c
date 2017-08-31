@@ -28,7 +28,11 @@
 #include <err.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
+#elif defined(_WIN32)
+#include <io.h>
+#endif
 
 #ifndef LIBELF_AR
 #include <archive.h>

@@ -12,7 +12,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
+#endif
 
 #define TSPOS	24		/* position of timestamp */
 #define TSLEN	10		/* length of timstamp string */

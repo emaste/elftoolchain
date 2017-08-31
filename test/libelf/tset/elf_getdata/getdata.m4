@@ -29,7 +29,9 @@
 #include <libelf.h>
 #include <gelf.h>
 #include <string.h>
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
+#endif
 
 #include "elfts.h"
 #include "tet_api.h"

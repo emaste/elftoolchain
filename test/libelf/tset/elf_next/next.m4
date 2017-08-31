@@ -27,7 +27,9 @@
  */
 
 #include <libelf.h>
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
+#endif
 
 #include "tet_api.h"
 

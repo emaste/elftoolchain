@@ -28,7 +28,11 @@
 #include <sys/stat.h>
 
 #include <stdlib.h>
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
+#elif defined(_WIN32)
+#include <io.h>
+#endif
 
 #include "libelftc.h"
 #include "_libelftc.h"
