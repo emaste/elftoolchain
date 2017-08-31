@@ -27,6 +27,7 @@
  */
 
 #include <libelf.h>
+#include <stdio.h>
 
 #include "_elftc.h"
 

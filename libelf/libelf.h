@@ -30,6 +30,7 @@
 #define	_LIBELF_H_
 
 #include <sys/types.h>
+#include <time.h>
 
 #include <elfdefinitions.h>
 

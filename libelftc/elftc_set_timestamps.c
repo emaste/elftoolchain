@@ -52,7 +52,11 @@ ELFTC_VCSID("$Id$");
 #if	LIBELFTC_HAVE_UTIMES
 #include <sys/time.h>
 #else
+#if defined(_WIN32)
+#include <sys/utime.h>
+#else
 #include <utime.h>
+#endif
 #endif
 
 int

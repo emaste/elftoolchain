@@ -26,7 +26,9 @@
 
 #include <assert.h>
 #include <err.h>
+#if !defined(_WIN32)
 #include <fnmatch.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
