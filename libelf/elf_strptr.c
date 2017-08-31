@@ -24,8 +24,6 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/param.h>
-
 #include <assert.h>
 #include <gelf.h>
 

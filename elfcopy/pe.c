@@ -24,7 +24,6 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/param.h>
 #include <err.h>
 #include <gelf.h>
 #include <libpe.h>

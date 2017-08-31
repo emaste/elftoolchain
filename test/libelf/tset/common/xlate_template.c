@@ -35,8 +35,6 @@
  * #include	"xlate_template.c"
  */
 
-#include <sys/param.h>
-
 #define	__XCONCAT(x,y)	__CONCAT(x,y)
 #ifndef	__XSTRING
 #define __XSTRING(x)	__STRING(x)

@@ -24,7 +24,6 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/param.h>
 #include <assert.h>
 #include <errno.h>
 #include <stdlib.h>

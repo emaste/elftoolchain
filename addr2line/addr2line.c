@@ -24,7 +24,6 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/param.h>
 #include <dwarf.h>
 #include <err.h>
 #include <fcntl.h>

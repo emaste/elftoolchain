@@ -30,7 +30,6 @@
 #ifndef	__LIBDWARF_H_
 #define	__LIBDWARF_H_
 
-#include <sys/param.h>
 #include <sys/queue.h>
 #include <assert.h>
 #include <limits.h>
