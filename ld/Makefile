@@ -37,7 +37,7 @@ YSRC= ld_script_parser.y
 GENSRCS=	amd64_script.c i386_script.c littlemips_script.c \
 		bigmips_script.c
 
-CLEANFILES+=	${GENSRCS}
+CLEANFILES+=	${GENSRCS:S/^/${.OBJDIR}\//}
 
 DPADD=	${LIBELFTC} ${LIBELF} ${LIBDWARF}
 LDADD=	-lelftc -ldwarf -lelf
@@ -47,6 +47,6 @@ YFLAGS=	-d
 
 .SUFFIXES:	.ld .c
 .ld.c:
-	awk -f ld_script.awk ${.ALLSRC} > ${.TARGET}
+	awk -f ${.CURDIR}/ld_script.awk ${.ALLSRC} > ${.TARGET}
 
 .include "${TOP}/mk/elftoolchain.prog.mk"

@@ -19,13 +19,14 @@ CLEANFILES+=	.depend
 # Adjust CFLAGS
 CFLAGS+=	-I.			# OBJDIR
 CFLAGS+=	-I${.CURDIR}		# Sources
-CFLAGS+=	-I${TOP}/common		# common code
+CFLAGS+=	-I${.CURDIR}/${TOP}/common		# common code
+CFLAGS+=	-I${.OBJDIR}/${TOP}/common		# generated common code
 
 .if defined(LDADD)
 _LDADD_LIBELF=${LDADD:M-lelf}
 .if !empty(_LDADD_LIBELF)
-CFLAGS+=	-I${TOP}/libelf
-LDFLAGS+=	-L${TOP}/libelf
+CFLAGS+=	-I${.CURDIR}/${TOP}/libelf
+LDFLAGS+=	-L${.OBJDIR}/${TOP}/libelf
 .endif
 .endif
 

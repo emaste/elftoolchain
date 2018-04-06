@@ -2,6 +2,7 @@
 
 BEGIN {
     split(ARGV[1], s, ".");
+    sub(".*/", "", s[1]);
     printf "const char *%s = ", s[1];
 }
 
