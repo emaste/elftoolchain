@@ -122,13 +122,49 @@ struct _Elf {
 				Elf32_Phdr *e_phdr32;
 				Elf64_Phdr *e_phdr64;
 			} e_phdr;
-			STAILQ_HEAD(, _Elf_Scn)	e_scn;	/* section list */
+			Elf_Scn	**e_scn;	/* array of sections */
+			size_t	e_scnsize;	/* section array size */
 			size_t	e_nphdr;	/* number of Phdr entries */
 			size_t	e_nscn;		/* number of sections */
 			size_t	e_strndx;	/* string table section index */
 		} e_elf;
 	} e_u;
 };
+
+/*
+ * The LIBELF_SCNLIST macros are provided to interact with the section list
+ */
+#define	LIBELF_ELF_AR(e)		(e)->e_u.e_ar
+#define	LIBELF_ELF_ELF(e)		(e)->e_u.e_elf
+
+#define	LIBELF_SCNLIST_BASE_SIZE	64	/* section list initial size */
+
+#define	LIBELF_SCNLIST_SIZE(e)		LIBELF_ELF_ELF(e).e_scnsize
+#define	LIBELF_SCNLIST_COUNT(e)		LIBELF_ELF_ELF(e).e_nscn
+
+/*
+ * Since .e_nscn is often set before the list is populated, we can't
+ * rely on it to determine if the list is empty. Instead we check
+ * that the first entry (SHN_UNDEF) is not empty since it is always
+ * the first one allocated.
+ */
+#define	LIBELF_SCNLIST_EMPTY(e)						\
+	(LIBELF_SCNLIST_SIZE(e) == 0 ||					\
+	    LIBELF_ELF_ELF(e).e_scn == NULL ||				\
+	    LIBELF_ELF_ELF(e).e_scn[SHN_UNDEF] == NULL)
+
+#define	LIBELF_SCNLIST_ENTRY(e, index)					\
+	((index < LIBELF_SCNLIST_SIZE(e) &&				\
+	    index < LIBELF_SCNLIST_COUNT(e)) ?				\
+	    LIBELF_ELF_ELF(e).e_scn[index] : NULL)
+
+#define	LIBELF_SCNLIST_NEXT(e, s)					\
+	LIBELF_SCNLIST_ENTRY(e, s->s_ndx + 1)
+
+#define	LIBELF_SCNLIST_FOREACH(e, s, index)				\
+	for (index = 0, s = LIBELF_ELF_ELF(e).e_scn[0];			\
+	    index < LIBELF_SCNLIST_SIZE(e);				\
+	    ++index, s = LIBELF_ELF_ELF(e).e_scn[index])
 
 /*
  * The internal descriptor wrapping the "Elf_Data" type.
@@ -147,7 +183,6 @@ struct _Elf_Scn {
 	} s_shdr;
 	STAILQ_HEAD(, _Libelf_Data) s_data;	/* translated data */
 	STAILQ_HEAD(, _Libelf_Data) s_rawdata;	/* raw data */
-	STAILQ_ENTRY(_Elf_Scn) s_next;
 	struct _Elf	*s_elf;		/* parent ELF descriptor */
 	unsigned int	s_flags;	/* flags for the section as a whole */
 	size_t		s_ndx;		/* index# for this section */

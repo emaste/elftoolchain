@@ -444,7 +444,7 @@ _libelf_resync_sections(Elf *e, off_t rc, struct _Elf_Extent_List *extents)
 {
 	int ec;
 	Elf_Scn *s;
-	size_t sh_type;
+	size_t sh_type, i;
 
 	ec = e->e_class;
 
@@ -452,7 +452,9 @@ _libelf_resync_sections(Elf *e, off_t rc, struct _Elf_Extent_List *extents)
 	 * Make a pass through sections, computing the extent of each
 	 * section.
 	 */
-	STAILQ_FOREACH(s, &e->e_u.e_elf.e_scn, s_next) {
+	LIBELF_SCNLIST_FOREACH(e, s, i) {
+		if (s == NULL)
+			continue;
 		if (ec == ELFCLASS32)
 			sh_type = s->s_shdr.s_shdr32.sh_type;
 		else
@@ -938,7 +940,7 @@ _libelf_write_shdr(Elf *e, unsigned char *nf, struct _Elf_Extent *ex)
 	uint64_t shoff;
 	Elf32_Ehdr *eh32;
 	Elf64_Ehdr *eh64;
-	size_t fsz, nscn;
+	size_t fsz, nscn, i;
 	Elf_Data dst, src;
 
 	assert(ex->ex_type == ELF_EXTENT_SHDR);
@@ -968,7 +970,9 @@ _libelf_write_shdr(Elf *e, unsigned char *nf, struct _Elf_Extent *ex)
 
 	fsz = _libelf_fsize(ELF_T_SHDR, ec, e->e_version, (size_t) 1);
 
-	STAILQ_FOREACH(scn, &e->e_u.e_elf.e_scn, s_next) {
+	LIBELF_SCNLIST_FOREACH(e, scn, i) {
+		if (scn == NULL)
+			continue;
 		if (ec == ELFCLASS32)
 			src.d_buf = &scn->s_shdr.s_shdr32;
 		else
@@ -1006,9 +1010,10 @@ static off_t
 _libelf_write_elf(Elf *e, off_t newsize, struct _Elf_Extent_List *extents)
 {
 	off_t nrc, rc;
-	Elf_Scn *scn, *tscn;
+	Elf_Scn *scn;
 	struct _Elf_Extent *ex;
 	unsigned char *newfile;
+	size_t i;
 
 	assert(e->e_kind == ELF_K_ELF);
 	assert(e->e_cmd == ELF_C_RDWR || e->e_cmd == ELF_C_WRITE);
@@ -1130,8 +1135,12 @@ _libelf_write_elf(Elf *e, off_t newsize, struct _Elf_Extent_List *extents)
 
 	e->e_flags &= ~ELF_F_DIRTY;
 
-	STAILQ_FOREACH_SAFE(scn, &e->e_u.e_elf.e_scn, s_next, tscn)
-		_libelf_release_scn(scn);
+	LIBELF_SCNLIST_FOREACH(e, scn, i) {
+		if (scn != NULL) {
+			_libelf_release_scn(scn);
+			e->e_u.e_elf.e_nscn--;
+		}
+	}
 
 	if (e->e_class == ELFCLASS32) {
 		free(e->e_u.e_elf.e_ehdr.e_ehdr32);

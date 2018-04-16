@@ -40,7 +40,8 @@ int
 elf_end(Elf *e)
 {
 	Elf *sv;
-	Elf_Scn *scn, *tscn;
+	Elf_Scn *scn;
+	size_t i;
 
 	if (e == NULL || e->e_activations == 0)
 		return (0);
@@ -66,9 +67,12 @@ elf_end(Elf *e)
 			/*
 			 * Reclaim all section descriptors.
 			 */
-			STAILQ_FOREACH_SAFE(scn, &e->e_u.e_elf.e_scn, s_next,
-			    tscn)
- 				scn = _libelf_release_scn(scn);
+			LIBELF_SCNLIST_FOREACH(e, scn, i) {
+				if (scn != NULL) {
+					_libelf_release_scn(scn);
+					e->e_u.e_elf.e_nscn--;
+				}
+			}
 			break;
 		case ELF_K_NUM:
 			assert(0);

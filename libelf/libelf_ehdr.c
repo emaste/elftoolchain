@@ -47,7 +47,7 @@ _libelf_load_extended(Elf *e, int ec, uint64_t shoff, uint16_t phnum,
 	    size_t _c, int _swap);
 	uint32_t shtype;
 
-	assert(STAILQ_EMPTY(&e->e_u.e_elf.e_scn));
+	assert(LIBELF_SCNLIST_EMPTY(e));
 
 	fsz = _libelf_fsize(ELF_T_SHDR, ec, e->e_version, 1);
 	assert(fsz > 0);

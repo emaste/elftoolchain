@@ -39,7 +39,7 @@ _libelf_getscn0(Elf *e)
 {
 	Elf_Scn *s;
 
-	if ((s = STAILQ_FIRST(&e->e_u.e_elf.e_scn)) != NULL)
+	if ((s = LIBELF_SCNLIST_ENTRY(e, 0)) != NULL)
 		return (s);
 
 	return (_libelf_allocate_scn(e, (size_t) SHN_UNDEF));
