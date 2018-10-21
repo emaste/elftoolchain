@@ -76,7 +76,12 @@ _libelf_init_elf(Elf *e, Elf_Kind kind)
 
 	switch (kind) {
 	case ELF_K_ELF:
-		STAILQ_INIT(&e->e_u.e_elf.e_scn);
+		if ((e->e_u.e_elf.e_scn = calloc(LIBELF_SCNLIST_BASE_SIZE,
+		    sizeof(Elf_Scn *))) == NULL) {
+			LIBELF_SET_ERROR(RESOURCE, 0);
+			return;
+		}
+		e->e_u.e_elf.e_scnsize = LIBELF_SCNLIST_BASE_SIZE;
 		break;
 	default:
 		break;
@@ -111,7 +116,7 @@ _libelf_release_elf(Elf *e)
 			break;
 		}
 
-		assert(STAILQ_EMPTY(&e->e_u.e_elf.e_scn));
+		assert(LIBELF_SCNLIST_EMPTY(e));
 
 		if (e->e_flags & LIBELF_F_AR_HEADER) {
 			arh = e->e_hdr.e_arhdr;
@@ -161,7 +166,7 @@ _libelf_release_data(struct _Libelf_Data *d)
 Elf_Scn *
 _libelf_allocate_scn(Elf *e, size_t ndx)
 {
-	Elf_Scn *s;
+	Elf_Scn *s, **tmp;
 
 	if ((s = calloc((size_t) 1, sizeof(Elf_Scn))) == NULL) {
 		LIBELF_SET_ERROR(RESOURCE, errno);
@@ -174,7 +179,29 @@ _libelf_allocate_scn(Elf *e, size_t ndx)
 	STAILQ_INIT(&s->s_data);
 	STAILQ_INIT(&s->s_rawdata);
 
-	STAILQ_INSERT_TAIL(&e->e_u.e_elf.e_scn, s, s_next);
+	/*
+	 * Depending on the index value provided, we may need to
+	 * grow the section list. We also check against the upper
+	 * bound for the unlikely case of overflow.
+	 */
+	if (ndx >= SIZE_MAX / sizeof(Elf_Scn *)) {
+		LIBELF_SET_ERROR(ARGUMENT, ENOMEM);
+		return (NULL);
+	}
+
+	if (ndx >= LIBELF_SCNLIST_SIZE(e)) {
+		while (ndx >= LIBELF_SCNLIST_SIZE(e))
+			LIBELF_SCNLIST_SIZE(e) <<= 1;
+		tmp = realloc(e->e_u.e_elf.e_scn, LIBELF_SCNLIST_SIZE(e) *
+		    sizeof(tmp));
+		if (tmp == NULL) {
+			LIBELF_SET_ERROR(RESOURCE, errno);
+			return (NULL);
+		}
+		e->e_u.e_elf.e_scn = tmp;
+	}
+
+	e->e_u.e_elf.e_scn[ndx] = s;
 
 	return (s);
 }
@@ -202,7 +229,7 @@ _libelf_release_scn(Elf_Scn *s)
 
 	assert(e != NULL);
 
-	STAILQ_REMOVE(&e->e_u.e_elf.e_scn, s, _Elf_Scn, s_next);
+	e->e_u.e_elf.e_scn[s->s_ndx] = NULL;
 
 	free(s);
 

@@ -95,10 +95,7 @@ _libelf_load_section_headers(Elf *e, void *ehdr)
 	 */
 
 	i = 0;
-	if (!STAILQ_EMPTY(&e->e_u.e_elf.e_scn)) {
-		assert(STAILQ_FIRST(&e->e_u.e_elf.e_scn) ==
-		    STAILQ_LAST(&e->e_u.e_elf.e_scn, _Elf_Scn, s_next));
-
+	if (!LIBELF_SCNLIST_EMPTY(e)) {
 		i = 1;
 		src += fsz;
 	}
@@ -148,9 +145,9 @@ elf_getscn(Elf *e, size_t index)
 	    _libelf_load_section_headers(e, ehdr) == 0)
 		return (NULL);
 
-	STAILQ_FOREACH(s, &e->e_u.e_elf.e_scn, s_next)
-		if (s->s_ndx == index)
-			return (s);
+	s = LIBELF_SCNLIST_ENTRY(e, index);
+	if (s != NULL && s->s_ndx == index)
+		return (s);
 
 	LIBELF_SET_ERROR(ARGUMENT, 0);
 	return (NULL);
@@ -201,7 +198,7 @@ elf_newscn(Elf *e)
 	    _libelf_load_section_headers(e, ehdr) == 0)
 		return (NULL);
 
-	if (STAILQ_EMPTY(&e->e_u.e_elf.e_scn)) {
+	if (LIBELF_SCNLIST_EMPTY(e)) {
 		assert(e->e_u.e_elf.e_nscn == 0);
 		if ((scn = _libelf_allocate_scn(e, (size_t) SHN_UNDEF)) ==
 		    NULL)
@@ -231,5 +228,5 @@ elf_nextscn(Elf *e, Elf_Scn *s)
 	}
 
 	return (s == NULL ? elf_getscn(e, (size_t) 1) :
-	    STAILQ_NEXT(s, s_next));
+	    LIBELF_SCNLIST_NEXT(e, s));
 }
