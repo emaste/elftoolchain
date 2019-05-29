@@ -72,7 +72,23 @@ _ELF_DEFINE_DF(DF_TEXTREL,          0x4,			\
 _ELF_DEFINE_DF(DF_BIND_NOW,         0x8,			\
 	"process relocation entries at load time")		\
 _ELF_DEFINE_DF(DF_STATIC_TLS,       0x10,			\
-	"uses static thread-local storage")
+	"uses static thread-local storage")			\
+_ELF_DEFINE_DF(DF_1_BIND_NOW,       0x1,			\
+	"process relocation entries at load time")		\
+_ELF_DEFINE_DF(DF_1_GLOBAL,         0x2,			\
+	"")	\
+_ELF_DEFINE_DF(DF_1_NODELETE,       0x8,			\
+	"")	\
+_ELF_DEFINE_DF(DF_1_LOADFLTR,       0x10,			\
+	"")	\
+_ELF_DEFINE_DF(DF_1_NOOPEN,         0x40,			\
+	"")	\
+_ELF_DEFINE_DF(DF_1_ORIGIN,         0x80,			\
+	"")	\
+_ELF_DEFINE_DF(DF_1_INTERPOSE,      0x400,			\
+	"")	\
+_ELF_DEFINE_DF(DF_1_NODEFLIB,       0x800,			\
+	"")
 #undef	_ELF_DEFINE_DF
 #define	_ELF_DEFINE_DF(N, V, DESCR)	N = V ,
 enum {
@@ -2434,6 +2450,9 @@ enum {
 
 #define	_ELF_DEFINE_NOTE_ENTRY_TYPES()					\
 _ELF_DEFINE_NT(NT_ABI_TAG,	1,	"Tag indicating the ABI")	\
+_ELF_DEFINE_NT(NT_FREEBSD_NOINIT_TAG,	2,	"")			\
+_ELF_DEFINE_NT(NT_FREEBSD_ARCH_TAG,	3,	"")			\
+_ELF_DEFINE_NT(NT_FREEBSD_FEATURE_CTL,	4,	"")			\
 _ELF_DEFINE_NT(NT_GNU_HWCAP,	2,	"Hardware capabilities")	\
 _ELF_DEFINE_NT(NT_GNU_BUILD_ID,	3,	"Build id, set by ld(1)")	\
 _ELF_DEFINE_NT(NT_GNU_GOLD_VERSION, 4,					\
@@ -2456,6 +2475,8 @@ enum {
 	_ELF_DEFINE_NOTE_ENTRY_TYPES()
 	NT__LAST__
 };
+
+#define NT_FREEBSD_FCTL_ASLR_DISABLE 1
 
 /* Aliases for the ABI tag. */
 #define	NT_FREEBSD_ABI_TAG	NT_ABI_TAG
