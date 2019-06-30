@@ -5,7 +5,7 @@ freebsd_11_task:
   script:
     - fetch http://tetworks.opengroup.org/downloads/38/software/Sources/3.8/tet3.8-src.tar.gz
     - tar -x -C test/tet -f tet3.8-src.tar.gz
-    - make || { pkg info; exit 1; }
+    - make || { echo; echo "package list:"; pkg info; exit 1; }
 
 debian_stable_task:
   container:
