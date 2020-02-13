@@ -16,7 +16,7 @@ freebsd_task:
 
 ubuntu_task:
   container:
-    image: ubuntu:16.04
+    image: ubuntu:18.04
   setup_script:
     - apt-get update
     - apt-get install -y
