@@ -1,15 +1,22 @@
-freebsd_11_task:
+env:
+  CIRRUS_CLONE_DEPTH: 1
+
+freebsd_task:
   freebsd_instance:
-    image: freebsd-11-2-release-amd64
+    matrix:
+      image: freebsd-11-2-release-amd64
+      image: freebsd-12-1-release-amd64
   install_script: pkg install -y git py27-yaml
   script:
     - fetch http://tetworks.opengroup.org/downloads/38/software/Sources/3.8/tet3.8-src.tar.gz
     - tar -x -C test/tet -f tet3.8-src.tar.gz
     - make
+  test_script:
+    - make run-tests
 
-debian_stable_task:
+ubuntu_task:
   container:
-    image: debian:stable
+    image: ubuntu:18.04
   setup_script:
     - apt-get update
     - apt-get install -y
@@ -20,3 +27,5 @@ debian_stable_task:
     - curl -O http://tetworks.opengroup.org/downloads/38/software/Sources/3.8/tet3.8-src.tar.gz
     - tar -x -C test/tet -z -f tet3.8-src.tar.gz
     - bmake
+  test_script:
+    - bmake run-tests

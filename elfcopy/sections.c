@@ -1027,7 +1027,7 @@ modify_section(struct elfcopy *ecp, struct section *s)
 	if (is_append_section(ecp, s->name)) {
 		sac = lookup_sec_act(ecp, s->name, 0);
 		len = strlen(sac->string);
-		strncpy(&b[p], sac->string, len);
+		memcpy(&b[p], sac->string, len);
 		b[p + len] = '\0';
 		p += len + 1;
 	}
@@ -1089,7 +1089,7 @@ read_section(struct section *s, size_t *size)
 		if (b == NULL)
 			b = malloc(id->d_size);
 		else
-			b = malloc(sz + id->d_size);
+			b = realloc(b, sz + id->d_size);
 		if (b == NULL)
 			err(EXIT_FAILURE, "malloc or realloc failed");
 
@@ -1400,7 +1400,7 @@ init_shstrtab(struct elfcopy *ecp)
 	struct section *s;
 	size_t indx, sizehint;
 
-	if (elf_getshstrndx(ecp->ein, &indx) != 0) {
+	if (elf_getshdrstrndx(ecp->ein, &indx) == 0) {
 		shstrtab = elf_getscn(ecp->ein, indx);
 		if (shstrtab == NULL)
 			errx(EXIT_FAILURE, "elf_getscn failed: %s",
@@ -1410,6 +1410,8 @@ init_shstrtab(struct elfcopy *ecp)
 			    elf_errmsg(-1));
 		sizehint = shdr.sh_size;
 	} else {
+		/* Clear the error from elf_getshdrstrndx(3). */
+		(void)elf_errno();
 		sizehint = 0;
 	}
 
@@ -1425,7 +1427,6 @@ init_shstrtab(struct elfcopy *ecp)
 	s->vma = 0;
 	s->strtab = elftc_string_table_create(sizehint);
 
-	add_to_shstrtab(ecp, "");
 	add_to_shstrtab(ecp, ".symtab");
 	add_to_shstrtab(ecp, ".strtab");
 	add_to_shstrtab(ecp, ".shstrtab");
@@ -1594,7 +1595,7 @@ add_gnu_debuglink(struct elfcopy *ecp)
 	/* Section content. */
 	if ((sa->content = calloc(1, sa->size)) == NULL)
 		err(EXIT_FAILURE, "malloc failed");
-	strncpy(sa->content, fnbase, strlen(fnbase));
+	memcpy(sa->content, fnbase, strlen(fnbase));
 	if (ecp->oed == ELFDATA2LSB) {
 		sa->content[crc_off] = crc & 0xFF;
 		sa->content[crc_off + 1] = (crc >> 8) & 0xFF;

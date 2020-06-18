@@ -411,6 +411,13 @@ static struct eflags_desc powerpc_eflags_desc[] = {
 	{0, NULL}
 };
 
+static struct eflags_desc riscv_eflags_desc[] = {
+	{EF_RISCV_RVC, "RVC"},
+	{EF_RISCV_RVE, "RVE"},
+	{EF_RISCV_TSO, "TSO"},
+	{0, NULL}
+};
+
 static struct eflags_desc sparc_eflags_desc[] = {
 	{EF_SPARC_32PLUS, "v8+"},
 	{EF_SPARC_SUN_US1, "ultrasparcI"},
@@ -440,7 +447,10 @@ elf_osabi(unsigned int abi)
 	case ELFOSABI_OPENBSD: return "OpenBSD";
 	case ELFOSABI_OPENVMS: return "OpenVMS";
 	case ELFOSABI_NSK: return "NSK";
+	case ELFOSABI_AROS: return "AROS";
+	case ELFOSABI_FENIXOS: return "FenixOS";
 	case ELFOSABI_CLOUDABI: return "CloudABI";
+	case ELFOSABI_OPENVOS: return "OpenVOS";
 	case ELFOSABI_ARM_AEABI: return "ARM EABI";
 	case ELFOSABI_ARM: return "ARM";
 	case ELFOSABI_STANDALONE: return "StandAlone";
@@ -1146,6 +1156,8 @@ note_type_freebsd_core(unsigned int nt)
 	case 15: return "NT_PROCSTAT_PSSTRINGS";
 	case 16: return "NT_PROCSTAT_AUXV";
 	case 17: return "NT_PTLWPINFO";
+	case 0x100: return "NT_PPC_VMX (ppc Altivec registers)";
+	case 0x102: return "NT_PPC_VSX (ppc VSX registers)";
 	case 0x202: return "NT_X86_XSTATE (x86 XSAVE extended state)";
 	case 0x400: return "NT_ARM_VFP (arm VFP registers)";
 	default: return (note_type_unknown(nt));
@@ -2053,6 +2065,74 @@ dwarf_reg(unsigned int mach, unsigned int reg)
 		case 49: return "ldtr";
 		default: return (NULL);
 		}
+	case EM_RISCV:
+		switch (reg) {
+		case 0: return "zero";
+		case 1: return "ra";
+		case 2: return "sp";
+		case 3: return "gp";
+		case 4: return "tp";
+		case 5: return "t0";
+		case 6: return "t1";
+		case 7: return "t2";
+		case 8: return "s0";
+		case 9: return "s1";
+		case 10: return "a0";
+		case 11: return "a1";
+		case 12: return "a2";
+		case 13: return "a3";
+		case 14: return "a4";
+		case 15: return "a5";
+		case 16: return "a6";
+		case 17: return "a7";
+		case 18: return "s2";
+		case 19: return "s3";
+		case 20: return "s4";
+		case 21: return "s5";
+		case 22: return "s6";
+		case 23: return "s7";
+		case 24: return "s8";
+		case 25: return "s9";
+		case 26: return "s10";
+		case 27: return "s11";
+		case 28: return "t3";
+		case 29: return "t4";
+		case 30: return "t5";
+		case 31: return "t6";
+		case 32: return "ft0";
+		case 33: return "ft1";
+		case 34: return "ft2";
+		case 35: return "ft3";
+		case 36: return "ft4";
+		case 37: return "ft5";
+		case 38: return "ft6";
+		case 39: return "ft7";
+		case 40: return "fs0";
+		case 41: return "fs1";
+		case 42: return "fa0";
+		case 43: return "fa1";
+		case 44: return "fa2";
+		case 45: return "fa3";
+		case 46: return "fa4";
+		case 47: return "fa5";
+		case 48: return "fa6";
+		case 49: return "fa7";
+		case 50: return "fs2";
+		case 51: return "fs3";
+		case 52: return "fs4";
+		case 53: return "fs5";
+		case 54: return "fs6";
+		case 55: return "fs7";
+		case 56: return "fs8";
+		case 57: return "fs9";
+		case 58: return "fs10";
+		case 59: return "fs11";
+		case 60: return "ft8";
+		case 61: return "ft9";
+		case 62: return "ft10";
+		case 63: return "ft11";
+		default: return (NULL);
+		}
 	case EM_X86_64:
 		switch (reg) {
 		case 0: return "rax";
@@ -2280,6 +2360,23 @@ dump_eflags(struct readelf *re, uint64_t e_flags)
 		/* FALLTHROUGH */
 	case EM_PPC:
 		edesc = powerpc_eflags_desc;
+		break;
+	case EM_RISCV:
+		switch (e_flags & EF_RISCV_FLOAT_ABI_MASK) {
+		case EF_RISCV_FLOAT_ABI_SOFT:
+			printf(", soft-float ABI");
+			break;
+		case EF_RISCV_FLOAT_ABI_SINGLE:
+			printf(", single-float ABI");
+			break;
+		case EF_RISCV_FLOAT_ABI_DOUBLE:
+			printf(", double-float ABI");
+			break;
+		case EF_RISCV_FLOAT_ABI_QUAD:
+			printf(", quad-float ABI");
+			break;
+		}
+		edesc = riscv_eflags_desc;
 		break;
 	case EM_SPARC:
 	case EM_SPARC32PLUS:
@@ -3462,6 +3559,10 @@ dump_notes(struct readelf *re)
 					warnx("invalid PHDR offset");
 					continue;
 				}
+				/*
+				 * XXX cross-endian core notes are not
+				 * translated - ticket #583.
+				 */
 				dump_notes_content(re, rawfile + phdr.p_offset,
 				    phdr.p_filesz, phdr.p_offset);
 			}
@@ -3492,6 +3593,8 @@ dump_notes(struct readelf *re)
 
 static struct flag_desc note_feature_ctl_flags[] = {
 	{ 0x1, "ASLR_DISABLE" },
+	{ 0x2, "PROTMAX_DISABLE" },
+	{ 0x4, "STKGAP_DISABLE" },
 	{ 0, NULL }
 };
 
@@ -3541,6 +3644,7 @@ dump_notes_content(struct readelf *re, const char *buf, size_t sz, off_t off)
 {
 	Elf_Note *note;
 	const char *end, *name;
+	uint32_t namesz, descsz;
 
 	printf("\nNotes at offset %#010jx with length %#010jx:\n",
 	    (uintmax_t) off, (uintmax_t) sz);
@@ -3552,9 +3656,16 @@ dump_notes_content(struct readelf *re, const char *buf, size_t sz, off_t off)
 			return;
 		}
 		note = (Elf_Note *)(uintptr_t) buf;
+		namesz = roundup2(note->n_namesz, 4);
+		descsz = roundup2(note->n_descsz, 4);
+		if (namesz < note->n_namesz || descsz < note->n_descsz ||
+		    buf + namesz + descsz > end) {
+			warnx("invalid note header");
+			return;
+		}
 		buf += sizeof(Elf_Note);
 		name = buf;
-		buf += roundup2(note->n_namesz, 4);
+		buf += namesz;
 		/*
 		 * The name field is required to be nul-terminated, and
 		 * n_namesz includes the terminating nul in observed
@@ -3573,7 +3684,7 @@ dump_notes_content(struct readelf *re, const char *buf, size_t sz, off_t off)
 		printf("      %s\n", note_type(name, re->ehdr.e_type,
 		    note->n_type));
 		dump_notes_data(name, note->n_type, buf, note->n_descsz);
-		buf += roundup2(note->n_descsz, 4);
+		buf += descsz;
 	}
 }
 
@@ -5777,6 +5888,7 @@ dump_dwarf_frame_regtable(struct readelf *re, Dwarf_Fde fde, Dwarf_Addr pc,
 	for (; cur_pc < end_pc; cur_pc++) {
 		if (dwarf_get_fde_info_for_all_regs(fde, cur_pc, &rt, &row_pc,
 		    &de) != DW_DLV_OK) {
+			free(vec);
 			warnx("dwarf_get_fde_info_for_all_regs failed: %s\n",
 			    dwarf_errmsg(de));
 			return (-1);
@@ -7016,15 +7128,8 @@ process_members:
 }
 
 static void
-dump_object(struct readelf *re)
+dump_object(struct readelf *re, int fd)
 {
-	int fd;
-
-	if ((fd = open(re->filename, O_RDONLY)) == -1) {
-		warn("open %s failed", re->filename);
-		return;
-	}
-
 	if ((re->flags & DISPLAY_FILENAME) != 0)
 		printf("\nFile: %s\n", re->filename);
 
@@ -7049,7 +7154,6 @@ dump_object(struct readelf *re)
 
 done:
 	elf_end(re->elf);
-	close(fd);
 }
 
 static void
@@ -7394,7 +7498,7 @@ main(int argc, char **argv)
 {
 	struct readelf	*re, re_storage;
 	unsigned long	 si;
-	int		 opt, i;
+	int		 fd, opt, i;
 	char		*ep;
 
 	re = &re_storage;
@@ -7519,7 +7623,13 @@ main(int argc, char **argv)
 
 	for (i = 0; i < argc; i++) {
 		re->filename = argv[i];
-		dump_object(re);
+		fd = open(re->filename, O_RDONLY);
+		if (fd < 0) {
+			warn("open %s failed", re->filename);
+		} else {
+			dump_object(re, fd);
+			close(fd);
+		}
 	}
 
 	exit(EXIT_SUCCESS);

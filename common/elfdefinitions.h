@@ -33,7 +33,7 @@
  *   See: http://www.sco.com/developers/gabi/latest/ch4.intro.html
  * - The May 1998 (version 1.5) draft of "The ELF-64 object format".
  * - Processor-specific ELF ABI definitions for sparc, i386, amd64, mips,
- *   ia64, and powerpc processors.
+ *   ia64, powerpc, and RISC-V processors.
  * - The "Linkers and Libraries Guide", from Sun Microsystems.
  */
 
@@ -458,6 +458,22 @@ _ELF_DEFINE_EF(EF_PPC_RELOCATABLE,  0x00010000UL,			\
 	"-mrelocatable flag")						\
 _ELF_DEFINE_EF(EF_PPC_RELOCATABLE_LIB, 0x00008000UL,			\
 	"-mrelocatable-lib flag")					\
+_ELF_DEFINE_EF(EF_RISCV_RVC,	    0x00000001UL,			\
+	"Compressed instruction extension")				\
+_ELF_DEFINE_EF(EF_RISCV_FLOAT_ABI_MASK, 0x00000006UL,			\
+	"Floating point ABI")						\
+_ELF_DEFINE_EF(EF_RISCV_FLOAT_ABI_SOFT, 0x00000000UL,			\
+	"Software emulated floating point")				\
+_ELF_DEFINE_EF(EF_RISCV_FLOAT_ABI_SINGLE, 0x00000002UL,			\
+	"Single precision floating point")				\
+_ELF_DEFINE_EF(EF_RISCV_FLOAT_ABI_DOUBLE, 0x00000004UL,			\
+	"Double precision floating point")				\
+_ELF_DEFINE_EF(EF_RISCV_FLOAT_ABI_QUAD, 0x00000006UL,			\
+	"Quad precision floating point")				\
+_ELF_DEFINE_EF(EF_RISCV_RVE,	    0x00000008UL,			\
+	"Compressed instruction ABI")					\
+_ELF_DEFINE_EF(EF_RISCV_TSO,	    0x00000010UL,			\
+	"RVTSO memory consistency model")				\
 _ELF_DEFINE_EF(EF_SPARC_EXT_MASK,   0x00ffff00UL,			\
 	"Vendor Extension mask")					\
 _ELF_DEFINE_EF(EF_SPARC_32PLUS,     0x00000100UL,			\
@@ -579,6 +595,8 @@ _ELF_DEFINE_EABI(ELFOSABI_AROS,       15, "Amiga Research OS")		\
 _ELF_DEFINE_EABI(ELFOSABI_FENIXOS,    16,				\
 	"The FenixOS highly scalable multi-core OS")			\
 _ELF_DEFINE_EABI(ELFOSABI_CLOUDABI,   17, "Nuxi CloudABI")		\
+_ELF_DEFINE_EABI(ELFOSABI_OPENVOS,    18, 				\
+	"Stratus Technologies OpenVOS")					\
 _ELF_DEFINE_EABI(ELFOSABI_ARM_AEABI,  64,				\
 	"ARM specific symbol versioning extensions")			\
 _ELF_DEFINE_EABI(ELFOSABI_ARM,        97, "ARM ABI")			\
@@ -2134,7 +2152,17 @@ _ELF_DEFINE_RELOC(R_RISCV_RVC_BRANCH,		44)	\
 _ELF_DEFINE_RELOC(R_RISCV_RVC_JUMP,		45)	\
 _ELF_DEFINE_RELOC(R_RISCV_RVC_LUI,		46)	\
 _ELF_DEFINE_RELOC(R_RISCV_GPREL_I,		47)	\
-_ELF_DEFINE_RELOC(R_RISCV_GPREL_S,		48)
+_ELF_DEFINE_RELOC(R_RISCV_GPREL_S,		48)	\
+_ELF_DEFINE_RELOC(R_RISCV_TPREL_I,		49)	\
+_ELF_DEFINE_RELOC(R_RISCV_TPREL_S,		50)	\
+_ELF_DEFINE_RELOC(R_RISCV_RELAX,		51)	\
+_ELF_DEFINE_RELOC(R_RISCV_SUB6,			52)	\
+_ELF_DEFINE_RELOC(R_RISCV_SET6,			53)	\
+_ELF_DEFINE_RELOC(R_RISCV_SET8,			54)	\
+_ELF_DEFINE_RELOC(R_RISCV_SET16,		55)	\
+_ELF_DEFINE_RELOC(R_RISCV_SET32,		56)	\
+_ELF_DEFINE_RELOC(R_RISCV_32_PCREL,		57)	\
+_ELF_DEFINE_RELOC(R_RISCV_IRELATIVE,		58)
 
 #define	_ELF_DEFINE_SPARC_RELOCATIONS()		\
 _ELF_DEFINE_RELOC(R_SPARC_NONE,		0)	\

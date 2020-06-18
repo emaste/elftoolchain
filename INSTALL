@@ -14,11 +14,11 @@ operating systems.
   Operating System    Version    Supported Architectures
   -----------------   --------   -----------------------
   `DragonFly BSD`_    5.2        amd64
-  FreeBSD_            11.2       amd64 & i386
+  FreeBSD_            11.3       amd64 & i386
   Minix_              3.0.2      i386
-  NetBSD_             7.1.2      i386
-  OpenBSD_            6.3        amd64
-  Ubuntu_ GNU/Linux   17.10      x86_64
+  NetBSD_             8.1        amd64
+  OpenBSD_            6.5        amd64
+  Ubuntu_ GNU/Linux   18.04      x86_64
   =================   ========   =======================
 
 .. _DragonFly BSD: http://www.dragonflybsd.org/
@@ -56,7 +56,7 @@ Prerequisites
     - Building additional documentation is not currently supported
       under DragonFly BSD.
 
-:FreeBSD 11.2:
+:FreeBSD 11.3:
     - The core libraries and utilities should build out of the box on
       a stock install of FreeBSD.
 
@@ -73,7 +73,7 @@ Prerequisites
             % sudo pkg install python py27-yaml
 
     - Building additional documentation is not currently supported under
-      FreeBSD 11.2.
+      FreeBSD 11.3.
 
 :Minix 3.2.0:
     - The following packages are pre-requisites for building the
@@ -95,9 +95,9 @@ Prerequisites
     - Building additional documentation is not currently supported
       under Minix.
 
-:OpenBSD 6.3:
+:OpenBSD 6.5:
     - The following packages are pre-requisites for building the
-      sources on OpenBSD 6.3:
+      sources on OpenBSD 6.5:
 
       ===================     =====================================
       **Package**             **Description**
@@ -110,14 +110,12 @@ Prerequisites
 
           # pkg_add libarchive
 
-    - The test suites cannot currently be built under OpenBSD.
-
     - Building additional documentation is not currently supported
       under OpenBSD.
 
-:NetBSD 7.1.2:
+:NetBSD 8.1:
     - The core libraries and utilities should build out of the box on
-      a stock install of NetBSD 7.1.2.
+      a stock install of NetBSD 8.1.
 
     - To build and run the test suite:
 
@@ -133,9 +131,9 @@ Prerequisites
     - Building additional documentation is not currently supported
       under NetBSD.
 
-:Ubuntu GNU/Linux 17.10:
+:Ubuntu GNU/Linux 18.04:
     - The following packages are pre-requisites for building the
-      sources on Ubuntu GNU/Linux 17.10:
+      sources on Ubuntu GNU/Linux 18.04:
 
       ===================     =====================================
       **Package**             **Description**
@@ -158,7 +156,7 @@ Prerequisites
       The following command line may be used to install the necessary
       pre-requisites::
 
-	  % sudo apt-get install binutils bison flex gcc libarchive-dev \
+	  % sudo apt install binutils bison flex gcc libarchive-dev \
 	    libc6-dev m4 bmake zlib1g-dev
 
     - To build and run the test suite:
@@ -170,13 +168,13 @@ Prerequisites
       #. The following additional packages need to be installed, as
          listed in the example command line below::
 
-            % sudo apt-get install libexpat1-dev python-yaml sharutils
+            % sudo apt install libexpat1-dev python-yaml sharutils
 
     - To build additional documentation, the packages listed in the
       example command line below are needed::
 
-          % sudo apt-get install texlive-latex-recommended texlive-pictures \
-            libbsd-dev
+          % sudo apt install html-xml-utils libbsd-dev mandoc \
+               texlive-extra-utils texlive-latex-recommended texlive-pictures
 
 .. _Test Execution Toolkit: http://tetworks.opengroup.org/
 .. _OpenGroup: http://www.opengroup.org/
